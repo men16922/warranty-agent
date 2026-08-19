@@ -34,6 +34,7 @@ gate's accuracy is itself a first-class output.
 
 | | |
 |---|---|
+| **What this is, in full** | [`docs/OVERVIEW.md`](docs/OVERVIEW.md) ← start here (diagrams, data flow, status) |
 | **What must be true** | [`specs/fleet-ledger/requirements.md`](specs/fleet-ledger/requirements.md) ← highest authority |
 | **Why this shape** | [`specs/fleet-ledger/design.md`](specs/fleet-ledger/design.md) |
 | **What to build next** | [`specs/fleet-ledger/tasks.md`](specs/fleet-ledger/tasks.md) |

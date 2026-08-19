@@ -31,6 +31,9 @@
 | 11 | `design/09-demo.md` | L8 | 실증 최적화 · 4분 영상 |
 | 12 | `tasks.md` | — | 실행 계획. 각 태스크가 REQ와 설계 절을 가리킨다 |
 
+**그림의 권위는 [`docs/OVERVIEW.md`](../../docs/OVERVIEW.md)다** — 아키텍처·시퀀스·귀속 분기
+다이어그램은 거기 한 벌만 둔다. spec은 그것을 가리키고 복제하지 않는다.
+
 **spec 밖의 문서**(`docs/`)는 권위가 아니다:
 `docs/HACKATHON.md`(대회 사실관계) · `docs/DECISIONS.md`(ADR) ·
 `docs/REFERENCE_FROM_PARENT.md`(레퍼런스 추출물) · `docs/COST_GUARDRAILS.md`(운영 규약).
