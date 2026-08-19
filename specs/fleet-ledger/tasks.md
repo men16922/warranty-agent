@@ -25,7 +25,7 @@
 
 ## T0 — 기반 (08-19, 오늘)
 
-- [ ] **T0-1** 레포 스캐폴딩: `pyproject.toml`, `Makefile`(check 타깃), `src/fleet_ledger/`, `tests/`
+- [x] **T0-1** 레포 스캐폴딩: `pyproject.toml`, `Makefile`(check 타깃), `src/fleet_ledger/`, `tests/`
       · `Implements: REQ-701, REQ-702` · `Design: 07-verification §1`
 - [ ] **T0-2** overnight-harness 설치 + **permission boundary에 배포/과금 명령 deny**
       · `Design: docs/COST_GUARDRAILS.md`
@@ -33,7 +33,7 @@
       · `Implements: REQ-401` · `Design: 05-reconciliation §2`
 - [ ] **T0-4** 전용 GCP 프로젝트 생성 + 크레딧 붙은 결제 계정 연결
       · `Implements: REQ-705` · `Design: 08-deployment §1`
-- [ ] **T0-5** G6(추적성 가드) 먼저 만든다 — **spec을 지키게 만드는 장치를 첫날 세운다**
+- [x] **T0-5** G6(추적성 가드) 먼저 만든다 — **spec을 지키게 만드는 장치를 첫날 세운다**
       · `Implements: 추적성 규약` · `Design: 07-verification §3.1`
 
 ⚠️ **T0-5를 뒤로 미루면 SDD가 장식이 된다.** 가드가 없는 동안 쓰인 코드는 spec을 안 지켜도
@@ -41,13 +41,13 @@
 
 ## T1 — 도메인 (08-19~20, 전부 오프라인)
 
-- [ ] **T1-1** `LedgerEntry`·`CostFact`·`Attribution`·`Delta` 자료형 + 검증
+- [x] **T1-1** `LedgerEntry`·`CostFact`·`Attribution`·`Delta` 자료형 + 검증
       · `Implements: REQ-202, REQ-203` · `Design: 01-domain-model §2`
-- [ ] **T1-2** `LedgerStore` 포트 + `InMemoryLedger` + **I-1 집행**(범용 update 없음)
+- [x] **T1-2** `LedgerStore` 포트 + `InMemoryLedger` + **I-1 집행**(범용 update 없음)
       · `Implements: REQ-204` · `Design: 06-interfaces §3` · **가드 G2**
-- [ ] **T1-3** `method ↔ verifiability` 매핑을 **한 벌만** 두고 집행
+- [x] **T1-3** `method ↔ verifiability` 매핑을 **한 벌만** 두고 집행
       · `Implements: REQ-203` · `Design: 01-domain-model §2.2` · **가드 G3**
-- [ ] **T1-4** 상태 기계 + 전이 규칙 (`retry_of` 포함)
+- [x] **T1-4** 상태 기계 + 전이 규칙 (`retry_of` 포함)
       · `Implements: REQ-201, REQ-207` · `Design: 01-domain-model §3` · **가드 G7**
 - [ ] **T1-5** `Clock`·`IdGen` 포트 + ULID 소문자 26자 (라벨 제약 검사 포함)
       · `Implements: REQ-702, REQ-205` · `Design: 02-attribution §2`
@@ -147,9 +147,12 @@
 | 가드 | 태스크 | 상태 |
 |---|---|---|
 | G1 `DENY` 집행 | T3-3 | [ ] |
-| G2 `assumed` 불변 | T1-2, T5-3 | [ ] |
-| G3 method↔verifiability | T1-3 | [ ] |
+| G2 `assumed` 불변 | T1-2, T5-3 | **[x]** M-06 red 확인 |
+| G3 method↔verifiability | T1-3 | **[x]** M-07 red 확인 |
 | G4 모든 항목에 판정 | T3-5 | [ ] |
 | G5 게이트 오프라인 | T7-4 | [ ] |
-| G6 ★ 추적성 | T0-5 | [ ] |
-| G7 1회=1행 | T1-4 | [ ] |
+| G6 ★ 추적성 | T0-5 | **[x]** M-01~M-05 red 확인 |
+| G7 1회=1행 | T1-4 | **[x]** M-08 red 확인 |
+
+**게이트**: `make check` → **22 passed** (2026-08-19 로컬 macOS·py3.13)
+— ⚠️ 숫자는 **여기 한 곳에만** 적는다. 복제본은 한쪽만 낡는다.

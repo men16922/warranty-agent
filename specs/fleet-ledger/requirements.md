@@ -65,7 +65,7 @@
 - **When** 실행이 끝나면(성공이든 실패든)
 - **Then** `entry_id`가 유일한 원장 항목 1개가 존재한다. 재시도는 새 항목을 만들지 않는다.
 
-상태: `TODO`
+상태: `VERIFIED`
 
 ### REQ-202 — `assumed`는 측정 수량과 함께 기록된다
 `Ubiquitous` 원장 항목은 **측정된 사용량 × 공시 단가**로 계산한 `assumed` 비용을,
@@ -79,7 +79,7 @@
 ⚠️ **총액만 적으면 어느 가정이 총액을 지배하는지 알 수 없다.** 레퍼런스에서 정확히 이것이
 100배 오차의 원인이었다 — 정가는 맞았고 **수량 가정**이 틀렸다(#1·#2).
 
-상태: `TODO`
+상태: `VERIFIED`
 
 ### REQ-203 — 검증 가능성을 행마다 표시한다
 `Ubiquitous` 원장 항목은 `verifiability`를 `reconcilable` 또는 `assumed_only` 중 하나로 표시한다.
@@ -92,7 +92,7 @@
 ⚠️ **이 프로젝트는 검증할 수 없는 행을 숨기지 않는다.** 어느 칸이 측정이고 어느 칸이
 가정인지 표시하는 것이 논지의 절반이다(#2).
 
-상태: `TODO`
+상태: `VERIFIED`
 
 ### REQ-204 — `assumed`는 절대 덮어쓰지 않는다
 `Ubiquitous` 시스템은 `measured`가 도착해도 `assumed`를 수정하거나 삭제하지 않는다.
@@ -104,7 +104,7 @@
 ⚠️ **이것이 이 시스템의 최상위 불변식이다.** 추정을 실측으로 덮으면 "추정이 얼마나 틀렸나"를
 영원히 못 본다 — 그게 이 프로젝트의 존재 이유다.
 
-상태: `TODO`
+상태: `VERIFIED`
 
 ### REQ-205 — 과금 리소스에는 원장 id 라벨을 박는다
 `Event` 액션이 과금되는 GCP 리소스를 만들거나 변경할 때, 시스템은 그 리소스에
@@ -115,7 +115,7 @@
 - **Then** 라벨 `fl_entry=<entry_id>`가 리소스에 존재하고, entry_id는 GCP 라벨 제약
   (소문자·숫자·`-`·`_`, ≤63자)을 만족한다.
 
-상태: `TODO`
+상태: `IMPLEMENTED`
 
 ### REQ-206 — 라벨을 못 붙이면 그 사실을 적는다
 `Unwanted` 만약 대상 리소스가 라벨을 지원하지 않거나 라벨 부착이 실패하면, 시스템은
@@ -124,7 +124,7 @@
 - **Then** 항목에 `attribution.method == "none"`과 `attribution.reason`이 남는다.
 - **그리고** 실행 자체는 막지 않는다 — 장부가 못 세는 것과 액션이 못 도는 것은 다른 문제다.
 
-상태: `TODO`
+상태: `IMPLEMENTED`
 
 ### REQ-207 — 거부와 실패도 원장에 남는다
 `Ubiquitous` 시스템은 실행된 액션뿐 아니라 **게이트가 거부한 액션과 실행에 실패한 액션**도
@@ -135,7 +135,7 @@
 
 ⚠️ **거부를 기록하지 않으면 "게이트가 얼마를 막았는가"를 못 답한다** — 그게 게이트의 유일한 실적 지표다.
 
-상태: `TODO`
+상태: `IMPLEMENTED`
 
 ---
 
@@ -224,7 +224,7 @@
 - **Then** `delta.amount_usd == measured - assumed`, `delta.ratio == measured / assumed`
   (`assumed == 0`이면 `ratio`는 `null`이고 `delta.note`가 사유를 적는다).
 
-상태: `TODO`
+상태: `IMPLEMENTED`
 
 ### REQ-403 — 화해는 멱등이다
 `Ubiquitous` 같은 창(window)에 대해 화해를 여러 번 실행해도 결과는 같다.
@@ -232,7 +232,7 @@
 - **Given** 이미 화해된 항목 **When** 같은 창으로 다시 실행하면 **Then** 값이 변하지 않고
   `reconciled_at`도 갱신되지 않는다.
 
-상태: `TODO`
+상태: `IMPLEMENTED`
 
 ### REQ-404 — 안 맞으면 안 맞았다고 적는다
 `Unwanted` 만약 `RECONCILE_DEADLINE_DAYS` 안에 대응하는 청구 행이 없으면, 시스템은 항목을
