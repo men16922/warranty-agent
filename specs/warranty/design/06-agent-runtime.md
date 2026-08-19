@@ -12,10 +12,19 @@
 | Google Agent Framework 1개 이상 | **ADK** |
 | Google Cloud 인프라 1개 이상 | **Cloud Run** (+ Firestore · Cloud Monitoring · BigQuery) |
 
-## 2. ⚠️ 가장 중요한 경고
+## 2. 실물 확인 상태 (2026-08-19)
 
-**ADK의 실제 API를 아직 확인하지 않았다.** 이 절의 구성은 *의도*이고, T2에서 실물로
-검증되기 전까지는 **주장이 아니다.**
+✅ **라이브러리는 존재하고 인터페이스도 실재한다** — `google-adk 2.7.1`을 실제로 설치해
+introspect했다. 증거: `docs/evidence/adk-api-probe-2026-08-19.log`.
+
+- `Agent`(=`LlmAgent`)의 `tools`가 **평범한 파이썬 `Callable`을 받는다** → 별도 래핑 불필요
+- ⚠️ **`Runner`는 `session_service`가 필수다**(기본값 없음). `min-instances=0`이라
+  **유휴 후 첫 요청은 항상 새 세션**이다 → 대화 연속성을 가정하지 않는다.
+  **권고: `InMemorySessionService`** (데모에 연속성 불필요 · REQ-805에 부합)
+
+⛔ **아직 확인 안 된 것**: **실제 모델 호출**(프로젝트·인증 없음)과 Cloud Run 배포.
+그러므로 `gemini-3.5-flash`가 Vertex 경로에서 유효한 id인지는 **미확인**이다.
+⚠️ **"임포트가 된다"와 "호출이 된다"는 다르다** — REQ-601·602는 여전히 TODO다.
 
 스텁 위에서 통과하는 테스트는 *"우리 코드가 이 인터페이스를 이렇게 부른다"*를 말할 뿐
 *"그 인터페이스가 존재한다"*를 말하지 않는다.

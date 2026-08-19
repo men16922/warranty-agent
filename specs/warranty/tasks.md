@@ -35,13 +35,19 @@
 - [x] **T1-1** 원장 행 · 비용 사실 · 귀속 · `Implements: REQ-503, REQ-504, REQ-505` · `Design: 05§1–3`
 - [x] **T1-2** 저장소가 불변식 집행(범용 update 없음) · `Implements: REQ-505` · **G2**
 - [x] **T1-3** 1회=1행 · 거부/실패 기록 · `Implements: REQ-501, REQ-507` · **G7**
-- [ ] **T1-4** **운영 계약 자료형** + 넷 필수 검증 · `Implements: REQ-102` · `Design: 01§2`
-- [ ] **T1-5** ★ `improved`를 **유도**로 (저장 금지) · `Implements: REQ-502` · `Design: 05§1.1` · **G8**
-- [ ] **T1-6** 3축 판정 행렬 **다섯 칸을 값으로** · `Implements: REQ-402` · `Design: 04§1` · **G9**
+- [x] **T1-4** **운영 계약 자료형** + 넷 필수 검증 · `Implements: REQ-102` · `Design: 01§2`
+- [x] **T1-5** ★ `improved`를 **유도**로 (저장 금지) · `Implements: REQ-502` · `Design: 05§1.1` · **G8**
+- [x] **T1-6** 3축 판정 행렬 **다섯 칸을 값으로** · `Implements: REQ-402` · `Design: 04§1` · **G9**
 
 ## T2 — ★ 배포 선행 (08-20~21) — **중단 기준**
 
-- [ ] **T2-1** ADK **실물 설치** + 최소 에이전트 로컬 응답 · `Implements: REQ-601` · `Design: 06§2`
+- [~] **T2-1** ADK **실물 설치** + 최소 에이전트 로컬 응답 · `Implements: REQ-601` · `Design: 06§2`
+      ✅ **라이브러리와 인터페이스는 실재한다**(`google-adk 2.7.1` introspect,
+      증거 `evidence/adk-api-probe-2026-08-19.log`): `tools`가 평범한 `Callable`을 받고,
+      ⚠️ `Runner`는 `session_service`가 **필수**다(`min-instances=0`이라 유휴 후 첫 요청은
+      항상 새 세션 → 대화 연속성을 가정하지 않는다).
+      ⛔ **실제 모델 호출은 아직 안 했다** — 프로젝트·인증 없음.
+      **"임포트가 된다"와 "호출이 된다"는 다르다.**
 - [ ] **T2-2** 컨테이너 → Artifact Registry → **Cloud Run 배포** · `Implements: REQ-602` · `Design: 10§2`
 - [ ] **T2-3** `demo-target` 서비스 배포 (리비전 2개) · `Design: 10§2`
 - [ ] **T2-4** 실물 왕복 증거 · `Implements: REQ-901` · `Design: 10§7`
@@ -113,8 +119,8 @@
 | G5 게이트 오프라인 | T5-4 | [ ] |
 | G6 ★ 추적성 | T0-2 | **[x]** M-01~M-05 |
 | G7 1회=1행 | T1-3 | **[x]** M-08 |
-| G8 ★ `improved` 유도 | T1-5 | [ ] |
-| G9 ★ 검증불가는 AUTO 아님 | T1-6 | [ ] |
+| G8 ★ `improved` 유도 | T1-5 | **[x]** M-13 |
+| G9 ★ 검증불가는 AUTO 아님 | T1-6 | **[x]** M-14 |
 
-**게이트**: `make check` → **30 passed** (2026-08-19 로컬 macOS·py3.13)
+**게이트**: `make check` → **51 passed** (2026-08-19 로컬 macOS·py3.13)
 ⚠️ 숫자는 **여기 한 곳에만** 적는다.

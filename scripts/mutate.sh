@@ -105,6 +105,21 @@ apply() {
     M-12) # 설정이 environ을 줘도 .env를 함께 읽게 되돌린다 (결정론 회귀)
       backup src/warranty/config.py
       perl -0pi -e 's/        env = \{k: v for k, v in environ\.items\(\) if v\}/        env = dict(load_env_file()); env.update({k: v for k, v in environ.items() if v})/' src/warranty/config.py ;;
+    M-13) # G8 — improved를 검증 없이도 참으로 (조용한 성공)
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/return self\.verification is not None and self\.verification\.verdict is Verdict\.RECOVERED/return self.status is Status.EXECUTED/' src/warranty/domain/entry.py ;;
+    M-14) # G9 — 검증 가능성 축을 없앤다 (정책 제거)
+      backup src/warranty/domain/decision.py
+      perl -0pi -e 's/    if not verifiable:/    if False:/' src/warranty/domain/decision.py ;;
+    M-15) # REQ-102 — 가역인데 롤백 계획 없는 계약을 허용
+      backup src/warranty/domain/contract.py
+      perl -0pi -e 's/if self\.reversibility is Reversibility\.REVERSIBLE and self\.rollback_plan is None:/if False:/' src/warranty/domain/contract.py ;;
+    M-16) # REQ-205 — 빈 창을 회복으로 판정 (거짓 판정)
+      backup src/warranty/domain/verification.py
+      perl -0pi -e 's/        return Verdict\.UNVERIFIABLE\n\n    assert/        return Verdict.RECOVERED\n\n    assert/' src/warranty/domain/verification.py ;;
+    M-17) # REQ-406 — 파괴적 조치의 강제 승인을 없앤다
+      backup src/warranty/domain/decision.py
+      perl -0pi -e 's/    if destructive:/    if False:/' src/warranty/domain/decision.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -137,5 +152,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

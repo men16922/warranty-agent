@@ -1,0 +1,80 @@
+ADK 실물 확인 — 스텁이 아니라 진짜 라이브러리에 물었다 (2026-08-19)
+====================================================================
+
+목적: REQ-601의 수용 기준은 "테스트 통과"가 아니라 **실물 호출**이다.
+설계 문서(design/06-agent-runtime.md §2)가 "ADK의 실제 API를 아직 확인하지 않았다"고
+적어 뒀고, 그것이 T2-1의 첫 작업이다.
+
+방법: 게이트 venv를 오염시키지 않기 위해 **별도 venv**에 설치하고 introspect만 했다.
+      (REQ-801 — 게이트는 클라우드 의존성 없이 통과해야 한다)
+
+    $ uv venv --python 3.13 adk-probe
+    $ uv pip install --python adk-probe/bin/python google-adk
+
+--------------------------------------------------------------------
+1. 버전 — 존재한다
+--------------------------------------------------------------------
+
+    google-adk    2.7.1
+    google-genai  2.18.1
+
+--------------------------------------------------------------------
+2. 실제 API (introspect 결과 그대로)
+--------------------------------------------------------------------
+
+  google.adk 최상위 export:
+      Agent · Context · Event · Runner · Workflow · utils · version
+
+  Agent 는 LlmAgent 의 별칭이고 BaseAgent 를 상속한다.
+
+  Agent 필드 (일부):
+      name · model · instruction · global_instruction · description ·
+      tools · input_schema · output_schema · output_key · planner ·
+      before/after_{agent,model,tool}_callback · on_{model,tool}_error_callback
+
+      tools: list[Callable | BaseTool | BaseToolset]     ← 평범한 함수도 받는다
+      model: str | BaseLlm
+
+  Runner.__init__ (키워드 전용):
+      app=None, app_name=None, agent=None, node=None, plugins=None,
+      artifact_service=None, session_service: BaseSessionService,   ← 기본값 없음
+      memory_service=None, credential_service=None,
+      plugin_close_timeout=5.0, auto_create_session=False
+
+  Runner 메서드: run · run_async · run_debug · run_live · rewind_async · close
+
+  sessions: InMemorySessionService · DatabaseSessionService · VertexAiSessionService
+
+  tools: FunctionTool · LongRunningFunctionTool · AgentTool · McpToolset ·
+         ToolContext · google_search · exit_loop · ...
+
+--------------------------------------------------------------------
+3. 설계에 대한 함의 (design/06-agent-runtime.md 갱신 대상)
+--------------------------------------------------------------------
+
+  ① **도구는 평범한 파이썬 함수로 붙는다** — `tools`가 `Callable`을 받는다.
+     ⇒ 도구 4개를 함수로 쓰고, 부수효과가 있는 것(`provision`·`remediate`)만
+       포트를 통과시키면 된다. 별도 래핑 계층이 필요 없다.
+
+  ② ⚠️ **`Runner`는 `session_service`가 필수다** (기본값 없는 키워드 인자).
+     ⇒ Cloud Run에서 `InMemorySessionService`를 쓰면 인스턴스가 죽을 때 세션이 사라진다.
+       `min-instances=0`이므로 **유휴 후 첫 요청은 항상 새 세션**이다.
+       데모는 단발 요청이라 문제없지만, 이 사실을 모르고 대화 연속성을 가정하면 안 된다.
+     ⇒ 결정 필요: InMemory(단순, 상태 없음) vs VertexAiSessionService(상태 유지, 과금).
+       **현재 권고: InMemory** — 데모에 대화 연속성이 필요 없고 REQ-805(유휴 과금 0)에 맞는다.
+
+  ③ `LongRunningFunctionTool`이 있다 — 검증 대기(VERIFY_DELAY)가 긴 경우 쓸 수 있다.
+     ⇒ 다만 지금 설계는 `remediate` 한 호출 안에서 대기하므로 **아직 필요 없다.**
+       ⚠️ 필요해지면 그때 넣는다. 미리 넣으면 안 읽히는 선언이 하나 는다.
+
+--------------------------------------------------------------------
+4. 아직 확인 안 된 것 (정직하게)
+--------------------------------------------------------------------
+
+  ⛔ **실제 모델 호출은 안 해 봤다.** GCP 프로젝트·인증이 없어서다.
+     그러므로 `gemini-3.5-flash`라는 모델 id가 Vertex 경로에서 유효한지는 **미확인**이다.
+  ⛔ Cloud Run 배포도 안 했다.
+  ⇒ REQ-601·602는 여전히 TODO다. 이 로그가 증명하는 것은 **라이브러리가 존재하고
+     우리가 부르려는 인터페이스가 실재한다**는 것까지다.
+
+  ⚠️ "임포트가 된다"와 "호출이 된다"는 다르다. 이 구분을 지우지 않는다.

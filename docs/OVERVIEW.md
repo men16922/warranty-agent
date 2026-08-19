@@ -179,10 +179,11 @@ flowchart LR
 ## 10. 현재 상태 (2026-08-19)
 
 ```
-게이트    make check → 30 passed  (로컬 macOS · py3.13)
-요구사항  44종 — VERIFIED 4 · IMPLEMENTED 5 · TODO 35
-가드      G2 G3 G6 G7 변이 확인 · G1 G4 G5 G8 G9 미착수
-변이      M-01~M-12 red 확인 · 복구 후 초록 · 잔여 0
+게이트    make check → 51 passed  (로컬 macOS · py3.13)
+요구사항  44종 — VERIFIED 9 · IMPLEMENTED 7 · TODO 28
+가드      G2 G3 G6 G7 G8 G9 변이 확인 · G1 G4 G5 미착수(배선 필요)
+변이      M-01~M-17 red 확인 · 복구 후 초록 · 잔여 0
+ADK       google-adk 2.7.1 실물 확인 — 인터페이스 실재. ⛔ 모델 호출은 아직
 ```
 
 **다음**: ⛔ **T2 — Cloud Run 배포.** [`tasks.md`](../specs/warranty/tasks.md)가 권위.

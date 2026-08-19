@@ -6,12 +6,15 @@ Spec: specs/fleet-ledger/design/01-domain-model.md §2 · design/06-interfaces.m
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 
 from warranty.domain.attribution import Attribution, Verifiability
 from warranty.domain.cost import Basis, CostFact, Delta, delta_of
+from warranty.domain.decision import Decision
+from warranty.domain.verification import Verdict, Verification
 
 
 class Status(StrEnum):
@@ -19,6 +22,7 @@ class Status(StrEnum):
     DENIED = "denied"
     FAILED = "failed"
     AWAITING_APPROVAL = "awaiting_approval"
+    MANUAL_REQUIRED = "manual_required"  # 계약이 없어 자동 대상이 아니다 (REQ-104)
 
 
 class ReconcileState(StrEnum):
@@ -33,6 +37,16 @@ class LedgerError(Exception):
 
 
 @dataclass(frozen=True, slots=True)
+class Rollback:
+    """되돌림의 기록. **주장이 아니라 측정이다** (REQ-303, REQ-304)."""
+
+    performed: bool
+    verified_traffic: Mapping[str, int] | None = None
+    signal_restored: bool | None = None
+    reason: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class LedgerEntry:
     entry_id: str
     agent_id: str
@@ -41,6 +55,10 @@ class LedgerEntry:
     started_at: datetime
     attribution: Attribution
     assumed: CostFact
+    decision: Decision | None = None
+    contract_id: str | None = None
+    verification: Verification | None = None
+    rollback: Rollback | None = None
     measured: CostFact | None = None
     delta: Delta | None = None
     reconcile_state: ReconcileState = ReconcileState.PENDING
@@ -50,6 +68,28 @@ class LedgerEntry:
     def verifiability(self) -> Verifiability:
         """⚠️ 저장하지 않고 귀속 방법에서 **유도한다.** 저장하면 둘이 어긋날 수 있다."""
         return self.attribution.verifiability
+
+    # ── ★ 셋을 따로 갖는다 (REQ-502) ────────────────────────────────────
+    # 이 셋을 하나의 `success`로 합치는 순간 이 프로젝트의 논지가 사라진다.
+
+    @property
+    def executed(self) -> bool:
+        """조치 API가 성공했는가."""
+        return self.status is Status.EXECUTED
+
+    @property
+    def improved(self) -> bool:
+        """신호가 회복됐는가.
+
+        ⚠️ **저장하지 않고 검증 결과에서 유도한다**(가드 G8). 저장 필드로 두면
+        `verification.verdict`와 어긋날 수 있고, 어긋난 쪽이 리포트에 실린다.
+        ⚠️ 검증이 없거나 `unverifiable`이면 **False다** — 조용한 성공을 만들지 않는다.
+        """
+        return self.verification is not None and self.verification.verdict is Verdict.RECOVERED
+
+    @property
+    def rolled_back(self) -> bool:
+        return self.rollback is not None and self.rollback.performed
 
 
 class InMemoryLedger:
