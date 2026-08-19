@@ -130,5 +130,26 @@ class InMemoryLedger:
         self._rows[entry_id] = updated
         return updated
 
+    def complete(
+        self,
+        entry_id: str,
+        *,
+        status: Status,
+        verification: Verification | None = None,
+        rollback: Rollback | None = None,
+    ) -> LedgerEntry:
+        """조치의 결과를 채운다.
+
+        ⚠️ 만질 수 있는 것은 `status`·`verification`·`rollback`뿐이다.
+        `assumed`·`decision`은 손대지 못한다 — 범용 쓰기가 있으면 불변식이 관례가 되고,
+        관례는 언젠가 깨진다 (design/08-interfaces.md §2).
+        """
+        current = self._rows.get(entry_id)
+        if current is None:
+            raise LedgerError(f"없는 항목이다: {entry_id}")
+        updated = replace(current, status=status, verification=verification, rollback=rollback)
+        self._rows[entry_id] = updated
+        return updated
+
     def all_entries(self) -> tuple[LedgerEntry, ...]:
         return tuple(self._rows.values())

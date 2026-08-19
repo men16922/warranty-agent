@@ -179,10 +179,11 @@ flowchart LR
 ## 10. 현재 상태 (2026-08-19)
 
 ```
-게이트    make check → 51 passed  (로컬 macOS · py3.13)
-요구사항  44종 — VERIFIED 9 · IMPLEMENTED 7 · TODO 28
-가드      G2 G3 G6 G7 G8 G9 변이 확인 · G1 G4 G5 미착수(배선 필요)
-변이      M-01~M-17 red 확인 · 복구 후 초록 · 잔여 0
+게이트    make check → 65 passed  (로컬 macOS · py3.13)
+요구사항  44종 — VERIFIED 14 · IMPLEMENTED 14 · TODO 16
+가드      G1~G4 · G6~G9 변이 확인 · G5만 미착수
+변이      M-01~M-22 전부 red 확인 · 복구 후 초록 · 잔여 0
+루프      조치→검증→롤백 **전부 fake 위에서 배선·검증됨**. 남은 건 어댑터뿐
 ADK       google-adk 2.7.1 실물 확인 — 인터페이스 실재. ⛔ 모델 호출은 아직
 ```
 

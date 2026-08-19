@@ -1,0 +1,86 @@
+"""포트 — 게이트가 오프라인이려면 여기서 경계가 서야 한다.
+
+Spec: specs/warranty/design/08-interfaces.md (REQ-801, REQ-802)
+
+⚠️ 포트는 설계 취향이 아니다. **이 경계가 없으면 REQ-801은 만족 불가능하다** —
+   이 시스템은 Vertex·Firestore·Cloud Monitoring·Cloud Run을 쓴다.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from decimal import Decimal
+from typing import Protocol
+
+from warranty.domain.contract import OperationalContract, ResourceRef, SignalSpec
+from warranty.domain.cost import CostFact
+from warranty.domain.entry import LedgerEntry, Rollback, Status
+from warranty.domain.verification import Measurement, Verdict, Verification
+
+
+class Clock(Protocol):
+    def now_iso(self) -> str: ...
+    def sleep(self, seconds: int) -> None:
+        """⚠️ 테스트에서는 실제로 안 잔다. 게이트가 결정론적이려면 시간도 주입돼야 한다."""
+
+
+class IdGen(Protocol):
+    def new_entry_id(self) -> str: ...
+
+
+class ContractStore(Protocol):
+    def active_for(self, resource: ResourceRef) -> OperationalContract | None:
+        """⚠️ `retired`된 계약은 돌려주지 않는다 — 없는 리소스를 고치려 들면 안 된다."""
+
+
+class SignalSource(Protocol):
+    def read(self, spec: SignalSpec) -> Measurement: ...
+    def readable(self, spec: SignalSpec) -> bool:
+        """지금 이 신호를 읽을 수 있는가. **판정 게이트의 검증 가능성 축이 여기서 온다.**"""
+
+
+class ActionExecutor(Protocol):
+    def execute(self, action_id: str, resource: ResourceRef) -> bool:
+        """조치를 실행한다. 반환은 **API가 성공했는가**이지 나아졌는가가 아니다."""
+
+
+class RunControl(Protocol):
+    """Cloud Run 리비전/트래픽. **원자적 롤백이 GCP 전용을 정당화하는 이유다.**"""
+
+    def shift_all_traffic(self, resource: ResourceRef, revision: str) -> None: ...
+    def read_traffic(self, resource: ResourceRef) -> Mapping[str, int]:
+        """⚠️ 전환 후 **다시 읽는다.** '롤백했다'는 주장이고 이건 측정이다."""
+
+
+class BudgetStore(Protocol):
+    def headroom(self, agent_id: str) -> Decimal: ...
+    def commit(self, agent_id: str, amount: Decimal) -> None: ...
+
+
+class ModelJudge(Protocol):
+    """★ 판정이 애매할 때만 불린다 (REQ-204)."""
+
+    def judge_ambiguous(
+        self, baseline: Measurement, after: Measurement, criterion_note: str
+    ) -> tuple[Verdict, str]:
+        """`(verdict, rationale)`. **근거 없는 판정은 허용되지 않는다.**"""
+
+
+class LedgerWriter(Protocol):
+    """원장 쓰기.
+
+    ⚠️ **범용 `update()`가 없다.** 범용 쓰기가 있으면 `assumed` 불변이 *관례*가 되고,
+    관례는 언젠가 깨진다. 각 메서드가 만질 수 있는 필드가 정해져 있다
+    (design/08-interfaces.md §2).
+    """
+
+    def create(self, entry: LedgerEntry) -> None: ...
+    def complete(
+        self,
+        entry_id: str,
+        *,
+        status: Status,
+        verification: Verification | None = None,
+        rollback: Rollback | None = None,
+    ) -> LedgerEntry: ...
+    def reconcile(self, entry_id: str, measured: CostFact) -> LedgerEntry: ...

@@ -59,24 +59,28 @@
 
 - [ ] **T3-1** Cloud Run 서비스 프로비저닝 · `Implements: REQ-101` · `Design: 01§1`
 - [ ] **T3-2** ★ 계약을 **생성 응답에서 유도** · `Implements: REQ-103` · `Design: 01§3`
-- [ ] **T3-3** 계약 없는 리소스 → `MANUAL` · `Implements: REQ-104` · `Design: 01§4`
+- [x] **T3-3** 계약 없는 리소스 → `MANUAL` · `Implements: REQ-104` · `Design: 01§4`
 - [ ] **T3-4** 리소스 삭제 시 계약 `retired` · `Implements: REQ-105` · `Design: 01§5`
 
 ## T4 — Day-2: 조치 · 검증 · 롤백 (08-22~25) — **논지의 전부**
 
-- [ ] **T4-1** 기준선 측정 (Cloud Monitoring) · `Implements: REQ-201` · `Design: 02§2`
-- [ ] **T4-2** ★ 재측정 — **기준선과 같은 함수** · `Implements: REQ-202` · `Design: 02§2`
-- [ ] **T4-3** 계약 기준으로 판정 + 빈 창 → `unverifiable` · `Implements: REQ-203, REQ-205` · `Design: 02§3`
-- [ ] **T4-4** ★ **애매할 때 모델이 판단하고 근거를 남긴다** · `Implements: REQ-204` · `Design: 02§3.1`
-- [ ] **T4-5** 롤백 계획을 조치 **전에** 고정 · `Implements: REQ-301` · `Design: 03§2`
-- [ ] **T4-6** ★ 트래픽 전환 + **배분 재확인** · `Implements: REQ-302, REQ-303` · `Design: 03§3`
-- [ ] **T4-7** ★ **롤백 후 재측정** · `Implements: REQ-304` · `Design: 03§4`
-- [ ] **T4-8** 롤백 불가 → 에스컬레이션 · `Implements: REQ-305` · `Design: 03§5`
-- [ ] **T4-9** 게이트가 실행을 **막는다** · `Implements: REQ-403` · `Design: 04§2` · **G1**
-- [ ] **T4-10** 모든 항목에 `decision` · `Implements: REQ-401` · **G4**
+> ✅ **루프는 전부 fake 위에서 배선되고 검증됐다**(`usecases/remediate.py`).
+> ⚠️ **남은 것은 어댑터뿐이다** — 실물 Cloud Monitoring·Cloud Run·Vertex.
+> **스텁 위 통과는 REQ-601·602를 만족시키지 않는다.**
+
+- [x] **T4-1** 기준선 측정 (Cloud Monitoring) · `Implements: REQ-201` · `Design: 02§2`
+- [x] **T4-2** ★ 재측정 — **기준선과 같은 함수** · `Implements: REQ-202` · `Design: 02§2`
+- [x] **T4-3** 계약 기준으로 판정 + 빈 창 → `unverifiable` · `Implements: REQ-203, REQ-205` · `Design: 02§3`
+- [x] **T4-4** ★ **애매할 때 모델이 판단하고 근거를 남긴다** · `Implements: REQ-204` · `Design: 02§3.1`
+- [x] **T4-5** 롤백 계획을 조치 **전에** 고정 · `Implements: REQ-301` · `Design: 03§2`
+- [x] **T4-6** ★ 트래픽 전환 + **배분 재확인** · `Implements: REQ-302, REQ-303` · `Design: 03§3`
+- [x] **T4-7** ★ **롤백 후 재측정** · `Implements: REQ-304` · `Design: 03§4`
+- [x] **T4-8** 롤백 불가 → 에스컬레이션 · `Implements: REQ-305` · `Design: 03§5`
+- [x] **T4-9** 게이트가 실행을 **막는다** · `Implements: REQ-403` · `Design: 04§2` · **G1**
+- [x] **T4-10** 모든 항목에 `decision` · `Implements: REQ-401` · **G4**
 - [ ] **T4-11** 예약/정산 · 승인 시 재판정 · `Implements: REQ-404, REQ-405` · `Design: 04§3–4`
 - [ ] **T4-12** 파괴적 조치 강제 승인 · `Implements: REQ-406` · `Design: 04§5`
-- [ ] **T4-13** 재측정 상수 한 곳 · `Implements: REQ-206, REQ-804` · `Design: 02§4`
+- [x] **T4-13** 재측정 상수 한 곳 · `Implements: REQ-206, REQ-804` · `Design: 02§4`
 
 ## T5 — 출력 (08-25~26)
 
@@ -112,15 +116,15 @@
 
 | 가드 | 태스크 | 상태 |
 |---|---|---|
-| G1 실행 차단 | T4-9 | [ ] |
+| G1 실행 차단 | T4-9 | **[x]** M-18 |
 | G2 `assumed` 불변 | T1-2 | **[x]** M-06 |
 | G3 귀속↔검증가능성 | T1-1 | **[x]** M-07 |
-| G4 모든 항목에 판정 | T4-10 | [ ] |
+| G4 모든 항목에 판정 | T4-10 | **[x]** M-19 |
 | G5 게이트 오프라인 | T5-4 | [ ] |
 | G6 ★ 추적성 | T0-2 | **[x]** M-01~M-05 |
 | G7 1회=1행 | T1-3 | **[x]** M-08 |
 | G8 ★ `improved` 유도 | T1-5 | **[x]** M-13 |
 | G9 ★ 검증불가는 AUTO 아님 | T1-6 | **[x]** M-14 |
 
-**게이트**: `make check` → **51 passed** (2026-08-19 로컬 macOS·py3.13)
+**게이트**: `make check` → **65 passed** (2026-08-19 로컬 macOS·py3.13)
 ⚠️ 숫자는 **여기 한 곳에만** 적는다.

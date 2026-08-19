@@ -120,6 +120,23 @@ apply() {
     M-17) # REQ-406 — 파괴적 조치의 강제 승인을 없앤다
       backup src/warranty/domain/decision.py
       perl -0pi -e 's/    if destructive:/    if False:/' src/warranty/domain/decision.py ;;
+    M-18) # G1 — 막는 판정인데도 실행기를 부른다
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/decision\.verdict in BLOCKING or //' src/warranty/usecases/remediate.py ;;
+    M-19) # G4 — 판정 없는 항목을 만든다
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/            decision=decision,  # I-4/            decision=None,  # I-4/' src/warranty/usecases/remediate.py ;;
+    M-20) # REQ-303 — 트래픽을 다시 읽지 않고 성공했다고 가정한다 (주장 ↔ 측정)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/        traffic = dict\(self\.run\.read_traffic\(resource\)\)/        traffic = {plan.previous_revision: 100}/' src/warranty/usecases/remediate.py ;;
+    M-21) # REQ-304 — 롤백 후 재측정을 건너뛴다
+      backup src/warranty/usecases/remediate.py
+      # ⚠️ 패턴은 **포맷에 안 흔들리는 조각**을 고른다. 첫 판은 여러 줄 표현식을 통째로
+      #    잡으려다 ruff format이 접자마자 안 맞았고, 무변경 탐지가 그걸 잡았다.
+      perl -0pi -e 's/else _within\(restored_m, baseline\)/else None/' src/warranty/usecases/remediate.py ;;
+    M-22) # REQ-204 — 명확한 경우에도 모델을 부른다 (판정이 비결정적이 된다)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/        if verdict is Verdict\.AMBIGUOUS:/        if True:/' src/warranty/usecases/remediate.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -152,5 +169,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
