@@ -26,13 +26,18 @@
 ## T0 — 기반 (08-19, 오늘)
 
 - [x] **T0-1** 레포 스캐폴딩: `pyproject.toml`, `Makefile`(check 타깃), `src/fleet_ledger/`, `tests/`
-      · `Implements: REQ-701, REQ-702` · `Design: 07-verification §1`
+      + **설정 계층**(`config.py`·`.env.example`) — 조용한 기본값 없음, 디스크 비의존
+      · `Implements: REQ-701, REQ-702` · `Design: 07-verification §1` + `06-interfaces §6`
 - [ ] **T0-2** overnight-harness 설치 + **permission boundary에 배포/과금 명령 deny**
       · `Design: docs/COST_GUARDRAILS.md`
 - [ ] **T0-3** ⛔ **BQ 결제 내보내기 활성화 (콘솔 수동 · 사용자 작업)**
       · `Implements: REQ-401` · `Design: 05-reconciliation §2`
 - [ ] **T0-4** 전용 GCP 프로젝트 생성 + 크레딧 붙은 결제 계정 연결
       · `Implements: REQ-705` · `Design: 08-deployment §1`
+      ⚠️ **막혀 있다(08-19 실측)**: 활성 gcloud 계정이 `yeongsigchoe7@gmail.com`이고
+      기존 프로젝트 4개 중 전용은 없다. `gcloud billing`은 **Cloud Billing API 미활성**이라
+      크레딧이 어느 결제 계정에 붙었는지 **읽을 수 없다.** ⇒ 콘솔에서 확인 후 진행.
+      그때까지 `.env`의 `FL_PROJECT_ID`는 **T2-1 스모크 전용 부트스트랩 값**이다.
 - [x] **T0-5** G6(추적성 가드) 먼저 만든다 — **spec을 지키게 만드는 장치를 첫날 세운다**
       · `Implements: 추적성 규약` · `Design: 07-verification §3.1`
 
@@ -154,5 +159,5 @@
 | G6 ★ 추적성 | T0-5 | **[x]** M-01~M-05 red 확인 |
 | G7 1회=1행 | T1-4 | **[x]** M-08 red 확인 |
 
-**게이트**: `make check` → **22 passed** (2026-08-19 로컬 macOS·py3.13)
+**게이트**: `make check` → **29 passed** (2026-08-19 로컬 macOS·py3.13)
 — ⚠️ 숫자는 **여기 한 곳에만** 적는다. 복제본은 한쪽만 낡는다.

@@ -90,6 +90,15 @@ apply() {
     M-09) # REQ-202 — 수량·단가 키 일치 검사를 없앤다
       backup src/fleet_ledger/domain/cost.py
       perl -0pi -e 's/set\(self\.inputs\) != set\(self\.unit_prices\)/False/' src/fleet_ledger/domain/cost.py ;;
+    M-10) # 설정이 ADK 프로젝트 불일치를 그냥 넘기게 한다
+      backup src/fleet_ledger/config.py
+      perl -0pi -e 's/if adk_project and adk_project != project_id:/if False:/' src/fleet_ledger/config.py ;;
+    M-11) # 어댑터 기본값을 fake로 바꾼다 (배포가 조용히 가짜로 도는 경로)
+      backup src/fleet_ledger/config.py
+      perl -0pi -e 's/env\.get\("FL_ADAPTERS", "live"\)/env.get("FL_ADAPTERS", "fake")/' src/fleet_ledger/config.py ;;
+    M-12) # 설정이 environ을 줘도 .env를 함께 읽게 되돌린다 (결정론 회귀)
+      backup src/fleet_ledger/config.py
+      perl -0pi -e 's/        env = \{k: v for k, v in environ\.items\(\) if v\}/        env = dict(load_env_file()); env.update({k: v for k, v in environ.items() if v})/' src/fleet_ledger/config.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -115,5 +124,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
