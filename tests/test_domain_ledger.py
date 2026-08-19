@@ -10,14 +10,14 @@ from decimal import Decimal
 
 import pytest
 
-from fleet_ledger.domain.attribution import (
+from warranty.domain.attribution import (
     Attribution,
     AttributionError,
     Method,
     Verifiability,
 )
-from fleet_ledger.domain.cost import Basis, CostFact, CostFactError, delta_of
-from fleet_ledger.domain.entry import (
+from warranty.domain.cost import Basis, CostFact, CostFactError, delta_of
+from warranty.domain.entry import (
     InMemoryLedger,
     LedgerEntry,
     LedgerError,
@@ -25,7 +25,7 @@ from fleet_ledger.domain.entry import (
     Status,
 )
 
-FROZEN = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)  # REQ-702: 살아 있는 시계를 안 쓴다
+FROZEN = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)  # REQ-802: 살아 있는 시계를 안 쓴다
 ENTRY_ID = "01k2m9x7q3f4b8n0v6c1t5r2wz"
 
 
@@ -57,11 +57,11 @@ def _entry(**over: object) -> LedgerEntry:
     return LedgerEntry(**base)  # type: ignore[arg-type]
 
 
-# ── REQ-202 ────────────────────────────────────────────────────────────────
+# ── REQ-503 ────────────────────────────────────────────────────────────────
 
 
-def test_req_202_cost_fact_keeps_the_quantities_that_made_the_total() -> None:
-    """Verifies: REQ-202
+def test_req_503_cost_fact_keeps_the_quantities_that_made_the_total() -> None:
+    """Verifies: REQ-503
 
     총액만이 아니라 **수량·단가·가격 기준 시각**을 함께 갖는다. 그래야 나중에
     "왜 틀렸나"를 총액이 아니라 어느 가정이 틀렸는지로 답할 수 있다.
@@ -74,8 +74,8 @@ def test_req_202_cost_fact_keeps_the_quantities_that_made_the_total() -> None:
     assert fact.recompute() == Decimal("0.019980")
 
 
-def test_req_202_rejects_a_computed_fact_without_matching_prices() -> None:
-    """Verifies: REQ-202
+def test_req_503_rejects_a_computed_fact_without_matching_prices() -> None:
+    """Verifies: REQ-503
 
     수량과 단가의 키가 어긋나면 재계산이 불가능하고, 재계산 불가능한 추정은
     왜 틀렸는지 물을 수 없다.
@@ -90,14 +90,14 @@ def test_req_202_rejects_a_computed_fact_without_matching_prices() -> None:
         )
 
 
-def test_req_202_inputs_are_not_mutable_after_construction() -> None:
-    """Verifies: REQ-202"""
+def test_req_503_inputs_are_not_mutable_after_construction() -> None:
+    """Verifies: REQ-503"""
     fact = _assumed()
     with pytest.raises(TypeError):
         fact.inputs["cpu_seconds"] = Decimal(999)  # type: ignore[index]
 
 
-# ── REQ-203 (가드 G3) ──────────────────────────────────────────────────────
+# ── REQ-504 (가드 G3) ──────────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize(
@@ -108,10 +108,10 @@ def test_req_202_inputs_are_not_mutable_after_construction() -> None:
         (Method.NONE, Verifiability.ASSUMED_ONLY),
     ],
 )
-def test_req_203_verifiability_is_derived_from_method(
+def test_req_504_verifiability_is_derived_from_method(
     method: Method, expected: Verifiability
 ) -> None:
-    """Verifies: REQ-203
+    """Verifies: REQ-504
 
     G3 — 매핑은 코드에 한 벌만 있고, 셋 **전부**를 값으로 명시해 태운다.
     형제 중 하나만 순회하면 나머지는 안 물어진 채다 (REFERENCE_FROM_PARENT #10).
@@ -124,8 +124,8 @@ def test_req_203_verifiability_is_derived_from_method(
     assert Attribution(method, **kwargs).verifiability is expected  # type: ignore[arg-type]
 
 
-def test_req_203_entry_derives_verifiability_and_does_not_store_it() -> None:
-    """Verifies: REQ-203
+def test_req_504_entry_derives_verifiability_and_does_not_store_it() -> None:
+    """Verifies: REQ-504
 
     저장하면 귀속 방법과 어긋날 수 있다. 유도하면 어긋날 수 없다.
     """
@@ -134,8 +134,8 @@ def test_req_203_entry_derives_verifiability_and_does_not_store_it() -> None:
     assert not hasattr(entry, "_verifiability")
 
 
-def test_req_206_none_without_a_reason_is_rejected() -> None:
-    """Verifies: REQ-206
+def test_req_504_none_without_a_reason_is_rejected() -> None:
+    """Verifies: REQ-504
 
     조용한 `none`을 만들면 화해가 영원히 못 찾는데 **원인이 안 보인다.**
     """
@@ -143,8 +143,8 @@ def test_req_206_none_without_a_reason_is_rejected() -> None:
         Attribution(Method.NONE)
 
 
-def test_req_205_label_value_must_satisfy_gcp_label_constraints() -> None:
-    """Verifies: REQ-205
+def test_req_504_label_value_must_satisfy_gcp_label_constraints() -> None:
+    """Verifies: REQ-504
 
     id 형식은 GCP 라벨 제약(소문자·≤63자)에서 **유도된 것**이다.
     """
@@ -152,11 +152,11 @@ def test_req_205_label_value_must_satisfy_gcp_label_constraints() -> None:
         Attribution(Method.RESOURCE_LABEL, label_value="UPPER-CASE-NOT-ALLOWED")
 
 
-# ── REQ-204 (가드 G2) ──────────────────────────────────────────────────────
+# ── REQ-505 (가드 G2) ──────────────────────────────────────────────────────
 
 
-def test_req_204_reconcile_does_not_touch_assumed() -> None:
-    """Verifies: REQ-204, REQ-402
+def test_req_505_reconcile_does_not_touch_assumed() -> None:
+    """Verifies: REQ-505, REQ-509
 
     ★ 이 시스템의 최상위 불변식. 추정을 실측으로 덮으면 "추정이 얼마나 틀렸나"를
     영원히 못 본다 — 그게 이 프로젝트의 존재 이유다.
@@ -176,8 +176,8 @@ def test_req_204_reconcile_does_not_touch_assumed() -> None:
     assert after.delta.ratio == Decimal("95")
 
 
-def test_req_204_store_offers_no_general_update_path() -> None:
-    """Verifies: REQ-204
+def test_req_505_store_offers_no_general_update_path() -> None:
+    """Verifies: REQ-505
 
     불변식을 문서가 아니라 **API 모양으로** 집행한다. 범용 쓰기가 있으면
     I-1은 관례가 되고, 관례는 언젠가 깨진다.
@@ -186,8 +186,8 @@ def test_req_204_store_offers_no_general_update_path() -> None:
     assert forbidden.isdisjoint(dir(InMemoryLedger))
 
 
-def test_req_403_reconcile_is_idempotent() -> None:
-    """Verifies: REQ-403"""
+def test_req_506_reconcile_is_idempotent() -> None:
+    """Verifies: REQ-506"""
     ledger = InMemoryLedger()
     ledger.create(_entry())
     first = ledger.reconcile(ENTRY_ID, _measured("1.9000"))
@@ -197,8 +197,8 @@ def test_req_403_reconcile_is_idempotent() -> None:
     assert second.measured.amount_usd == Decimal("1.9000")
 
 
-def test_req_402_delta_ratio_is_undefined_when_assumed_is_zero() -> None:
-    """Verifies: REQ-402
+def test_req_509_delta_ratio_is_undefined_when_assumed_is_zero() -> None:
+    """Verifies: REQ-509
 
     거부된 항목은 `assumed == 0`이다. 배율을 0으로 나누지 않고, **사유를 남긴다.**
     """
@@ -208,11 +208,11 @@ def test_req_402_delta_ratio_is_undefined_when_assumed_is_zero() -> None:
     assert "정의되지 않는다" in delta.note
 
 
-# ── REQ-201 / REQ-207 (가드 G7) ────────────────────────────────────────────
+# ── REQ-501 / REQ-507 (가드 G7) ────────────────────────────────────────────
 
 
-def test_req_201_one_action_is_one_row_and_retry_does_not_overwrite() -> None:
-    """Verifies: REQ-201
+def test_req_501_one_action_is_one_row_and_retry_does_not_overwrite() -> None:
+    """Verifies: REQ-501
 
     G7 — 재시도는 **새 id**를 만들고 `retry_of`로 원래를 가리킨다.
     같은 id로 덮으면 원장이 사건을 잃는다.
@@ -227,8 +227,8 @@ def test_req_201_one_action_is_one_row_and_retry_does_not_overwrite() -> None:
     assert len(ledger.all_entries()) == 2
 
 
-def test_req_207_denied_entries_are_recorded_with_zero_assumed() -> None:
-    """Verifies: REQ-207
+def test_req_507_denied_entries_are_recorded_with_zero_assumed() -> None:
+    """Verifies: REQ-507
 
     거부를 기록하지 않으면 "게이트가 얼마를 막았는가"를 못 답한다 —
     그게 게이트의 유일한 실적 지표다.

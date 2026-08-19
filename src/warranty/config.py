@@ -84,35 +84,35 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         env = dict(load_env_file())
         env.update({k: v for k, v in os.environ.items() if v})
 
-    project_id = _require(env, "FL_PROJECT_ID")
+    project_id = _require(env, "WR_PROJECT_ID")
 
     # ADK/GenAI SDK가 직접 읽는 변수가 우리 설정과 어긋나면, 모델 호출이 우리가 믿는
     # 프로젝트가 아닌 곳에 청구된다. **그 어긋남은 조용하다** — 그래서 여기서 막는다.
     adk_project = env.get("GOOGLE_CLOUD_PROJECT", "").strip()
     if adk_project and adk_project != project_id:
         raise ConfigError(
-            f"GOOGLE_CLOUD_PROJECT({adk_project})가 FL_PROJECT_ID({project_id})와 다르다 "
+            f"GOOGLE_CLOUD_PROJECT({adk_project})가 WR_PROJECT_ID({project_id})와 다르다 "
             "— 모델 호출이 다른 프로젝트에 청구된다"
         )
 
-    raw_adapters = env.get("FL_ADAPTERS", "live").strip()
+    raw_adapters = env.get("WR_ADAPTERS", "live").strip()
     if raw_adapters not in Adapters.__members__.values():
-        raise ConfigError(f"FL_ADAPTERS가 live/fake가 아니다: {raw_adapters!r}")
+        raise ConfigError(f"WR_ADAPTERS가 live/fake가 아니다: {raw_adapters!r}")
 
-    raw_days = env.get("FL_RECONCILE_DEADLINE_DAYS", "3").strip()
+    raw_days = env.get("WR_RECONCILE_DEADLINE_DAYS", "3").strip()
     if not raw_days.isdigit() or int(raw_days) < 1:
-        raise ConfigError(f"FL_RECONCILE_DEADLINE_DAYS가 양의 정수가 아니다: {raw_days!r}")
+        raise ConfigError(f"WR_RECONCILE_DEADLINE_DAYS가 양의 정수가 아니다: {raw_days!r}")
 
-    billing_table = env.get("FL_BILLING_TABLE", "").strip() or None
+    billing_table = env.get("WR_BILLING_TABLE", "").strip() or None
     if billing_table is not None and billing_table.count(".") != 2:
         raise ConfigError(
-            f"FL_BILLING_TABLE 형식이 <project>.<dataset>.<table>이 아니다: {billing_table!r}"
+            f"WR_BILLING_TABLE 형식이 <project>.<dataset>.<table>이 아니다: {billing_table!r}"
         )
 
     return Settings(
         project_id=project_id,
-        region=_require(env, "FL_REGION"),
-        model=_require(env, "FL_MODEL"),
+        region=_require(env, "WR_REGION"),
+        model=_require(env, "WR_MODEL"),
         adapters=Adapters(raw_adapters),
         reconcile_deadline_days=int(raw_days),
         billing_table=billing_table,

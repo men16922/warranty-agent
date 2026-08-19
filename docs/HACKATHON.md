@@ -1,7 +1,7 @@
 # 대회 사실관계 — Google All Things Agentic Hackathon
 
 원문 확인: 2026-08-15 (Official Rules) · 이 문서 작성: 2026-08-19
-**요구사항의 권위는 `specs/fleet-ledger/requirements.md`다.** 이 문서는 **대회 쪽 사실**만 담는다.
+**요구사항의 권위는 `specs/warranty/requirements.md`다.** 이 문서는 **대회 쪽 사실**만 담는다.
 
 ---
 
@@ -24,7 +24,7 @@
 - **Google Agent Framework 1개 이상** — Google ADK / GenAI SDK / Antigravity SDK / GenKit
 - **Google Cloud 인프라 1개 이상** — Cloud Run / Cloud SQL / Firestore / GKE / Pub/Sub 등
 
-→ 우리의 대응: `specs/fleet-ledger/design/04-agent-runtime.md` §1
+→ 우리의 대응: `specs/warranty/design/04-agent-runtime.md` §1
 
 ## 3. 제출물
 

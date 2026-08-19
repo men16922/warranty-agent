@@ -1,4 +1,4 @@
-# spec — fleet-ledger
+# spec — warranty
 
 **대회**: Google All Things Agentic Hackathon · **트랙**: Fortified Enterprise Fleet
 **제출 마감**: 2026-09-01 09:00 KST · **작성**: 2026-08-19

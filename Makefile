@@ -1,4 +1,4 @@
-# fleet-ledger
+# warranty
 #
 # ⚠️ `check`는 오프라인이고 어떤 과금 API도 부르지 않는다 (REQ-701).
 #    무인 루프(overnight harness)의 안전 조건이 그것이다.
@@ -37,7 +37,7 @@ live-check:
 	$(PYTEST) -m live
 
 demo:
-	$(PY) -m fleet_ledger.demo
+	$(PY) -m warranty.demo
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache

@@ -10,8 +10,8 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 
-from fleet_ledger.domain.attribution import Attribution, Verifiability
-from fleet_ledger.domain.cost import Basis, CostFact, Delta, delta_of
+from warranty.domain.attribution import Attribution, Verifiability
+from warranty.domain.cost import Basis, CostFact, Delta, delta_of
 
 
 class Status(StrEnum):

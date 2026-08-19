@@ -23,6 +23,12 @@ export PYTHONDONTWRITEBYTECODE=1
 trap 'restore' EXIT
 
 backup() {
+  # ⚠️ 없는 파일을 조용히 넘기면 변이가 적용되지 않은 채 "가드가 하중을 안 받는다"로 읽힌다.
+  #    실제로 났다 — 프로젝트 이름을 바꾸고 이 스크립트의 경로를 안 고쳤을 때(#8).
+  if [ ! -f "$1" ]; then
+    echo "  ❌ 변이 대상이 없다: $1 — 이 결과는 가드에 대한 판정이 아니다" >&2
+    RESULT=1; return 1
+  fi
   mkdir -p "$BACKUP/$(dirname "$1")"; cp "$1" "$BACKUP/$1"; TOUCHED+=("$1")
 }
 
@@ -63,42 +69,42 @@ baseline() {
 apply() {
   case "$1" in
     M-01) # requirements.md의 `상태:` 한 줄 삭제
-      backup specs/fleet-ledger/requirements.md
-      perl -0pi -e 's/^상태: `TODO`\n//m' specs/fleet-ledger/requirements.md ;;
+      backup specs/warranty/requirements.md
+      perl -0pi -e 's/^상태: `TODO`\n//m' specs/warranty/requirements.md ;;
     M-02) # REQ 하나를 IMPLEMENTED로 올리고 테스트는 안 만든다
-      backup specs/fleet-ledger/requirements.md
-      perl -0pi -e 's/^상태: `TODO`$/상태: `IMPLEMENTED`/m' specs/fleet-ledger/requirements.md ;;
+      backup specs/warranty/requirements.md
+      perl -0pi -e 's/^상태: `TODO`$/상태: `IMPLEMENTED`/m' specs/warranty/requirements.md ;;
     M-03) # 파서를 깨 0개를 읽게 한다 (공허 통과 방지가 사는지)
       backup tools/spec_trace.py
       perl -0pi -e 's/\^### \(REQ-\\d\{3\}\)/^#### (REQ-\\d{3})/' tools/spec_trace.py ;;
     M-04) # 정의 없는 REQ-999를 tasks.md가 가리키게 한다
-      backup specs/fleet-ledger/tasks.md
-      printf '\n- [ ] **T9-9** 없는 요구사항 · `Implements: REQ-999`\n' >> specs/fleet-ledger/tasks.md ;;
+      backup specs/warranty/tasks.md
+      printf '\n- [ ] **T9-9** 없는 요구사항 · `Implements: REQ-999`\n' >> specs/warranty/tasks.md ;;
     M-05) # 산문 언급만으로는 커버리지가 되면 안 된다 (스캐너가 AST를 쓰는지)
-      backup specs/fleet-ledger/requirements.md; backup tests/test_domain_ledger.py
-      perl -0pi -e 's/^### REQ-101(.*?)^상태: `TODO`$/### REQ-101$1상태: `IMPLEMENTED`/sm' specs/fleet-ledger/requirements.md
+      backup specs/warranty/requirements.md; backup tests/test_domain_ledger.py
+      perl -0pi -e 's/^### REQ-101(.*?)^상태: `TODO`$/### REQ-101$1상태: `IMPLEMENTED`/sm' specs/warranty/requirements.md
       printf '\n\ndef test_mentions_but_does_not_verify() -> None:\n    """이 테스트는 REQ-101을 언급만 한다. 커버리지가 되면 안 된다."""\n    assert True\n' >> tests/test_domain_ledger.py ;;
     M-06) # G2 — 화해가 assumed를 덮게 한다 (REQ-204)
-      backup src/fleet_ledger/domain/entry.py
-      perl -0pi -e 's/            measured=measured,/            measured=measured,\n            assumed=measured,/' src/fleet_ledger/domain/entry.py ;;
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/            measured=measured,/            measured=measured,\n            assumed=measured,/' src/warranty/domain/entry.py ;;
     M-07) # G3 — method↔verifiability 매핑을 깬다 (REQ-203)
-      backup src/fleet_ledger/domain/attribution.py
-      perl -0pi -e 's/Method\.TOKEN_METER: Verifiability\.ASSUMED_ONLY,/Method.TOKEN_METER: Verifiability.RECONCILABLE,/' src/fleet_ledger/domain/attribution.py ;;
+      backup src/warranty/domain/attribution.py
+      perl -0pi -e 's/Method\.TOKEN_METER: Verifiability\.ASSUMED_ONLY,/Method.TOKEN_METER: Verifiability.RECONCILABLE,/' src/warranty/domain/attribution.py ;;
     M-08) # G7 — 같은 id로 덮어쓰기를 허용한다 (REQ-201)
-      backup src/fleet_ledger/domain/entry.py
-      perl -0pi -e 's/^        if entry\.entry_id in self\._rows:$/        if False:/m' src/fleet_ledger/domain/entry.py ;;
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^        if entry\.entry_id in self\._rows:$/        if False:/m' src/warranty/domain/entry.py ;;
     M-09) # REQ-202 — 수량·단가 키 일치 검사를 없앤다
-      backup src/fleet_ledger/domain/cost.py
-      perl -0pi -e 's/set\(self\.inputs\) != set\(self\.unit_prices\)/False/' src/fleet_ledger/domain/cost.py ;;
+      backup src/warranty/domain/cost.py
+      perl -0pi -e 's/set\(self\.inputs\) != set\(self\.unit_prices\)/False/' src/warranty/domain/cost.py ;;
     M-10) # 설정이 ADK 프로젝트 불일치를 그냥 넘기게 한다
-      backup src/fleet_ledger/config.py
-      perl -0pi -e 's/if adk_project and adk_project != project_id:/if False:/' src/fleet_ledger/config.py ;;
+      backup src/warranty/config.py
+      perl -0pi -e 's/if adk_project and adk_project != project_id:/if False:/' src/warranty/config.py ;;
     M-11) # 어댑터 기본값을 fake로 바꾼다 (배포가 조용히 가짜로 도는 경로)
-      backup src/fleet_ledger/config.py
-      perl -0pi -e 's/env\.get\("FL_ADAPTERS", "live"\)/env.get("FL_ADAPTERS", "fake")/' src/fleet_ledger/config.py ;;
+      backup src/warranty/config.py
+      perl -0pi -e 's/env\.get\("WR_ADAPTERS", "live"\)/env.get("WR_ADAPTERS", "fake")/' src/warranty/config.py ;;
     M-12) # 설정이 environ을 줘도 .env를 함께 읽게 되돌린다 (결정론 회귀)
-      backup src/fleet_ledger/config.py
-      perl -0pi -e 's/        env = \{k: v for k, v in environ\.items\(\) if v\}/        env = dict(load_env_file()); env.update({k: v for k, v in environ.items() if v})/' src/fleet_ledger/config.py ;;
+      backup src/warranty/config.py
+      perl -0pi -e 's/        env = \{k: v for k, v in environ\.items\(\) if v\}/        env = dict(load_env_file()); env.update({k: v for k, v in environ.items() if v})/' src/warranty/config.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -107,7 +113,14 @@ one() {
   echo "── $1 ──"
   TOUCHED=()
   baseline
-  apply "$1"
+  apply "$1" || { echo "  ⛔ 변이를 적용하지 못했다 — 건너뛴다"; restore; return; }
+  # ⚠️ 파일은 있는데 패턴이 안 맞아 **조용히 무효**인 변이가 있다. 실제로 났다 —
+  #    설정 변수 접두사를 바꾼 뒤 이 스크립트의 패턴을 안 고쳤을 때.
+  #    적용되지 않은 변이의 초록은 가드에 대한 판정이 아니다.
+  if [ -z "$(residue)" ]; then
+    echo "  ⛔ 변이가 파일을 바꾸지 못했다 (패턴 불일치) — 이 결과는 판정이 아니다"
+    RESULT=1; restore; return
+  fi
   if run_suite; then
     echo "  ❌ 변이 후에도 초록 — 이 가드는 하중을 안 받는다 ($LAST_SUMMARY)"; VERDICT=fail
   else

@@ -19,7 +19,7 @@ from enum import StrEnum
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC_DIR = ROOT / "specs" / "fleet-ledger"
+SPEC_DIR = ROOT / "specs" / "warranty"
 REQUIREMENTS = SPEC_DIR / "requirements.md"
 TASKS = SPEC_DIR / "tasks.md"
 TESTS_DIR = ROOT / "tests"
@@ -30,7 +30,7 @@ MUTATIONS = ROOT / "docs" / "evidence" / "mutations.md"
 DESIGN_SOURCES = (
     SPEC_DIR / "design.md",
     SPEC_DIR / "design",
-    ROOT / "docs" / "REFERENCE_FROM_PARENT.md",
+    ROOT / "docs" / "PRINCIPLES.md",
 )
 
 #: 공허 통과 방지. 파서가 망가져 0개를 읽으면 모든 검사가 조용히 통과한다.
