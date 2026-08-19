@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+.DS_Store
+*.swp
+
+# 하네스가 만드는 것 (재생성 가능)
+scripts/overnight/logs/
+docs/test/history/
+
+# 자격증명 — 절대 커밋 금지
+*-key.json
+service-account*.json
+application_default_credentials.json
