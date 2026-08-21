@@ -3,7 +3,7 @@
 Spec: specs/warranty/design/02-verification.md
       specs/warranty/design/03-atomic-rollback.md
       specs/warranty/design/04-decision-gate.md
-      (REQ-104, REQ-201~205, REQ-301~305, REQ-401~404)
+      (REQ-104, REQ-201~205, REQ-301~305, REQ-401~405)
 
     ⛔ 검증할 수 없는 조치는 자동으로 실행하지 않는다.
 """
@@ -188,53 +188,75 @@ class Remediator:
         contract: OperationalContract,
         projected_usd: Decimal,
     ) -> LedgerEntry:
-        """게이트를 통과한 뒤의 전부 — 기준선 → 실행 → 재측정 → (필요하면) 롤백.
+        """게이트를 통과한 뒤의 전부 — 예약 → 기준선 → 실행 → 재측정 → (필요하면) 롤백.
+
+        Spec: specs/warranty/design/04-decision-gate.md (REQ-405)
 
         ⚠️ `AUTO`와 **승인된 조치가 같은 경로를 탄다.** 승인 경로를 따로 배선하면
-        그 경로만 검증·롤백을 빠뜨리게 되고, 그 누락은 조용하다.
+        그 경로만 검증·롤백을 빠뜨리게 되고, 그 누락은 조용하다. **예약도 마찬가지다** —
+        여기 한 곳에서만 예약하니 승인 경로가 예약을 건너뛸 자리가 없다.
         """
-        # ── ① 기준선 (REQ-201)
-        baseline = self.signals.read(contract.health_signal)
+        # ── ⓪ 예약 (REQ-405). ★ **실행 전에** 여유를 붙잡는다. 게이트가 `headroom`을
+        #    읽은 시점과 돈이 나가는 시점 사이에 다른 조치가 들어오면 **같은 여유를 다시
+        #    본다** — 둘 다 판정을 통과하고 합계는 한도를 넘는다.
+        #    ⚠️ 예약 실패는 **지금 예산이 막는다**는 뜻이다. 판정은 낡았고 예약이 권위다.
+        reservation = self.budgets.reserve(agent_id, projected_usd)
+        if reservation is None:
+            return self.ledger.complete(entry_id, status=Status.DENIED)
 
-        # ── I-9 — 롤백 계획은 조치 **전에** 고정된다 (REQ-301).
-        plan = contract.rollback_plan
+        # 실행 전에 죽으면 쓴 게 없다. 아래 `finally`가 이 값으로 정산한다.
+        actual = Decimal(0)
+        try:
+            # ── ① 기준선 (REQ-201)
+            baseline = self.signals.read(contract.health_signal)
 
-        # ── ② 실행
-        ok = self.executor.execute(action_id, resource)
-        self.budgets.commit(agent_id, projected_usd)
-        if not ok:
-            return self.ledger.complete(entry_id, status=Status.FAILED)
+            # ── I-9 — 롤백 계획은 조치 **전에** 고정된다 (REQ-301).
+            plan = contract.rollback_plan
 
-        # ── ③ 대기 후 ④ **같은 스펙으로** 재측정 (REQ-202)
-        self.clock.sleep(VERIFY_DELAY_S)
-        after = self.signals.read(contract.health_signal)
+            # ── ② 실행
+            ok = self.executor.execute(action_id, resource)
+            if not ok:
+                return self.ledger.complete(entry_id, status=Status.FAILED)
+            # ⚠️ 공시 단가지 청구서가 아니다. 실측은 `reconcile`로 따로 온다 (REQ-506) —
+            #    `assumed`를 덮지 않는 이유와 같다 (I-1).
+            actual = projected_usd
 
-        verdict = classify(baseline, after, contract.recovery_criterion)
-        decided_by = DecidedBy.RULE
-        rationale = ""
-        if verdict is Verdict.AMBIGUOUS:
-            # ★ 모델은 **애매할 때만** 불린다 (REQ-204).
-            verdict, rationale = self.judge.judge_ambiguous(
-                baseline, after, str(contract.recovery_criterion)
+            # ── ③ 대기 후 ④ **같은 스펙으로** 재측정 (REQ-202)
+            self.clock.sleep(VERIFY_DELAY_S)
+            after = self.signals.read(contract.health_signal)
+
+            verdict = classify(baseline, after, contract.recovery_criterion)
+            decided_by = DecidedBy.RULE
+            rationale = ""
+            if verdict is Verdict.AMBIGUOUS:
+                # ★ 모델은 **애매할 때만** 불린다 (REQ-204).
+                verdict, rationale = self.judge.judge_ambiguous(
+                    baseline, after, str(contract.recovery_criterion)
+                )
+                decided_by = DecidedBy.MODEL
+
+            verification = Verification(
+                verdict=verdict,
+                decided_by=decided_by,
+                baseline=baseline,
+                after=after,
+                rationale=rationale,
             )
-            decided_by = DecidedBy.MODEL
 
-        verification = Verification(
-            verdict=verdict,
-            decided_by=decided_by,
-            baseline=baseline,
-            after=after,
-            rationale=rationale,
-        )
+            if verdict is Verdict.RECOVERED:
+                return self.ledger.complete(
+                    entry_id, status=Status.EXECUTED, verification=verification
+                )
 
-        if verdict is Verdict.RECOVERED:
-            return self.ledger.complete(entry_id, status=Status.EXECUTED, verification=verification)
-
-        # ── ⑤ 회복 실패 → 롤백 (REQ-302)
-        rollback = self._rollback(contract, resource, plan, baseline, verification)
-        return self.ledger.complete(
-            entry_id, status=Status.EXECUTED, verification=verification, rollback=rollback
-        )
+            # ── ⑤ 회복 실패 → 롤백 (REQ-302)
+            rollback = self._rollback(contract, resource, plan, baseline, verification)
+            return self.ledger.complete(
+                entry_id, status=Status.EXECUTED, verification=verification, rollback=rollback
+            )
+        finally:
+            # ── ⑥ 정산 (REQ-405). ⚠️ **예외 경로에서도 돈다** — 안 풀린 예약은 여유를
+            #    조용히 잠그고, 잠긴 예산은 "예산 없음"과 구분이 안 된다 (design 04§3).
+            self.budgets.settle(reservation, actual)
 
     def _rollback(
         self,

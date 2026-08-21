@@ -7,9 +7,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from decimal import Decimal
 
+from warranty.domain.budget import Reservation, ReservationError
 from warranty.domain.contract import OperationalContract, ResourceRef, SignalSpec
 from warranty.domain.verification import Measurement, Verdict
 
@@ -90,6 +91,29 @@ class RecordingExecutor:
         return self._succeeds
 
 
+class ReentrantExecutor(RecordingExecutor):
+    """★ 조치가 도는 **도중에** 또 하나의 조치가 들어온다 (REQ-405).
+
+    Spec: specs/warranty/design/04-decision-gate.md (REQ-405)
+
+    ⚠️ 게이트는 오프라인·결정론이라 스레드가 없다(REQ-802). 그래서 *"판정과 지출 사이의
+       창"*을 값으로 태우는 방법이 **재진입뿐이다.** 이 창을 안 만들면 예약은 `commit`의
+       다른 이름일 뿐이고, 예약을 지워도 테스트는 초록이다.
+    """
+
+    def __init__(self, succeeds: bool = True) -> None:
+        super().__init__(succeeds)
+        self.during: Callable[[], None] | None = None
+
+    def execute(self, action_id: str, resource: ResourceRef) -> bool:
+        ok = super().execute(action_id, resource)
+        if self.during is not None:
+            # 한 번만 — 안 비우면 안쪽 조치가 또 재진입해 무한히 내려간다.
+            during, self.during = self.during, None
+            during()
+        return ok
+
+
 class FakeRun:
     """Cloud Run 트래픽의 대역.
 
@@ -113,16 +137,42 @@ class FakeRun:
 
 
 class FakeBudget:
+    """예약을 **실제로 붙잡는** 대역 (REQ-405).
+
+    Spec: specs/warranty/design/04-decision-gate.md (REQ-405)
+
+    ⚠️ 예약분을 `headroom`에서 빼지 않으면 이 fake는 예약을 **흉내만 낸다** —
+       그러면 "동시 초과를 막는가"를 묻는 테스트가 통과해도 아무것도 증명하지 않는다
+       (docs/PRINCIPLES.md #8 — 픽스처가 늘 완벽하면 가드가 하중을 못 받는다).
+    """
+
     def __init__(self, headroom: Decimal = Decimal("0.50")) -> None:
-        self._headroom = headroom
-        self.committed: list[Decimal] = []
+        self._available = headroom
+        self._open: dict[str, Reservation] = {}
+        self.settled: list[Decimal] = []
+        self._n = 0
 
     def headroom(self, agent_id: str) -> Decimal:
-        return self._headroom
+        return self._available  # 미정산 예약은 이미 빠져 있다
 
-    def commit(self, agent_id: str, amount: Decimal) -> None:
-        self.committed.append(amount)
-        self._headroom -= amount
+    def reserve(self, agent_id: str, amount: Decimal) -> Reservation | None:
+        if amount > self._available:
+            return None
+        self._n += 1
+        made = Reservation(f"rsv-{self._n:03d}", agent_id, amount)
+        self._available -= amount
+        self._open[made.reservation_id] = made
+        return made
+
+    def settle(self, reservation: Reservation, actual: Decimal) -> None:
+        if self._open.pop(reservation.reservation_id, None) is None:
+            # 두 번 정산하면 차액이 두 번 돌아와 **예산이 늘어난다.**
+            raise ReservationError(f"열려 있지 않은 예약이다: {reservation.reservation_id}")
+        self._available += reservation.amount - actual
+        self.settled.append(actual)
+
+    def unsettled(self) -> int:
+        return len(self._open)
 
 
 class FakeJudge:

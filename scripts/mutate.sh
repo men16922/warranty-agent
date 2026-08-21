@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-27|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-29|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -152,6 +152,12 @@ apply() {
     M-27) # REQ-404 — 승인이 게이트를 **면제**하게 한다 (재판정 결과를 안 본다)
       backup src/warranty/usecases/remediate.py
       perl -0pi -e 's/        if redecision\.verdict in BLOCKING:/        if False:/' src/warranty/usecases/remediate.py ;;
+    M-28) # REQ-405 — 예약이 여유를 **안 붙잡는다** (예약이 commit의 다른 이름이 된다)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/self\.budgets\.reserve\(agent_id, projected_usd\)/self.budgets.reserve(agent_id, Decimal(0))/' src/warranty/usecases/remediate.py ;;
+    M-29) # REQ-405 — 정산을 건너뛴다 (예약이 안 풀려 예산이 **조용히 잠긴다**)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            self\.budgets\.settle\(reservation, actual\)$/            pass/m' src/warranty/usecases/remediate.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -184,5 +190,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from decimal import Decimal
 from typing import Protocol
 
+from warranty.domain.budget import Reservation
 from warranty.domain.contract import OperationalContract, ResourceRef, SignalSpec
 from warranty.domain.cost import CostFact
 from warranty.domain.entry import Approval, LedgerEntry, Rollback, Status
@@ -53,8 +54,33 @@ class RunControl(Protocol):
 
 
 class BudgetStore(Protocol):
-    def headroom(self, agent_id: str) -> Decimal: ...
-    def commit(self, agent_id: str, amount: Decimal) -> None: ...
+    """★ 예약 프로토콜 — `reserve` → 실행 → `settle` (REQ-405).
+
+    Spec: specs/warranty/design/04-decision-gate.md (REQ-405)
+
+    ⚠️ **`commit` 하나로는 동시 초과를 못 막는다.** 실행 뒤에 청구하면 판정과 지출
+       사이가 비고, 그 창에서 두 조치가 같은 여유를 본다.
+    """
+
+    def headroom(self, agent_id: str) -> Decimal:
+        """쓸 수 있는 여유. ⚠️ **미정산 예약은 이미 빠져 있다** — 안 빼면 예약이 장식이다."""
+
+    def reserve(self, agent_id: str, amount: Decimal) -> Reservation | None:
+        """여유를 붙잡는다. 부족하면 `None`.
+
+        ⚠️ **권위는 이 확인이지 앞선 `headroom` 읽기가 아니다.** 읽은 값으로 판정하고
+           예약 없이 실행하면 그 판정은 이미 낡았을 수 있다.
+        """
+
+    def settle(self, reservation: Reservation, actual: Decimal) -> None:
+        """예약을 실제 지출로 확정하고 차액을 되돌린다.
+
+        ⚠️ 안 돌면 예산이 **조용히 잠긴다** — 잠긴 예산은 "예산 없음"과 구분이 안 된다.
+           그래서 호출자는 예외 경로에서도 이것을 부른다 (design 04§3).
+        """
+
+    def unsettled(self) -> int:
+        """미정산 예약 수. **잠긴 예산을 보이게 하는 지표다** (design 04§3)."""
 
 
 class ModelJudge(Protocol):

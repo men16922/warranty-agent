@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -17,6 +18,7 @@ from warranty.adapters.fakes import (
     FrozenClock,
     InMemoryContracts,
     RecordingExecutor,
+    ReentrantExecutor,
     ScriptedSignal,
     SeededIdGen,
 )
@@ -117,6 +119,25 @@ def test_req_403_deny_never_calls_the_executor() -> None:
     assert entry.decision.verdict is Gate.DENY  # type: ignore[attr-defined]
     assert entry.status is Status.DENIED  # type: ignore[attr-defined]
     assert executor.call_count == 0
+
+
+def test_req_403_a_blocking_verdict_with_budget_left_still_never_executes() -> None:
+    """Verifies: REQ-403, REQ-405
+
+    ⚠️ **예산이 막는 것과 게이트가 막는 것은 다르다.** 위 테스트는 여유가 없어서 `DENY`인
+    경우다 — 판정 집행을 통째로 지워도 **예약이 대신 막아** 초록이 된다(실제로 그랬다:
+    M-18이 REQ-405를 넣자마자 초록으로 돌아섰다). 그러면 G1은 하중을 안 받는다.
+
+    그래서 **여유가 남은 채로 막히는** 판정을 태운다 — 비가역 + 검증 불가 = `MANUAL`.
+    """
+    r, executor, _, _, _ = _build(
+        series=[_m("1.0")], contract=_contract(reversible=False), readable=False, headroom="0.50"
+    )
+    entry = _run(r, projected="0.01")
+    assert entry.decision.verdict is Gate.MANUAL  # type: ignore[attr-defined]
+    assert entry.status is Status.MANUAL_REQUIRED  # type: ignore[attr-defined]
+    assert executor.call_count == 0
+    assert r.budgets.headroom("warranty") == Decimal("0.50"), "막힌 조치가 예약을 잡았다"
 
 
 def test_req_104_no_contract_is_manual_and_never_executes() -> None:
@@ -351,12 +372,30 @@ def test_req_404_approval_reevaluates_the_gate_and_a_drained_budget_denies() -> 
     낡은 판정을 그대로 집행하면 승인이 게이트를 **우회하는 통로**가 된다.
     """
     r, executor, _, entry_id = _awaiting()
-    r.budgets.commit("warranty", Decimal("0.50"))  # 대기 중에 다른 조치가 다 썼다
+    r.budgets.reserve("warranty", Decimal("0.50"))  # 대기 중에 다른 조치가 다 예약해 갔다
     entry = r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
     assert entry.decision.verdict is Gate.APPROVE, "원래 판정이 덮였다"  # type: ignore[union-attr]
     assert entry.approval.reevaluated.verdict is Gate.DENY  # type: ignore[union-attr]
     assert entry.status is Status.DENIED
     assert executor.call_count == 0
+
+
+def test_req_404_approval_reevaluates_the_gate_and_an_unreadable_signal_is_manual() -> None:
+    """Verifies: REQ-404, REQ-402
+
+    ★ **승인은 검증 가능성 면제도 아니다.** 대기하는 동안 모니터링이 죽으면 회복을
+    확인할 방법이 사라진다 — 비가역인데 확인도 못 하면 `MANUAL`이다.
+
+    ⚠️ 이 케이스가 없으면 재판정 가드가 **예산 하나로만** 물린다. 예산이 마른 경우는
+    예약(REQ-405)이 대신 막아 주므로, 재판정을 지워도 초록이 된다 — 실제로 그랬다.
+    """
+    r, executor, _, entry_id = _awaiting()
+    r = replace(r, signals=ScriptedSignal([_m("1.0"), _m("0.1")], readable=False))
+    entry = r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
+    assert entry.approval.reevaluated.verdict is Gate.MANUAL  # type: ignore[union-attr]
+    assert entry.status is Status.MANUAL_REQUIRED
+    assert executor.call_count == 0
+    assert r.budgets.headroom("warranty") == Decimal("0.50"), "막힌 승인이 예약을 잡았다"
 
 
 def test_req_404_approval_reevaluates_the_gate_and_a_retired_contract_is_manual() -> None:
@@ -412,6 +451,110 @@ def test_req_404_a_denied_entry_cannot_be_approved_after_the_fact() -> None:
             approver="oncall",
         )
     assert executor.call_count == 0
+
+
+# ── ★ 예산 예약 · 정산 (REQ-405) ──────────────────────────────────────
+
+
+class _ExplodingSignal(ScriptedSignal):
+    """재측정 중에 모니터링이 죽는다 — 예약이 예외 경로에서도 풀리는지 묻는 장치."""
+
+    def read(self, spec: SignalSpec) -> Measurement:
+        raise RuntimeError("monitoring is down")
+
+
+def test_req_405_a_reservation_stops_a_second_action_spending_the_same_headroom() -> None:
+    """Verifies: REQ-405, REQ-403
+
+    ★ 이 항목의 전부. 게이트는 여유를 **읽고** 돈은 실행 **뒤에** 나간다 — 그 창에서
+    들어온 두 번째 조치는 **같은 여유를 다시 본다.** 실행 전에 예약하지 않으면 둘 다
+    통과하고 합계(0.60)가 한도(0.50)를 넘는다. 넘은 돈은 되돌릴 수 없다.
+
+    ⚠️ 스레드가 없으니(REQ-802) 그 창은 **재진입으로만** 값이 된다.
+    """
+    r, _, _, _, _ = _build(series=[_m("1.0"), _m("0.1")], headroom="0.50")
+    executor = ReentrantExecutor()
+    r = replace(r, executor=executor)
+    inner: list[object] = []
+    executor.during = lambda: inner.append(_run(r, projected="0.30"))
+
+    outer = _run(r, projected="0.30")
+
+    assert executor.call_count == 1, "안쪽 조치가 실행됐다 — 예산이 초과됐다"
+    assert inner[0].decision.verdict is Gate.DENY  # type: ignore[attr-defined]
+    assert inner[0].status is Status.DENIED  # type: ignore[attr-defined]
+    assert outer.status is Status.EXECUTED  # type: ignore[attr-defined]
+    assert r.budgets.headroom("warranty") == Decimal("0.20")  # 0.30 하나만 나갔다
+
+
+def test_req_405_a_successful_action_settles_the_reservation_and_locks_nothing() -> None:
+    """Verifies: REQ-405
+
+    정산이 안 돌면 예산이 **조용히 잠긴다** — 잠긴 예산은 "예산 없음"과 구분이 안 된다.
+    """
+    r, _, _, _, _ = _build(series=[_m("1.0"), _m("0.1")], headroom="0.50")
+    _run(r, projected="0.10")
+    assert r.budgets.settled == [Decimal("0.10")]  # type: ignore[attr-defined]
+    assert r.budgets.headroom("warranty") == Decimal("0.40")
+    assert r.budgets.unsettled() == 0
+
+
+def test_req_405_a_failed_action_settles_to_zero_and_gives_the_headroom_back() -> None:
+    """Verifies: REQ-405, REQ-507
+
+    ⚠️ **API가 실패했으면 쓴 게 없다.** 예약분을 그대로 지출로 확정하면 실패가
+    반복될수록 예산이 마르고, 마른 이유가 원장 어디에도 없다.
+    """
+    r, _, _, _, _ = _build(series=[_m("1.0"), _m("0.1")], headroom="0.50")
+    r = replace(r, executor=RecordingExecutor(succeeds=False))
+    entry = _run(r, projected="0.10")
+    assert entry.status is Status.FAILED  # type: ignore[attr-defined]
+    assert r.budgets.settled == [Decimal(0)]  # type: ignore[attr-defined]
+    assert r.budgets.headroom("warranty") == Decimal("0.50")
+    assert r.budgets.unsettled() == 0
+
+
+def test_req_405_a_blocking_verdict_reserves_nothing() -> None:
+    """Verifies: REQ-405, REQ-403
+
+    ⚠️ 막힌 조치가 예약을 잡고 놓지 않으면 **거부가 예산을 갉아먹는다** —
+    실행기는 안 불렸는데 여유는 줄어 있고, 그 줄어듦은 원장에 안 남는다.
+    """
+    for kwargs in ({"headroom": "0.10"}, {"readable": False}, {"contract": None}):
+        r, executor, _, _, _ = _build(series=[_m("1.0")], **kwargs)  # type: ignore[arg-type]
+        _run(r, projected="5.00" if kwargs.get("headroom") else "0.01")
+        assert executor.call_count == 0
+        assert r.budgets.unsettled() == 0
+        assert r.budgets.headroom("warranty") == Decimal(kwargs.get("headroom", "0.50"))  # type: ignore[arg-type]
+
+
+def test_req_405_the_reservation_is_released_even_when_the_loop_raises() -> None:
+    """Verifies: REQ-405
+
+    ★ design 04§3이 이름 붙인 실패다: **`settle`이 안 돌면 예산이 조용히 잠긴다.**
+    예외가 나면 원장 항목은 미완인 채로 남지만, 예약까지 남으면 **그 에이전트는
+    영영 여유가 부족한 것처럼 보인다.**
+    """
+    r, _, _, _, _ = _build(series=[_m("1.0")], headroom="0.50")
+    r = replace(r, signals=_ExplodingSignal([_m("1.0")]))
+    with pytest.raises(RuntimeError):
+        _run(r, projected="0.10")
+    assert r.budgets.unsettled() == 0, "예약이 잠긴 채 남았다"
+    assert r.budgets.headroom("warranty") == Decimal("0.50")
+
+
+def test_req_405_the_approved_path_reserves_through_the_same_seam() -> None:
+    """Verifies: REQ-405, REQ-404
+
+    ⚠️ 승인 경로가 예약을 건너뛰면 **승인이 예산 우회로가 된다** — REQ-404가 막으려던
+    바로 그것이 예약 축에서 되살아난다.
+    """
+    r, executor, _, entry_id = _awaiting()
+    entry = r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
+    assert entry.status is Status.EXECUTED
+    assert executor.call_count == 1
+    assert r.budgets.settled == [Decimal("0.01")]  # type: ignore[attr-defined]
+    assert r.budgets.unsettled() == 0
 
 
 def test_req_206_verification_delay_is_a_named_constant_used_once() -> None:
