@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-56|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-59|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -245,6 +245,22 @@ apply() {
     M-56) # REQ-103 — 가역성을 **리소스 타입만 보고** 정한다 (돌아갈 자리가 없어도 가역)
       backup src/warranty/usecases/provision.py
       perl -0pi -e 's/Reversibility\.IRREVERSIBLE if rollback_plan is None else Reversibility\.REVERSIBLE/Reversibility.REVERSIBLE/' src/warranty/usecases/provision.py ;;
+    M-57) # REQ-201 — 기준선을 **조치 뒤에** 잰다 (T9-1: 값은 하나도 안 바뀐다)
+           # ⚠️ 각본 신호는 순서대로 같은 값을 돌려준다 — 기준선/재측정의 **값도 판정도 그대로**다.
+           #    바뀌는 것은 그 값이 무엇의 기준선인가뿐이고, 그 어긋남은 값으로 안 보인다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            baseline = self\.signals\.read\(contract\.health_signal\)\n//m' src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            actual = projected_usd$/            actual = projected_usd\n            baseline = self.signals.read(contract.health_signal)/m' src/warranty/usecases/remediate.py ;;
+    M-58) # REQ-202 — 재측정이 **자기 질의를 새로 만든다** (같은 값, 다른 스펙 객체)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            after = self\.signals\.read\(contract\.health_signal\)$/            spec = contract.health_signal\n            after = self.signals.read(\n                SignalSpec(\n                    spec.metric_type, spec.resource_filter, spec.aggregation, spec.window_s\n                )\n            )/m' src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^    RollbackPlan,$/    RollbackPlan,\n    SignalSpec,/m' src/warranty/usecases/remediate.py ;;
+    M-59) # REQ-203 — 판정 기준을 **조치가 들고 있다** (계약의 기준과 값이 같아 값으로는 안 보인다)
+           # ⚠️ M-54 계열 — 계약을 바꿔도 이 자리는 안 바뀐다. 그때 모든 조치가 자기 기준으로 성공한다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            verdict = classify\(baseline, after, contract\.recovery_criterion\)$/            verdict = classify(baseline, after, _ACTION_CRITERION)/m' src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^from warranty\.tunables import VERIFY_DELAY_S$/from warranty.tunables import VERIFY_DELAY_S\n\n_ACTION_CRITERION = Criterion(Direction.DECREASE, Decimal("0.5"), CriterionMode.RELATIVE, Decimal("0.1"))/m' src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^from warranty\.domain\.contract import \($/from warranty.domain.contract import (\n    Criterion,\n    CriterionMode,\n    Direction,/m' src/warranty/usecases/remediate.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -277,5 +293,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
