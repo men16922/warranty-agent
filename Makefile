@@ -9,7 +9,7 @@ PYTEST := .venv/bin/pytest
 RUFF := .venv/bin/ruff
 MYPY := .venv/bin/mypy
 
-.PHONY: check test lint types trace venv live-check demo clean
+.PHONY: check test lint types trace venv live-check demo mutate clean
 
 ## 게이트 — 오프라인 · 결정론적 (REQ-701, REQ-702)
 check: lint types test trace
@@ -35,6 +35,16 @@ venv:
 ## ⛔ 게이트 아님 — 실물 클라우드. 과금한다.
 live-check:
 	$(PYTEST) -m live
+
+## ⛔ 게이트 아님 — 변이 하네스. 오프라인이지만 **스위트를 변이당 세 번** 돌린다(느리다).
+## ⚠️ 게이트에 넣지 않는 이유는 시간이 아니라 종류다 — 이건 "코드가 맞는가"가 아니라
+##    "가드가 하중을 받는가"를 묻는다. 그 답은 기록(docs/evidence/mutations.md)에 남고,
+##    그 기록이 **아직 참인지**를 게이트에서 묻는 것이 tests/test_mutation_freshness.py다.
+## 사용: make mutate            (전체 스윕)
+##       make mutate M=M-47     (한 건)
+M ?= all
+mutate:
+	bash scripts/mutate.sh $(M)
 
 demo:
 	PYTHONPATH=src $(PY) -m warranty.demo
