@@ -25,4 +25,5 @@ service-account*.json
 application_default_credentials.json
 scripts/overnight/STOP
 scripts/overnight/DONE
+scripts/overnight/CLAIM
 docs/test/history/*-overnight-review-checklist.md
