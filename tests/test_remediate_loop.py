@@ -230,6 +230,63 @@ def test_req_104_no_contract_is_manual_and_never_executes() -> None:
     assert executor.call_count == 0
 
 
+def test_req_104_a_missing_contract_is_recorded_as_not_verifiable() -> None:
+    """Verifies: REQ-104, REQ-402
+
+    ⚠️ **상태만 물으면 이 자리는 비어 있다.** 계약 *없음*을 검증 가능으로 쳐도
+    `status`는 아래 전용 분기가 따로 덮어 `manual_required` 그대로고, 실행기도 안 불린다 —
+    갈라지는 것은 **판정과 그 사유**뿐이다(M-63). 그리고 그걸 잡던 자리는 데모 서사
+    하나였다: 시나리오가 바뀌면 그 하중은 **조용히 사라진다.**
+
+    ⛔ 계약이 없다는 것은 **무엇을 재야 회복인지 모른다**는 뜻이고, 모르면 검증이 불가능하다.
+    원장이 *"검증 가능했다"*고 적으면 그 항목은 나중에 자동 대상으로 읽힌다.
+    """
+    r, executor, _, _, _ = _build(series=[_m("1.0")], contract=None)
+    entry = _run(r)
+    decision = _decision(entry)
+    assert decision.verifiable is False, "계약이 없는데 검증 가능하다고 원장에 적혔다"
+    assert decision.verdict is Gate.MANUAL
+    assert "not verifiable" in decision.rule, f"막은 사유가 검증 가능성이 아니다: {decision.rule}"
+    assert executor.call_count == 0
+
+
+def test_req_104_no_contract_stays_manual_when_the_budget_is_the_binding_reason() -> None:
+    """Verifies: REQ-104
+
+    ⚠️ 여유가 남아 있으면 게이트도 `MANUAL`을 낸다 — 그래서 **계약 없음 전용 분기를 통째로
+    지워도 값이 똑같다**(M-64는 그렇게 150건 전부 초록으로 살아남았다). 두 경로가 갈라지는
+    경우는 하나뿐이다: **예산이 먼저 막을 때.**
+
+    ⛔ 그때 원장이 `denied`라고만 적으면 *"계약이 없었다"*는 사실은 어디에도 안 남는다 —
+    예산을 채우면 자동으로 도는 조치처럼 읽히고, 실제로는 잴 신호조차 없는 리소스다.
+    """
+    r, executor, _, _, _ = _build(series=[_m("1.0")], contract=None, headroom="0.10")
+    entry = _run(r, projected="5.00")
+    assert entry.status is Status.MANUAL_REQUIRED, "예산 판정이 계약 없음을 덮어썼다"
+    assert entry.contract_id is None
+    # 예산이 막았다는 사실 자체는 판정에 남는다 — 상태가 그걸 지우는 게 아니다.
+    assert _decision(entry).verdict is Gate.DENY
+    assert executor.call_count == 0
+
+
+def test_req_105_a_retired_contract_is_not_a_contract_on_the_action_path() -> None:
+    """Verifies: REQ-105
+
+    ⚠️ 지금까지 `retired`를 태우던 자리는 **승인 경로 하나**였다 — M-65·M-66을 죽인 것도
+    그 하나다. 조치 경로는 Day-2의 정상 입구인데, 거기서 죽은 계약을 물어본 적이 없다.
+
+    ⛔ 죽은 계약이 조회에 걸리면 자동 조치가 **존재하지 않는 것을 고치려 든다.**
+    그 실패는 조용하다: 조치는 '성공'하고 신호는 안 움직인다.
+    ⚠️ 값 하나로 공허해지지 않게 **회복하는 신호**를 태운다 — 계약이 살아 있었다면
+    이 입력은 `AUTO`로 실행되고 `recovered`로 닫혔을 것이다.
+    """
+    r, executor, _, _, _ = _build(series=[_m("1.0"), _m("0.1")], contract=_contract().retired())
+    entry = _run(r)
+    assert entry.status is Status.MANUAL_REQUIRED
+    assert entry.contract_id is None, "종료된 계약이 살아 있는 계약으로 원장에 실렸다"
+    assert executor.call_count == 0
+
+
 def test_req_402_unreadable_signal_blocks_automation() -> None:
     """Verifies: REQ-402, REQ-403
 

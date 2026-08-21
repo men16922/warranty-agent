@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-62|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-66|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -276,6 +276,23 @@ apply() {
            # ⚠️ 롤백이 사라지는 구간이 하필 판단이 애매한 구간과 겹친다. 원장은 똑같아 보인다.
       backup src/warranty/usecases/remediate.py
       perl -0pi -e 's/^            if verdict is Verdict\.RECOVERED:$/            if verdict is Verdict.RECOVERED or decided_by is DecidedBy.MODEL:/m' src/warranty/usecases/remediate.py ;;
+    M-63) # REQ-104 — 계약이 **없는 것**을 검증 가능으로 친다 (없음은 못 읽음보다 약한 결격이 된다)
+           # ⚠️ 원장의 `status`는 그대로 `manual_required`다 — 아래 한 줄이 따로 덮으니까.
+           #    바뀌는 것은 **판정과 그 사유**뿐이고, 상태만 보는 자리에서는 안 보인다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/contract is not None and self\.signals\.readable\(contract\.health_signal\)/contract is None or self.signals.readable(contract.health_signal)/g' src/warranty/usecases/remediate.py ;;
+    M-64) # REQ-104 — 계약 없음을 **게이트 결과에 맡긴다** (전용 분기를 지운다)
+           # ⚠️ 여유가 있으면 게이트도 `MANUAL`을 내므로 **값이 똑같다.** 갈라지는 것은
+           #    예산이 마른 경우 하나뿐이고, 그때 원장은 *"계약이 없었다"*를 말하지 않는다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^        status = Status\.MANUAL_REQUIRED if contract is None else _status_for\(decision\.verdict\)$/        status = _status_for(decision.verdict)/m' src/warranty/usecases/remediate.py ;;
+    M-65) # REQ-105 — 저장소가 **`retired` 계약도 돌려준다** (수명을 거른다는 약속을 지운다)
+           # ⚠️ 계약 객체의 값은 그대로다. 사라지는 것은 *"죽은 계약은 조회에 안 걸린다"*뿐이다.
+      backup src/warranty/adapters/fakes.py
+      perl -0pi -e 's/^        return found if found is not None and found\.is_active else None$/        return found/m' src/warranty/adapters/fakes.py ;;
+    M-66) # REQ-105 — 종료해도 **상태가 `active`로 남는다** (종료가 이름만 있는 동작이 된다)
+      backup src/warranty/domain/contract.py
+      perl -0pi -e 's/^        return replace\(self, state=ContractState\.RETIRED\)$/        return replace(self, state=ContractState.ACTIVE)/m' src/warranty/domain/contract.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -308,5 +325,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
