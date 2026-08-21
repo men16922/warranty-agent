@@ -14,7 +14,7 @@ from typing import Protocol
 
 from warranty.domain.contract import OperationalContract, ResourceRef, SignalSpec
 from warranty.domain.cost import CostFact
-from warranty.domain.entry import LedgerEntry, Rollback, Status
+from warranty.domain.entry import Approval, LedgerEntry, Rollback, Status
 from warranty.domain.verification import Measurement, Verdict, Verification
 
 
@@ -75,6 +75,9 @@ class LedgerWriter(Protocol):
     """
 
     def create(self, entry: LedgerEntry) -> None: ...
+    def approve(self, entry_id: str, approval: Approval) -> LedgerEntry:
+        """승인을 기록한다. **승인만 만진다** (REQ-404)."""
+
     def complete(
         self,
         entry_id: str,
@@ -84,3 +87,14 @@ class LedgerWriter(Protocol):
         rollback: Rollback | None = None,
     ) -> LedgerEntry: ...
     def reconcile(self, entry_id: str, measured: CostFact) -> LedgerEntry: ...
+
+
+class LedgerReader(Protocol):
+    def get(self, entry_id: str) -> LedgerEntry | None:
+        """⚠️ 승인 경로는 **기록된 항목**에서 시작한다 — 호출자가 들고 온 사본이 아니라.
+        사본을 믿으면 대기 중에 바뀐 상태(이미 거부됨·이미 실행됨)를 못 본다.
+        """
+
+
+class Ledger(LedgerWriter, LedgerReader, Protocol):
+    """읽고 쓰는 원장. 승인은 **기록을 읽어서** 시작하므로 둘 다 필요하다 (REQ-404)."""

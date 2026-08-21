@@ -92,9 +92,12 @@
 - [x] **T4-8** 롤백 불가 → 에스컬레이션 · `Implements: REQ-305` · `Design: 03§5`
 - [x] **T4-9** 게이트가 실행을 **막는다** · `Implements: REQ-403` · `Design: 04§2` · **G1**
 - [x] **T4-10** 모든 항목에 `decision` · `Implements: REQ-401` · **G4**
-- [ ] [auto] **T4-11a** 승인 집행 — `awaiting_approval` 동안 **실행기를 부르지 않는다**,
+- [x] [auto] **T4-11a** 승인 집행 — `awaiting_approval` 동안 **실행기를 부르지 않는다**,
       승인 시 게이트를 **재평가**한다 · `Implements: REQ-404` · `Design: 04§3`
-      `Done:` 미승인 상태에서 실행기 호출 0회 + 승인 후 재판정이 테스트로 물리고, 변이로 red 확인.
+      `Remediator.approve` + 원장의 `Approval`(원래 `decision`을 안 덮는다). AUTO와 **같은
+      경로**를 탄다(`_execute_and_verify`). **M-26·M-27 red 확인** · `make check` 75 passed.
+      ⚠️ M-27(승인이 게이트를 면제)은 **1건만** 죽였다 — 승인 뒤 예산이 마른 케이스를 값으로
+      안 태웠으면 초록이었을 회귀다(M-14 계열).
 - [ ] [auto] **T4-11b** 예산 예약/정산 — AUTO·승인 시 예상 비용을 **예약**하고 실행 후 실제 비용으로
       정산한다 · `Implements: REQ-405` · `Design: 04§4`
       `Done:` 예약이 동시 초과를 막는 것이 테스트로 물린다(잔여 예산 < 예상 비용 → 실행 안 됨).
@@ -151,5 +154,5 @@
 | G8 ★ `improved` 유도 | T1-5 | **[x]** M-13 |
 | G9 ★ 검증불가는 AUTO 아님 | T1-6 | **[x]** M-14 |
 
-**게이트**: `make check` → **68 passed** (2026-08-21 로컬 macOS·py3.13)
+**게이트**: `make check` → **75 passed** (2026-08-21 로컬 macOS·py3.13)
 ⚠️ 숫자는 **여기 한 곳에만** 적는다.

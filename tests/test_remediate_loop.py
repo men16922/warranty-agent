@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
+
 from warranty.adapters.fakes import (
     FakeBudget,
     FakeJudge,
@@ -29,7 +31,7 @@ from warranty.domain.contract import (
     SignalSpec,
 )
 from warranty.domain.decision import Gate
-from warranty.domain.entry import InMemoryLedger, Status
+from warranty.domain.entry import InMemoryLedger, LedgerError, Status
 from warranty.domain.verification import DecidedBy, Measurement, Verdict
 from warranty.usecases.remediate import Remediator
 
@@ -43,9 +45,9 @@ def _m(value: str | None, points: int = 30) -> Measurement:
     return Measurement(Decimal(value) if value is not None else None, points)
 
 
-def _contract(reversible: bool = True) -> OperationalContract:
+def _contract(reversible: bool = True, contract_id: str = "c1") -> OperationalContract:
     return OperationalContract(
-        contract_id="c1",
+        contract_id=contract_id,
         resource=RESOURCE,
         health_signal=SignalSpec("run.googleapis.com/request_latencies", "demo-target", "P95", 120),
         recovery_criterion=CRIT,
@@ -290,6 +292,126 @@ def test_req_305_irreversible_failure_escalates_instead_of_retrying() -> None:
     # 비가역 + 검증 가능 → APPROVE 이므로 자동 실행되지 않는다
     assert entry.decision.verdict is Gate.APPROVE  # type: ignore[attr-defined]
     assert run.shifts == []
+
+
+# ── ★ 승인 집행 (REQ-404) ──────────────────────────────────────────────
+
+
+def _awaiting(
+    series: list[Measurement] | None = None,
+) -> tuple[Remediator, RecordingExecutor, InMemoryLedger, str]:
+    """게이트가 `APPROVE`로 멈춘 항목 하나를 만든다 (비가역 + 검증 가능).
+
+    ⚠️ 여기서 **이미 실행기 호출이 0회**여야 한다. 아니면 뒤의 승인 테스트들이
+    "승인이 실행을 열었다"가 아니라 "이미 실행돼 있었다"를 보고 있는 것이다.
+    """
+    r, executor, _, ledger, _ = _build(
+        series=series if series is not None else [_m("1.0"), _m("0.1")],
+        contract=_contract(reversible=False),
+    )
+    entry = _run(r)
+    assert entry.status is Status.AWAITING_APPROVAL  # type: ignore[attr-defined]
+    assert executor.call_count == 0
+    return r, executor, ledger, entry.entry_id  # type: ignore[attr-defined]
+
+
+def test_req_404_an_awaiting_entry_does_not_execute_until_it_is_approved() -> None:
+    """Verifies: REQ-404
+
+    ★ 절반은 **아무 일도 안 일어나는 것**이다. `awaiting_approval`은 경보가 아니라
+    집행이다 — 판정만 적고 실행을 막지 않아도 **원장은 똑같아 보인다**(G1과 같은 계열).
+    """
+    _, executor, ledger, entry_id = _awaiting()
+    pending = ledger.get(entry_id)
+    assert pending is not None
+    assert pending.status is Status.AWAITING_APPROVAL
+    assert pending.approval is None, "승인 없이 승인 기록이 생겼다"
+    assert executor.call_count == 0
+
+
+def test_req_404_approval_is_recorded_and_then_runs_the_same_verified_loop() -> None:
+    """Verifies: REQ-404, REQ-202
+
+    ⚠️ 승인된 조치가 **AUTO와 다른 경로를 타면** 그 경로만 검증·롤백을 빠뜨리게 된다.
+    그래서 승인 뒤에도 기준선·재측정·판정이 그대로 도는지 함께 묻는다.
+    """
+    r, executor, _, entry_id = _awaiting()
+    entry = r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
+    assert entry.approval is not None
+    assert entry.approval.approver == "oncall"
+    assert executor.call_count == 1
+    assert entry.status is Status.EXECUTED
+    assert entry.improved is True  # 승인 경로도 검증을 거쳤다
+
+
+def test_req_404_approval_reevaluates_the_gate_and_a_drained_budget_denies() -> None:
+    """Verifies: REQ-404, REQ-403
+
+    ★ **승인은 예산 면제가 아니다.** 대기하는 동안 예산이 마르면 원래 판정은 낡았다 —
+    낡은 판정을 그대로 집행하면 승인이 게이트를 **우회하는 통로**가 된다.
+    """
+    r, executor, _, entry_id = _awaiting()
+    r.budgets.commit("warranty", Decimal("0.50"))  # 대기 중에 다른 조치가 다 썼다
+    entry = r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
+    assert entry.decision.verdict is Gate.APPROVE, "원래 판정이 덮였다"  # type: ignore[union-attr]
+    assert entry.approval.reevaluated.verdict is Gate.DENY  # type: ignore[union-attr]
+    assert entry.status is Status.DENIED
+    assert executor.call_count == 0
+
+
+def test_req_404_approval_reevaluates_the_gate_and_a_retired_contract_is_manual() -> None:
+    """Verifies: REQ-404, REQ-105
+
+    ★ **승인은 계약 면제도 아니다.** 계약이 `retired`면 무엇을 재야 회복인지 사라졌고,
+    그러면 자동 대상이 아니다 — 존재하지 않는 것을 고치려 드는 실패는 조용하다.
+    """
+    r, executor, _, entry_id = _awaiting()
+    r.contracts.put(_contract(reversible=False).retired())  # type: ignore[attr-defined]
+    entry = r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
+    assert entry.status is Status.MANUAL_REQUIRED
+    assert executor.call_count == 0
+
+
+def test_req_404_approval_does_not_carry_over_to_a_different_contract() -> None:
+    """Verifies: REQ-404
+
+    리소스가 재프로비저닝되면 계약 id가 바뀐다. 승인은 **그때 본 계약**에 대한 동의였다 —
+    ⚠️ 계약이 살아 있다는 것만 보면 이 경우가 통과한다. id를 대조해야 잡힌다.
+    """
+    r, executor, _, entry_id = _awaiting()
+    r.contracts.put(_contract(reversible=False, contract_id="c2"))  # type: ignore[attr-defined]
+    entry = r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
+    assert entry.status is Status.MANUAL_REQUIRED
+    assert executor.call_count == 0
+
+
+def test_req_404_an_entry_can_only_be_approved_once() -> None:
+    """Verifies: REQ-404
+
+    ⚠️ 두 번째 승인이 통과하면 **조치가 두 번 실행된다** — 그리고 원장 행은 하나다(REQ-501).
+    """
+    r, executor, _, entry_id = _awaiting()
+    r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
+    with pytest.raises(LedgerError):
+        r.approve(entry_id=entry_id, resource=RESOURCE, approver="oncall")
+    assert executor.call_count == 1
+
+
+def test_req_404_a_denied_entry_cannot_be_approved_after_the_fact() -> None:
+    """Verifies: REQ-404, REQ-403
+
+    ⚠️ 사후 승인이 붙으면 원장은 *"승인받고 실행했다"*로 읽힌다 — 순서가 반대였는데도.
+    """
+    r, executor, _, _, _ = _build(series=[_m("1.0")], headroom="0.10")
+    entry = _run(r, projected="5.00")
+    assert entry.status is Status.DENIED  # type: ignore[attr-defined]
+    with pytest.raises(LedgerError):
+        r.approve(
+            entry_id=entry.entry_id,  # type: ignore[attr-defined]
+            resource=RESOURCE,
+            approver="oncall",
+        )
+    assert executor.call_count == 0
 
 
 def test_req_206_verification_delay_is_a_named_constant_used_once() -> None:

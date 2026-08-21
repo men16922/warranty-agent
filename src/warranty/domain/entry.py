@@ -38,6 +38,21 @@ class LedgerError(Exception):
 
 
 @dataclass(frozen=True, slots=True)
+class Approval:
+    """기록된 승인 — 누가, 언제, 그리고 **그때 다시 판정한 결과** (REQ-404).
+
+    Spec: specs/warranty/design/04-decision-gate.md (REQ-404)
+
+    ⚠️ `reevaluated`가 원래 `decision`을 **덮지 않는다.** 덮으면 *"무엇에 동의했는가"*가
+       사라지고, 남는 건 승인 후의 판정뿐이라 승인이 정당했는지 물을 수 없다.
+    """
+
+    approver: str
+    approved_at: datetime
+    reevaluated: Decision
+
+
+@dataclass(frozen=True, slots=True)
 class Rollback:
     """되돌림의 기록. **주장이 아니라 측정이다** (REQ-303, REQ-304)."""
 
@@ -58,6 +73,7 @@ class LedgerEntry:
     assumed: CostFact
     decision: Decision | None = None
     contract_id: str | None = None
+    approval: Approval | None = None
     verification: Verification | None = None
     rollback: Rollback | None = None
     measured: CostFact | None = None
@@ -128,6 +144,24 @@ class InMemoryLedger:
             delta=delta_of(current.assumed, measured),
             reconcile_state=ReconcileState.RECONCILED,
         )
+        self._rows[entry_id] = updated
+        return updated
+
+    def approve(self, entry_id: str, approval: Approval) -> LedgerEntry:
+        """승인을 **기록한다.** 만질 수 있는 것은 `approval`뿐이다 (REQ-404).
+
+        ⚠️ 승인은 `awaiting_approval`인 항목에만, **한 번만** 붙는다. 상태를 안 보면
+        이미 거부된(`denied`) 항목이나 이미 실행된 항목에 승인이 사후에 붙고,
+        원장은 *"승인받고 실행했다"*로 읽힌다 — 순서가 반대였는데도.
+        """
+        current = self._rows.get(entry_id)
+        if current is None:
+            raise LedgerError(f"없는 항목이다: {entry_id}")
+        if current.status is not Status.AWAITING_APPROVAL:
+            raise LedgerError(f"승인 대기 중이 아닌 항목이다: {entry_id} ({current.status})")
+        if current.approval is not None:
+            raise LedgerError(f"이미 승인된 항목이다: {entry_id}")
+        updated = replace(current, approval=approval)
         self._rows[entry_id] = updated
         return updated
 

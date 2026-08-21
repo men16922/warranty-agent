@@ -3,7 +3,7 @@
 Spec: specs/warranty/design/02-verification.md
       specs/warranty/design/03-atomic-rollback.md
       specs/warranty/design/04-decision-gate.md
-      (REQ-104, REQ-201~205, REQ-301~305, REQ-401~403)
+      (REQ-104, REQ-201~205, REQ-301~305, REQ-401~404)
 
     ⛔ 검증할 수 없는 조치는 자동으로 실행하지 않는다.
 """
@@ -23,7 +23,7 @@ from warranty.domain.contract import (
 )
 from warranty.domain.cost import Basis, CostFact
 from warranty.domain.decision import BLOCKING, Gate, decide
-from warranty.domain.entry import LedgerEntry, Rollback, Status
+from warranty.domain.entry import Approval, LedgerEntry, LedgerError, Rollback, Status
 from warranty.domain.verification import (
     DecidedBy,
     Measurement,
@@ -37,7 +37,7 @@ from warranty.ports import (
     Clock,
     ContractStore,
     IdGen,
-    LedgerWriter,
+    Ledger,
     ModelJudge,
     RunControl,
     SignalSource,
@@ -55,7 +55,7 @@ class Remediator:
     executor: ActionExecutor
     run: RunControl
     budgets: BudgetStore
-    ledger: LedgerWriter
+    ledger: Ledger
     clock: Clock
     ids: IdGen
     judge: ModelJudge
@@ -106,9 +106,93 @@ class Remediator:
         self.ledger.create(entry)
 
         # ── I-1 — 막는 판정이면 **실행기를 부르지 않는다** (REQ-403).
+        # ⚠️ `APPROVE`도 여기서 멈춘다 — 기록된 승인 없이는 진행하지 않는다 (REQ-404).
         if contract is None or decision.verdict in BLOCKING or decision.verdict is Gate.APPROVE:
             return entry
 
+        return self._execute_and_verify(
+            entry_id=entry_id,
+            agent_id=agent_id,
+            action_id=action_id,
+            resource=resource,
+            contract=contract,
+            projected_usd=projected_usd,
+        )
+
+    def approve(self, *, entry_id: str, resource: ResourceRef, approver: str) -> LedgerEntry:
+        """기록된 승인. ★ **승인은 게이트 면제가 아니다** (REQ-404).
+
+        Spec: specs/warranty/design/04-decision-gate.md (REQ-404, REQ-105)
+
+        승인은 *"비가역성 / 검증 불가에 동의한다"*는 뜻이지 **예산 면제나 계약 면제가
+        아니다.** 그래서 승인 시점에 **게이트를 다시 평가한다** — 대기하는 동안 예산이
+        마르거나 계약이 `retired`가 됐을 수 있고, 그때 원래 판정은 이미 낡았다.
+        """
+        entry = self.ledger.get(entry_id)
+        if entry is None:
+            raise LedgerError(f"없는 항목이다: {entry_id}")
+        prior = entry.decision
+        if prior is None:
+            # 판정 없는 항목은 무엇에 동의하는지가 없다 (I-4).
+            raise LedgerError(f"판정 없는 항목은 승인할 수 없다: {entry_id}")
+
+        # ── ★ 재판정. 원래 판정의 **예상 비용과 파괴성은 그대로 쓴다** — 승인 대상은
+        #    같은 조치여야 한다. 다시 읽는 것은 계약·신호·예산, 즉 **세상 쪽**이다.
+        contract = self.contracts.active_for(resource)
+        verifiable = contract is not None and self.signals.readable(contract.health_signal)
+        reversibility = (
+            contract.reversibility if contract is not None else Reversibility.IRREVERSIBLE
+        )
+        redecision = decide(
+            reversibility=reversibility,
+            verifiable=verifiable,
+            projected_usd=prior.projected_usd,
+            headroom_usd=self.budgets.headroom(entry.agent_id),
+            destructive=prior.destructive,
+        )
+
+        # 승인은 **먼저 기록된다.** 막힌 승인도 기록이다 — 누가 언제 눌렀는지가 사라지면
+        # 나중에 "아무도 승인 안 했다"와 구분이 안 된다.
+        self.ledger.approve(
+            entry_id,
+            Approval(
+                approver=approver,
+                approved_at=datetime.fromisoformat(self.clock.now_iso()),
+                reevaluated=redecision,
+            ),
+        )
+
+        # REQ-105 — 계약이 사라졌거나 **다른 계약으로 바뀌었으면** 그 승인은 이 계약에
+        # 대한 동의가 아니었다. 리소스가 재프로비저닝되면 계약 id가 바뀐다.
+        if contract is None or contract.contract_id != entry.contract_id:
+            return self.ledger.complete(entry_id, status=Status.MANUAL_REQUIRED)
+        if redecision.verdict in BLOCKING:
+            return self.ledger.complete(entry_id, status=_status_for(redecision.verdict))
+
+        return self._execute_and_verify(
+            entry_id=entry_id,
+            agent_id=entry.agent_id,
+            action_id=entry.action_id,
+            resource=resource,
+            contract=contract,
+            projected_usd=prior.projected_usd,
+        )
+
+    def _execute_and_verify(
+        self,
+        *,
+        entry_id: str,
+        agent_id: str,
+        action_id: str,
+        resource: ResourceRef,
+        contract: OperationalContract,
+        projected_usd: Decimal,
+    ) -> LedgerEntry:
+        """게이트를 통과한 뒤의 전부 — 기준선 → 실행 → 재측정 → (필요하면) 롤백.
+
+        ⚠️ `AUTO`와 **승인된 조치가 같은 경로를 탄다.** 승인 경로를 따로 배선하면
+        그 경로만 검증·롤백을 빠뜨리게 되고, 그 누락은 조용하다.
+        """
         # ── ① 기준선 (REQ-201)
         baseline = self.signals.read(contract.health_signal)
 

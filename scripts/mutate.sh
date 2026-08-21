@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-25|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-27|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -146,6 +146,12 @@ apply() {
     M-25) # G6④ 공허 통과 방지 — 스캐너가 `Spec:`를 하나도 못 읽게 한다
       backup tools/spec_trace.py
       perl -0pi -e 's/r"\^Spec:/r"^NotSpec:/' tools/spec_trace.py ;;
+    M-26) # REQ-404 — 승인 대기 항목을 **승인 없이** 실행한다 (승인이 장식이 된다)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/ or decision\.verdict is Gate\.APPROVE//' src/warranty/usecases/remediate.py ;;
+    M-27) # REQ-404 — 승인이 게이트를 **면제**하게 한다 (재판정 결과를 안 본다)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/        if redecision\.verdict in BLOCKING:/        if False:/' src/warranty/usecases/remediate.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -178,5 +184,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
