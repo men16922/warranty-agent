@@ -342,19 +342,38 @@ def test_req_506_giving_up_without_a_reason_is_refused() -> None:
 # ── REQ-501 / REQ-507 (가드 G7) ────────────────────────────────────────────
 
 
-def test_req_501_one_action_is_one_row_and_retry_does_not_overwrite() -> None:
+def test_req_501_one_action_is_exactly_one_row() -> None:
     """Verifies: REQ-501
 
-    G7 — 재시도는 **새 id**를 만들고 `retry_of`로 원래를 가리킨다.
-    같은 id로 덮으면 원장이 사건을 잃는다.
+    G7 — 같은 id로 덮으면 원장이 **사건을 잃는다.** 거절은 행을 늘리지도 않는다.
     """
     ledger = InMemoryLedger()
     ledger.create(_entry())
     with pytest.raises(LedgerError, match="이미 있는 항목"):
         ledger.create(_entry())
 
-    retry = _entry(entry_id="01k2m9x7q3f4b8n0v6c1t5r300", retry_of=ENTRY_ID)
-    ledger.create(retry)
+    assert len(ledger.all_entries()) == 1
+
+
+def test_req_501_a_retry_is_a_new_row_pointing_at_the_original() -> None:
+    """Verifies: REQ-501
+
+    ⚠️ REQ-501은 **두 문장**이다 — *"1회 = 1행"*과 *"재시도는 새 id를 만들고 `retry_of`로
+    원래를 가리킨다"*. 두 번째 문장의 하중은 여태 아무도 안 들고 있었다: 합쳐져 있던
+    테스트는 **행이 둘이 됐는가**만 물었고, 저장이 `retry_of`를 흘려도 초록이었다.
+    포인터가 끊기면 원장은 같은 사건의 두 시도를 **무관한 조치 둘로** 세고,
+    그 둘은 회복률의 분모에 각각 실린다.
+    """
+    ledger = InMemoryLedger()
+    ledger.create(_entry())
+    retry_id = "01k2m9x7q3f4b8n0v6c1t5r300"
+
+    ledger.create(_entry(entry_id=retry_id, retry_of=ENTRY_ID))
+
+    stored = ledger.get(retry_id)
+    assert stored is not None
+    assert stored.entry_id != ENTRY_ID  # 덮은 게 아니라 **새 id**다
+    assert stored.retry_of == ENTRY_ID
     assert len(ledger.all_entries()) == 2
 
 

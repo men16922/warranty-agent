@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-77|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-82|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -339,6 +339,32 @@ apply() {
     M-77) # REQ-506 — **사유 없이도 포기를 받는다** (조용한 `unreconciled`)
       backup src/warranty/domain/entry.py
       perl -0pi -e 's/^        if not reason\.strip\(\):\n            raise LedgerError\(f"unreconciled에 사유가 없다: \{entry_id\}"\)\n//m' src/warranty/domain/entry.py ;;
+    M-78) # G6⑤ — 문장 단위 검사를 **통째로 지운다** (귀속이 요구사항 단위로 되돌아간다)
+           # ⚠️ 나머지 넷(①~④)은 그대로 초록이다. 사라지는 것은 *"약속한 문장마다"*뿐이고,
+           #    그 뒤로 셋을 약속하고 하나만 겨냥한 요구사항이 다시 통과한다 (REQ-506의 모양).
+      backup tools/spec_trace.py
+      perl -0pi -e 's/^    promised = len\(req\.promises\)\n    if req\.status in \(Status\.IMPLEMENTED, Status\.VERIFIED\) and len\(row\.test_funcs\) < promised:\n(.*\n)*?        \)\n//m' tools/spec_trace.py ;;
+    M-79) # G6⑤ — 분리기가 **쉼표 붙은 대등 접속에서 안 자른다** (REQ-506이 한 문장이 된다)
+           # ⚠️ 문장 끝 분리는 살아 있어 대부분의 요구사항은 숫자가 안 바뀐다. 조용히 사라지는
+           #    것은 *"한 문장 안에 약속 셋"*을 세는 능력이고, 그게 이 규칙이 겨냥한 모양이다.
+      backup tools/spec_trace.py
+      perl -0pi -e 's/^CONJUNCTION_RE = re\.compile\(r"\(\?<=\[고며\]\),\(\?=\\s\)"\)$/CONJUNCTION_RE = re.compile(r"(?!x)x")/m' tools/spec_trace.py ;;
+    M-80) # G6⑤ — 겨냥을 **파일 단위로** 센다 (한 파일에 몰린 열 건이 1로 읽힌다)
+           # ⚠️ 파일 단위로 세면 *"문장 셋을 약속하는데 겨냥이 하나"*를 영원히 못 본다 —
+           #    테스트가 대개 요구사항별로 한 파일에 모여 있기 때문이다.
+      backup tools/spec_trace.py
+      perl -0pi -e 's/^            site = f"\{rel\}::\{node\.name\}"$/            site = rel/m' tools/spec_trace.py ;;
+    M-81) # G6⑤ — 분리기가 **늘 한 문장을 낸다** (공허 통과 방지가 사는지)
+           # ⚠️ 이러면 ⑤의 판정은 전부 `1 <= N`이라 항상 초록이다. 검사는 남아 있는데
+           #    아무것도 안 묻는 상태 — 바닥이 없으면 이게 가장 조용한 실패다.
+      backup tools/spec_trace.py
+      perl -0pi -e 's/^    for pattern in \(SENTENCE_END_RE, CONJUNCTION_RE\):$/    for pattern in ():/m' tools/spec_trace.py ;;
+    M-82) # REQ-501 — 저장이 **`retry_of`를 흘린다** (재시도가 원래를 못 가리킨다)
+           # ⚠️ 행 수는 그대로 둘이다. 끊기는 것은 포인터뿐이고, 그때 원장은 같은 사건의
+           #    두 시도를 **무관한 조치 둘로** 세어 회복률의 분모에 각각 싣는다.
+           #    ⛔ 합쳐져 있던 테스트는 이 변이에 **초록이었다** — 행 수만 물었기 때문이다.
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^        self\._rows\[entry\.entry_id\] = entry$/        self._rows[entry.entry_id] = replace(entry, retry_of=None)/m' src/warranty/domain/entry.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -371,5 +397,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
