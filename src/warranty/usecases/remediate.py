@@ -43,9 +43,9 @@ from warranty.ports import (
     SignalSource,
 )
 
-#: 재측정 타이밍. ⚠️ 상수는 **한 곳에만** 있다 (REQ-206, REQ-804).
-VERIFY_DELAY_S = 45
-VERIFY_WINDOW_S = 120
+# ⚠️ 재측정 타이밍의 값은 `warranty.tunables`에만 있다 (REQ-206, REQ-804).
+#    여기서 다시 적으면 재촬영 때 한쪽만 바뀌고, 그 어긋남은 조용하다.
+from warranty.tunables import VERIFY_DELAY_S
 
 
 @dataclass(frozen=True, slots=True)

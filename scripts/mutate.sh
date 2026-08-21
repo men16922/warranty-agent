@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-41|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-45|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -194,6 +194,18 @@ apply() {
     M-41) # REQ-803 — 데모가 **증명하지 않는 것**을 말하지 않는다 (fake 초록이 실물로 읽힌다)
       backup src/warranty/demo.py
       perl -0pi -e 's/^        caveats=CAVEATS,$/        caveats=(),/m' src/warranty/demo.py ;;
+    M-42) # REQ-804 — 대기 상수를 **두 번째 자리**에 다시 정의한다 (재촬영 때 한쪽만 바뀐다)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^from warranty\.tunables import VERIFY_DELAY_S$/from warranty.tunables import VERIFY_DELAY_S\nVERIFY_DELAY_S = 45/m' src/warranty/usecases/remediate.py ;;
+    M-43) # REQ-804 — 설계가 선언한 손잡이 하나를 코드에서 뺀다 (촬영 당일에야 없는 걸 안다)
+      backup src/warranty/tunables.py
+      perl -0pi -e 's/^WARMUP_REQUESTS = 1$/WARMUP_REQUESTS_UNUSED = 1/m' src/warranty/tunables.py ;;
+    M-44) # REQ-206 — 호출부에 대기 초를 **박는다** (tunables를 고쳐도 이 자리는 안 바뀐다)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^        self\.clock\.sleep\(VERIFY_DELAY_S\)$/        self.clock.sleep(45)/m' src/warranty/usecases/remediate.py ;;
+    M-45) # REQ-804 — 스캔 경로를 틀리게 한다 (0개를 훑고 산재 검사가 전부 초록이 된다)
+      backup tests/test_tunables.py
+      perl -0pi -e 's|^SRC = ROOT / "src" / "warranty"$|SRC = ROOT / "src" / "warrantee"|m' tests/test_tunables.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -226,5 +238,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

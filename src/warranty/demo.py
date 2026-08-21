@@ -53,13 +53,14 @@ from warranty.domain.contract import (
 from warranty.domain.entry import InMemoryLedger, LedgerEntry
 from warranty.domain.report import daily_report
 from warranty.domain.verification import Measurement
-from warranty.usecases.remediate import VERIFY_WINDOW_S, Remediator
+from warranty.tunables import DEMO_BUDGET_USD, VERIFY_WINDOW_S
+from warranty.usecases.remediate import Remediator
 
-# ── 데모 상수. ⚠️ 값이 흩어지면 재촬영 때 반드시 하나를 놓친다 (design 11§5, REQ-804).
+# ── 데모 상수. ⚠️ 대기·창·예산은 여기 없다 — `warranty.tunables` 한 곳에 있다
+#    (design 11§5, REQ-804). 아래 것들은 재촬영 때 손대는 값이 아니라 **서사의 배역**이다.
 DEMO_AGENT = "warranty"
 DEMO_REGION = "us-central1"
 DEMO_SERVICE = "demo-target"
-DEMO_BUDGET_USD = Decimal("0.50")
 DEMO_ACTION_USD = Decimal("0.02")
 #: 살아 있는 시계를 안 쓴다 — 데모가 결정론적이려면 시각도 주입돼야 한다 (REQ-802).
 DEMO_CLOCK_ISO = "2026-08-21T09:00:00+00:00"
