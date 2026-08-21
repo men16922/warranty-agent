@@ -1,0 +1,17 @@
+{
+  "$comment": "⚠️ 이 레포의 문서 토폴로지는 harness 기본값과 다르다. spec이 단일 권위이고(specs/warranty/), 사람용 개요는 docs/OVERVIEW.md 하나다. 기본 이름(AGENT_BRIEF/STATUS/NEXT_PLAN)을 새로 만들면 OVERVIEW·tasks와 같은 내용이 두 벌 생기고, 그건 이 레포가 스스로 금지한 것이다(docs/PRINCIPLES.md #10 — 권위는 한 곳, 나머지는 가리키기만). 그래서 brief와 status를 같은 파일에 매핑한다. 실제로 없던 것은 시간순 증분 기록 하나뿐이라 PROGRESS_LOG만 새로 만들었다.",
+  "project_name": "warranty",
+  "docs": {
+    "brief": "docs/OVERVIEW.md",
+    "status": "docs/OVERVIEW.md",
+    "plan": "specs/warranty/tasks.md",
+    "log": "docs/PROGRESS_LOG.md",
+    "completed": "docs/COMPLETED_SUMMARY.md",
+    "decisions": "docs/DECISIONS.md"
+  },
+  "archive_dir": "docs/archive",
+  "gate": "make check",
+  "smoke": "make test",
+  "budgets": { "brief": 240, "status": 240, "plan": 200, "log": 120 },
+  "engine": "claude"
+}

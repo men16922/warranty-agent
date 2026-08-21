@@ -3,6 +3,9 @@
 작성: 2026-08-19 · 권위: `requirements.md` · 설계: `design.md` + `design/*.md`
 
 > 모든 태스크는 REQ와 설계 절을 가리킨다. `[x]`는 **테스트가 있고 변이로 red를 확인한 것**만.
+> `[auto]`는 **상태 박스와 다른 축**이다 — 무인 루프(overnight)가 소비해도 되는 것,
+> 즉 `make check`로 **오프라인·결정론적으로** 판정 가능한 것만 붙는다.
+> ⛔ 실물 클라우드가 필요한 T0-3·T2-*·T7-*는 원리상 붙을 수 없다(태그 없음 = 무인 금지).
 
 ---
 
@@ -29,6 +32,14 @@
       크레딧이 어느 결제 계정에 붙었는지 **읽을 수 없다**. 콘솔 확인 필요.
 - [ ] **T0-4** *(선택)* BQ 결제 내보내기 + 화해/차이 · `Implements: REQ-506, REQ-509` · `Design: 05§4`
       ⚠️ 하루 지연. **크리티컬 패스 아님** — REQ-506·509는 선택이다.
+- [ ] [auto] **T0-5** ★ **spec 참조 정합성 가드** — `Spec:` 도크스트링이 가리키는 설계 경로와
+      인용 REQ가 **실재하는지** 집행한다. ⚠️ 지금 5곳이 없는 파일을 가리킨다
+      (`specs/fleet-ledger/design/06-interfaces.md` 등 — 이름 변경 때 안 따라왔다).
+      `Done:` dangling 참조 0개 + 새로 만든 dangling이 `make check`를 red로 만든다.
+- [ ] [auto] **T0-6** 스테일 문자열 정리 — `mutate.sh` 사용법이 `M-01~M-04`인데 실제는 **M-22까지**이고,
+      인라인 REQ 주석이 **구 번호**다(M-06이 REQ-204라고 적혀 있으나 기록은 REQ-505).
+      `tools/spec_trace.py` 리포트 헤더도 아직 `fleet-ledger`다.
+      `Done:` 셋 다 현행으로 맞고 `make check` 초록.
 
 ## T1 — 도메인 *(일부 완료 · 전부 오프라인)*
 
@@ -78,22 +89,33 @@
 - [x] **T4-8** 롤백 불가 → 에스컬레이션 · `Implements: REQ-305` · `Design: 03§5`
 - [x] **T4-9** 게이트가 실행을 **막는다** · `Implements: REQ-403` · `Design: 04§2` · **G1**
 - [x] **T4-10** 모든 항목에 `decision` · `Implements: REQ-401` · **G4**
-- [ ] **T4-11** 예약/정산 · 승인 시 재판정 · `Implements: REQ-404, REQ-405` · `Design: 04§3–4`
+- [ ] [auto] **T4-11a** 승인 집행 — `awaiting_approval` 동안 **실행기를 부르지 않는다**,
+      승인 시 게이트를 **재평가**한다 · `Implements: REQ-404` · `Design: 04§3`
+      `Done:` 미승인 상태에서 실행기 호출 0회 + 승인 후 재판정이 테스트로 물리고, 변이로 red 확인.
+- [ ] [auto] **T4-11b** 예산 예약/정산 — AUTO·승인 시 예상 비용을 **예약**하고 실행 후 실제 비용으로
+      정산한다 · `Implements: REQ-405` · `Design: 04§4`
+      `Done:` 예약이 동시 초과를 막는 것이 테스트로 물린다(잔여 예산 < 예상 비용 → 실행 안 됨).
 - [ ] **T4-12** 파괴적 조치 강제 승인 · `Implements: REQ-406` · `Design: 04§5`
 - [x] **T4-13** 재측정 상수 한 곳 · `Implements: REQ-206, REQ-804` · `Design: 02§4`
 
 ## T5 — 출력 (08-25~26)
 
 - [ ] **T5-1** 응답에 판정·검증 근거·트래픽 배분 · `Implements: REQ-604` · `Design: 08§3.1`
-- [ ] **T5-2** ★ **회복률 리포트** · `Implements: REQ-508` · `Design: 05§5`
-- [ ] **T5-3** 모델 호출도 원장에 · `Implements: REQ-603` · `Design: 06§5`
+- [ ] [auto] **T5-2** ★ **회복률 리포트** · `Implements: REQ-508` · `Design: 05§5`
+      `Done:` 원장에서 `executed·improved·improvement_rate·rolled_back·escalated·unverifiable·wasted_usd`를
+      **유도**한다(저장 금지 — G8과 같은 계열). 회복 실패 조치가 쓴 비용이 분리돼 나온다.
+- [ ] [auto] **T5-3** 모델 호출도 원장에 · `Implements: REQ-603` · `Design: 06§5`
+      `Done:` fake 모델 포트 호출 1회 = 원장 1행. 원장을 만드는 경로 **전부**를 가드가 훑는다(#9).
 - [ ] **T5-4** G5 (게이트 중 라이브 어댑터 0) 변이 확인 · `Implements: REQ-801` · **G5**
 
 ## T6 — 데모 (08-27~29)
 
 - [ ] **T6-1** ★ **신호를 악화시키는 리비전** 준비 (장애 주입) · `Design: 11§1` 원칙 5
-- [ ] **T6-2** `make demo` 5단계 결정론 · `Implements: REQ-803` · `Design: 11§2`
-- [ ] **T6-3** 상수 한 모듈 · `Implements: REQ-804` · `Design: 11§5`
+- [ ] [auto] **T6-2** `make demo` 5단계 결정론 · `Implements: REQ-803` · `Design: 11§2`
+      ⚠️ **T5-2 선행.** 그리고 판정은 사람이 출력을 보는 게 아니라 **게이트 안의 테스트**가 한다 —
+      `Done:` 서사(실행→검증 실패→롤백→리포트)를 **두 번 돌려 같은 결과**임을 테스트가 확인한다.
+- [ ] [auto] **T6-3** 상수 한 모듈 · `Implements: REQ-804` · `Design: 11§5`
+      `Done:` 대기·창 길이가 한 모듈의 명명 상수이고, 산재하면 가드가 red다.
 
 ## T7 — *(선택)* 테넌트 신원 — **08-27 판단**
 

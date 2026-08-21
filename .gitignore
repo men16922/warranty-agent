@@ -23,3 +23,6 @@ docs/test/history/
 *-key.json
 service-account*.json
 application_default_credentials.json
+scripts/overnight/STOP
+scripts/overnight/DONE
+docs/test/history/*-overnight-review-checklist.md
