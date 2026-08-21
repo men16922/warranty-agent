@@ -9,6 +9,7 @@ Spec: specs/warranty/design/08-interfaces.md (REQ-801, REQ-802)
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from decimal import Decimal
 from typing import Protocol
 
@@ -130,6 +131,10 @@ class LedgerWriter(Protocol):
         rollback: Rollback | None = None,
     ) -> LedgerEntry: ...
     def reconcile(self, entry_id: str, measured: CostFact) -> LedgerEntry: ...
+    def give_up_reconcile(
+        self, entry_id: str, *, at: datetime, deadline_days: int, reason: str
+    ) -> LedgerEntry:
+        """기한이 지나 못 맞춘 행을 **사유와 함께** `unreconciled`로 닫는다 (REQ-506)."""
 
 
 class LedgerReader(Protocol):

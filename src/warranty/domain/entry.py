@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 from warranty.domain.attribution import Attribution, Verifiability
@@ -95,6 +95,9 @@ class LedgerEntry:
     measured: CostFact | None = None
     delta: Delta | None = None
     reconcile_state: ReconcileState = ReconcileState.PENDING
+    #: `unreconciled`로 닫은 **사유** (REQ-506). ⚠️ 상태만 남기면 *"라벨이 없었다"*와
+    #: *"내보내기가 아직 안 왔다"*가 같은 칸이 되고, 그 둘은 고치는 방법이 다르다.
+    unreconciled_reason: str = ""
     retry_of: str | None = None
     kind: EntryKind = EntryKind.ACTION
 
@@ -177,6 +180,41 @@ class InMemoryLedger:
             measured=measured,
             delta=delta_of(current.assumed, measured),
             reconcile_state=ReconcileState.RECONCILED,
+        )
+        self._rows[entry_id] = updated
+        return updated
+
+    def give_up_reconcile(
+        self, entry_id: str, *, at: datetime, deadline_days: int, reason: str
+    ) -> LedgerEntry:
+        """기한이 지나도록 청구 행을 못 맞춘 항목을 **사유와 함께** `unreconciled`로 닫는다.
+
+        Spec: specs/warranty/design/05-accountability-ledger.md §4 (REQ-506)
+
+        ⚠️ **기한이 지났는지를 여기서 묻는다.** 호출자가 판단하게 두면 *"기한 내"*는
+        약속이 아니라 관례가 되고, 아직 도착할 수 있는 청구서를 기다리다 말고
+        `unreconciled`로 닫아 버린 행이 생긴다 — 그 행의 비용은 영원히 추정으로 남는다.
+        ⚠️ **사유가 없으면 안 받는다** (`Attribution(none)`과 같은 규칙). 사유 없는
+        `unreconciled`는 *"라벨이 안 붙어 있었다"*와 *"내보내기가 아직 안 왔다"*를
+        같은 칸에 넣고, 그 둘은 고치는 방법이 다르다.
+        ⚠️ 이미 화해된 행은 **안 뒤집는다** — 청구서가 말한 값이 기한보다 세다.
+        """
+        current = self._rows.get(entry_id)
+        if current is None:
+            raise LedgerError(f"없는 항목이다: {entry_id}")
+        if not reason.strip():
+            raise LedgerError(f"unreconciled에 사유가 없다: {entry_id}")
+        if current.reconcile_state is not ReconcileState.PENDING:
+            return current  # 멱등 — 이미 화해됐거나 이미 포기한 행이다 (REQ-506)
+        if at - current.started_at < timedelta(days=deadline_days):
+            raise LedgerError(
+                f"기한이 아직 안 지났다: {entry_id} "
+                f"({current.started_at.isoformat()} + {deadline_days}일 > {at.isoformat()})"
+            )
+        updated = replace(
+            current,
+            reconcile_state=ReconcileState.UNRECONCILED,
+            unreconciled_reason=reason,
         )
         self._rows[entry_id] = updated
         return updated

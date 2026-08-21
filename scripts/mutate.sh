@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-69|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-77|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -307,6 +307,38 @@ apply() {
     M-69) # REQ-507 — 실패한 조치를 **`executed`로 적는다** (실패가 원장에서 사라진다)
       backup src/warranty/usecases/remediate.py
       perl -0pi -e 's/status=Status\.FAILED/status=Status.EXECUTED/' src/warranty/usecases/remediate.py ;;
+    M-70) # REQ-506 — 화해가 **멱등이 아니다** (두 번째 청구 행이 첫 번째를 덮는다)
+           # ⚠️ `assumed`는 그대로라 G2는 초록이다. 바뀌는 것은 **재실행이 같은 값을 내는가**뿐.
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^        if current\.reconcile_state is ReconcileState\.RECONCILED:\n            return current.*\n//m' src/warranty/domain/entry.py ;;
+    M-71) # REQ-506 — **실측의 근거를 안 묻는다** (추정치가 실측 칸에 들어온다)
+           # ⚠️ 값은 들어오고 delta도 파생된다. 사라지는 것은 *"이 숫자를 청구서가 말했는가"*뿐이고,
+           #    그 뒤로 `assumed`와 `measured`는 같은 계산의 두 벌이 된다 (REQ-503의 구분이 죽는다).
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^        if measured\.basis is not Basis\.BILLING_EXPORT:\n            raise LedgerError\(f"measured의 근거가 청구서가 아니다: \{measured\.basis\}"\)\n//m' src/warranty/domain/entry.py ;;
+    M-72) # REQ-509 — 추정이 0인데 **배율을 0으로 낸다** (정의되지 않음이 값이 된다)
+           # ⚠️ 예외도 안 나고 차액도 맞다. 거부된 항목(assumed=0)의 배율이 *"0배"*로 읽힐 뿐이다.
+      backup src/warranty/domain/cost.py
+      perl -0pi -e 's/^        return Delta\(amount, None, "assumed가 0이라 배율이 정의되지 않는다"\)$/        return Delta(amount, Decimal(0))/m' src/warranty/domain/cost.py ;;
+    M-73) # REQ-509 — 화해가 **차액을 안 남긴다** (실측만 채우고 파생값은 비운다)
+           # ⚠️ `measured`는 들어와 있어 화해된 것처럼 보인다. 사라지는 것은 이 프로젝트의 산출물이다.
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^            delta=delta_of\(current\.assumed, measured\),\n//m' src/warranty/domain/entry.py ;;
+    M-74) # REQ-506 — **기한을 안 본다** (아직 도착할 수 있는 청구서를 두고 포기한다)
+           # ⚠️ 상태·사유는 그대로 `unreconciled`+사유다. 사라지는 것은 *"기한 내"* 하나뿐이고,
+           #    그 행의 비용은 청구서가 나중에 와도 **영원히 추정으로 남는다.**
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^        if at - current\.started_at < timedelta\(days=deadline_days\):\n            raise LedgerError\(\n(.*\n)*?            \)\n//m' src/warranty/domain/entry.py ;;
+    M-75) # REQ-506 — 포기는 하는데 **사유를 안 적는다** (결격이 한 칸으로 뭉친다)
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^            unreconciled_reason=reason,\n//m' src/warranty/domain/entry.py ;;
+    M-76) # REQ-506 — **이미 화해된 행도 뒤집는다** (실측이 추정으로 돌아간다)
+           # ⚠️ `measured`는 남아 있어 값으로는 멀쩡해 보인다. 바뀌는 것은 상태와 사유뿐이다.
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^        if current\.reconcile_state is not ReconcileState\.PENDING:\n            return current.*\n//m' src/warranty/domain/entry.py ;;
+    M-77) # REQ-506 — **사유 없이도 포기를 받는다** (조용한 `unreconciled`)
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/^        if not reason\.strip\(\):\n            raise LedgerError\(f"unreconciled에 사유가 없다: \{entry_id\}"\)\n//m' src/warranty/domain/entry.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -339,5 +371,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

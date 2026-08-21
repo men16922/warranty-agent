@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -208,6 +208,44 @@ def test_req_506_reconcile_is_idempotent() -> None:
     assert second.measured.amount_usd == Decimal("1.9000")
 
 
+def test_req_506_reconcile_refuses_a_measured_that_no_bill_said() -> None:
+    """Verifies: REQ-506
+
+    ⛔ **M-71이 156건 전부 초록으로 살아남던 자리다** — 근거 검사를 통째로 지워도
+    아무도 안 물었다. 추정치가 `measured` 칸에 들어오면 `assumed`와 `measured`는
+    **같은 계산의 두 벌**이 되고, 그때 `delta`는 0에 수렴한다 — *"추정이 정확했다"*로
+    읽히지만 실제로는 **청구서를 한 번도 안 본 것**이다(REQ-503의 구분이 죽는다).
+    """
+    ledger = InMemoryLedger()
+    ledger.create(_entry())
+
+    with pytest.raises(LedgerError, match="근거가 청구서가 아니다"):
+        ledger.reconcile(ENTRY_ID, _assumed("1.9000"))
+
+    still = ledger.get(ENTRY_ID)
+    assert still is not None
+    assert still.measured is None  # 거절은 **아무것도 안 남기는** 거절이다
+    assert still.reconcile_state is ReconcileState.PENDING
+
+
+def test_req_509_reconcile_leaves_the_difference_as_a_derived_value() -> None:
+    """Verifies: REQ-509
+
+    ⚠️ 이 문장의 하중은 여태 `test_req_505_reconcile_does_not_touch_assumed` 한 자리가
+    들고 있었다 — **이름이 `assumed` 불변을 약속하는 테스트의 곁다리 단언**이다.
+    그 테스트가 자기 이름이 약속한 것만 묻도록 좁혀지는 순간(T0-10이 실제로 한 정리다),
+    *"차액과 배율을 남긴다"*는 아무도 안 묻게 된다. 그래서 따로 세운다.
+    """
+    ledger = InMemoryLedger()
+    ledger.create(_entry())
+
+    after = ledger.reconcile(ENTRY_ID, _measured("1.9000"))
+
+    assert after.delta is not None
+    assert after.delta.amount_usd == Decimal("1.8800")  # 실측 − 추정, 이 방향이다
+    assert after.delta.ratio == Decimal("95")
+
+
 def test_req_509_delta_ratio_is_undefined_when_assumed_is_zero() -> None:
     """Verifies: REQ-509
 
@@ -217,6 +255,88 @@ def test_req_509_delta_ratio_is_undefined_when_assumed_is_zero() -> None:
     delta = delta_of(zero, _measured("0.5000"))
     assert delta.ratio is None
     assert "정의되지 않는다" in delta.note
+
+
+# ── REQ-506 기한 ──────────────────────────────────────────────────────────
+#
+# ⛔ `unreconciled`는 **선언만 되어 있고 아무도 도달하지 않는 상태였다**(T9-5의 발견).
+#    상태 이름과 설정 값(`WR_RECONCILE_DEADLINE_DAYS`)은 있었는데 그 둘을 잇는 코드가
+#    없었다 — 즉 *"기한 내 못 맞추면 사유와 함께 표시한다"*는 문서에만 있었다.
+
+
+def test_req_506_giving_up_after_the_deadline_records_the_reason() -> None:
+    """Verifies: REQ-506
+
+    상태만 남기면 *"라벨이 안 붙어 있었다"*와 *"내보내기가 아직 안 왔다"*가 같은 칸이 된다.
+    """
+    ledger = InMemoryLedger()
+    ledger.create(_entry())
+
+    after = ledger.give_up_reconcile(
+        ENTRY_ID,
+        at=FROZEN + timedelta(days=3),
+        deadline_days=3,
+        reason="청구 내보내기에 wr_entry 라벨 행이 없다",
+    )
+
+    assert after.reconcile_state is ReconcileState.UNRECONCILED
+    assert "wr_entry" in after.unreconciled_reason
+    assert after.assumed == _assumed()  # I-1 — 포기해도 추정은 그대로다
+    assert after.measured is None
+
+
+def test_req_506_the_deadline_is_asked_here_not_by_the_caller() -> None:
+    """Verifies: REQ-506
+
+    ⚠️ 기한 판단을 호출자에게 맡기면 *"기한 내"*는 약속이 아니라 관례가 된다.
+    아직 도착할 수 있는 청구서를 두고 닫아 버린 행의 비용은 **영원히 추정으로 남는다.**
+    """
+    ledger = InMemoryLedger()
+    ledger.create(_entry())
+
+    with pytest.raises(LedgerError, match="기한이 아직 안 지났다"):
+        ledger.give_up_reconcile(
+            ENTRY_ID,
+            at=FROZEN + timedelta(days=2, hours=23),
+            deadline_days=3,
+            reason="아직 안 왔다",
+        )
+
+    still = ledger.get(ENTRY_ID)
+    assert still is not None
+    assert still.reconcile_state is ReconcileState.PENDING
+
+
+def test_req_506_giving_up_never_overturns_a_bill_that_already_arrived() -> None:
+    """Verifies: REQ-506
+
+    청구서가 말한 값이 기한보다 세다. 뒤집히면 **실측이 추정으로 돌아간다.**
+    """
+    ledger = InMemoryLedger()
+    ledger.create(_entry())
+    reconciled = ledger.reconcile(ENTRY_ID, _measured("1.9000"))
+
+    after = ledger.give_up_reconcile(
+        ENTRY_ID, at=FROZEN + timedelta(days=9), deadline_days=3, reason="늦게 돌린 배치"
+    )
+
+    assert after == reconciled
+    assert after.reconcile_state is ReconcileState.RECONCILED
+    assert after.unreconciled_reason == ""
+
+
+def test_req_506_giving_up_without_a_reason_is_refused() -> None:
+    """Verifies: REQ-506
+
+    `Attribution(none)`과 같은 규칙이다 — 사유 없는 결격은 원인을 안 보이게 만든다.
+    """
+    ledger = InMemoryLedger()
+    ledger.create(_entry())
+
+    with pytest.raises(LedgerError, match="사유가 없다"):
+        ledger.give_up_reconcile(
+            ENTRY_ID, at=FROZEN + timedelta(days=9), deadline_days=3, reason="   "
+        )
 
 
 # ── REQ-501 / REQ-507 (가드 G7) ────────────────────────────────────────────

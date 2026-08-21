@@ -248,9 +248,15 @@
       (반환값이 아니라 `ledger.get`/`all_entries`에 묻는다) · 경합에서 진 예약이 `denied`로
       남는가 · 실패가 `failed`로 남는가(둘 다 회복하는 신호를 태워 공허 통과 방지).
       `Done:` 셋 각각 변이 red 확인 + `mutations.md` 기록 + `requirements.md` → `VERIFIED`.
-- [ ] [auto] **T9-5** 화해 2종 *(선택)* · `Implements: REQ-506, REQ-509`
-      멱등·기한 · 추정과 실측의 차이는 파생값.
-      `Done:` 둘 다 변이 red 확인 + 기록 + `VERIFIED`.
+- [x] [auto] **T9-5** 화해 2종 *(선택)* · `Implements: REQ-506, REQ-509`
+      ⛔ **REQ-506의 기한 절반은 코드가 아니라 문서에만 있었다** — `unreconciled` 상태와
+      `WR_RECONCILE_DEADLINE_DAYS` 설정은 있는데 **둘을 잇는 자리가 없어** 어떤 입력으로도
+      그 상태에 도달하지 못했다. ⛔ **M-71이 살아남았다** — `measured`가 청구서에서 왔는지
+      묻는 자리가 없어, 추정치를 실측 칸에 넣으면 `delta`가 0에 수렴해 *"추정이 정확했다"*로
+      읽힌다. ⚠️ M-73의 하중은 이름이 REQ-505를 약속하는 테스트의 곁다리 단언이었다.
+      ⇒ `InMemoryLedger.give_up_reconcile`(기한은 **저장소가** 묻는다 · 사유 필수 ·
+      이미 화해된 행은 안 뒤집는다) + `test_domain_ledger.py` 6건.
+      `Done:` 여덟 각각 변이 red 확인(M-70~M-77) + `mutations.md` 기록 + `requirements.md` → `VERIFIED`.
 
 ## 가드 현황 (변이 red 확인한 것만 `[x]`)
 
@@ -266,7 +272,7 @@
 | G8 ★ `improved` 유도 | T1-5 | **[x]** M-13 |
 | G9 ★ 검증불가는 AUTO 아님 | T1-6 | **[x]** M-14 |
 
-**게이트**: `make check` → **156 passed** (2026-08-22 로컬 macOS·py3.13)
+**게이트**: `make check` → **162 passed** (2026-08-22 로컬 macOS·py3.13)
 ⚠️ 숫자는 **여기 한 곳에만** 적는다. ⛔ 다만 `docs/evidence/mutations.md`의 최신 스윕 기준선은
 **같은 숫자를 다시 적는다** — 그건 중복이 아니라 *"기록이 어느 스위트를 보고 적혔는가"*이고,
 T0-8의 가드가 그 둘이 갈라지는 것을 집행한다.
