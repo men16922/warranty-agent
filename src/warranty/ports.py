@@ -16,6 +16,7 @@ from warranty.domain.budget import Reservation
 from warranty.domain.contract import OperationalContract, ResourceRef, SignalSpec
 from warranty.domain.cost import CostFact
 from warranty.domain.entry import Approval, LedgerEntry, Rollback, Status
+from warranty.domain.tokens import ModelReply
 from warranty.domain.verification import Measurement, Verdict, Verification
 
 
@@ -90,6 +91,22 @@ class ModelJudge(Protocol):
         self, baseline: Measurement, after: Measurement, criterion_note: str
     ) -> tuple[Verdict, str]:
         """`(verdict, rationale)`. **근거 없는 판정은 허용되지 않는다.**"""
+
+
+class ModelPort(Protocol):
+    """★ 모든 모델 호출이 지나는 **단 하나의 문** (REQ-603).
+
+    Spec: specs/warranty/design/06-agent-runtime.md (REQ-603)
+
+    ⚠️ 호출부마다 원장 기록을 시키면 **언젠가 한 곳이 빠지고, 그 빠짐은 조용하다.**
+       그래서 계량은 이 포트를 감싸는 한 겹(`MeteredModel`)에만 있고, 여기 메서드가
+       늘면 가드가 **그 메서드도 훑는다** (docs/PRINCIPLES.md #9).
+    ⚠️ 응답이 사용량을 **함께** 낸다. 안 그러면 얼마 썼는지는 호출부의 추측이 된다.
+    """
+
+    def judge_ambiguous(
+        self, baseline: Measurement, after: Measurement, criterion_note: str
+    ) -> ModelReply: ...
 
 
 class LedgerWriter(Protocol):

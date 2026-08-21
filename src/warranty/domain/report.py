@@ -19,7 +19,7 @@ from datetime import UTC, date
 from decimal import Decimal
 from typing import Any
 
-from warranty.domain.entry import LedgerEntry, Status
+from warranty.domain.entry import EntryKind, LedgerEntry, Status
 from warranty.domain.verification import DecidedBy, Verdict
 
 #: 하루의 경계는 **UTC**다. 신호도 청구도 UTC로 오고, 경계를 지역 시간으로 잡으면
@@ -97,7 +97,12 @@ def daily_report(entries: Iterable[LedgerEntry], *, day: date, agent_id: str) ->
 
     Spec: specs/warranty/design/05-accountability-ledger.md §5 (REQ-508)
     """
-    rows = tuple(_scoped(entries, day=day, agent_id=agent_id))
+    # ★ 이 리포트가 세는 것은 **조치**다 (REQ-508). 모델 호출 행(REQ-603)을 섞으면
+    #   회복률의 분모가 늘고, 그 행들은 원리상 절대 `improved`가 되지 않는다 —
+    #   ⇒ **모델을 쓸수록 헤드라인이 나빠지고**, 그 오차는 리포트를 봐서는 안 보인다.
+    rows = tuple(
+        row for row in _scoped(entries, day=day, agent_id=agent_id) if row.kind is EntryKind.ACTION
+    )
     executed = tuple(row for row in rows if row.executed)
     # ★ 회복 실패 조치 — **실행됐는데 나아지지 않은 것**이다. 롤백으로 되돌렸어도
     #   그 조치가 쓴 돈은 이미 나갔다.

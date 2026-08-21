@@ -18,6 +18,22 @@ from warranty.domain.decision import Decision
 from warranty.domain.verification import Verdict, Verification
 
 
+class EntryKind(StrEnum):
+    """원장을 만드는 **경로**의 집합.
+
+    Spec: specs/warranty/design/06-agent-runtime.md (REQ-603)
+
+    ⚠️ 이 열거형은 장식이 아니다 — 리포트가 읽는다(design 05§5). 모델 호출 행을
+       조치와 섞으면 회복률의 **분모가 늘고**, 그 행들은 원리상 절대 `improved`가
+       되지 않으므로 **모델을 쓸수록 헤드라인이 나빠진다.** 그 오차는 리포트를
+       봐서는 안 보인다.
+    ⚠️ 값이 늘면 가드가 자동으로 그것도 훑는다 (docs/PRINCIPLES.md #9).
+    """
+
+    ACTION = "action"  # 조치 — 게이트를 거친다
+    MODEL_CALL = "model_call"  # 모델 호출 — 게이트를 거치지 않는다 (REQ-603)
+
+
 class Status(StrEnum):
     EXECUTED = "executed"
     DENIED = "denied"
@@ -80,6 +96,14 @@ class LedgerEntry:
     delta: Delta | None = None
     reconcile_state: ReconcileState = ReconcileState.PENDING
     retry_of: str | None = None
+    kind: EntryKind = EntryKind.ACTION
+
+    def __post_init__(self) -> None:
+        if self.kind is EntryKind.MODEL_CALL and self.decision is not None:
+            # ⚠️ 모델 호출은 판정 게이트를 거치지 않는다 (REQ-603). 판정을 붙이면 그 행은
+            #    *"게이트를 통과했다"*로 읽히고, G4(모든 항목에 판정)는 그 거짓말을
+            #    오히려 **초록으로 확인해 준다.**
+            raise LedgerError(f"모델 호출에 판정이 붙었다: {self.entry_id}")
 
     @property
     def verifiability(self) -> Verifiability:

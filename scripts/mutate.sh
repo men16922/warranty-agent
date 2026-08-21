@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-32|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-36|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -167,6 +167,18 @@ apply() {
     M-32) # REQ-305 — 에스컬레이션을 `rolled_back`의 **부정**으로 센다 (회복된 조치가 전부 잡힌다)
       backup src/warranty/domain/entry.py
       perl -0pi -e 's/return self\.rollback is not None and not self\.rollback\.performed/return not self.rolled_back/' src/warranty/domain/entry.py ;;
+    M-33) # REQ-603 — 모델 호출이 원장에 **안 남는다** (호출은 있었는데 지출이 없다)
+      backup src/warranty/usecases/meter.py
+      perl -0pi -e 's/        finally:\n            self\._record\(action_id, usage\)/        finally:\n            pass/' src/warranty/usecases/meter.py ;;
+    M-34) # REQ-508 — 리포트가 모델 호출 행을 **조치로 센다** (★ 모델을 쓸수록 회복률이 나빠진다)
+      backup src/warranty/domain/report.py
+      perl -0pi -e 's/ if row\.kind is EntryKind\.ACTION//' src/warranty/domain/report.py ;;
+    M-35) # REQ-504 — 단가를 모르는 호출을 `token_meter` + 0원으로 적는다 ("계량했는데 공짜였다")
+      backup src/warranty/usecases/meter.py
+      perl -0pi -e 's/return Attribution\(Method\.NONE, reason=str\(exc\)\), zero/return Attribution(Method.TOKEN_METER), zero/' src/warranty/usecases/meter.py ;;
+    M-36) # REQ-603 — 호출이 예외로 끝나면 행을 안 남긴다 (실패했는데 나간 토큰이 사라진다)
+      backup src/warranty/usecases/meter.py
+      perl -0pi -e 's/        finally:\n            self\._record\(action_id, usage\)/        except Exception:\n            raise\n        else:\n            self._record(action_id, usage)/' src/warranty/usecases/meter.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -199,5 +211,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

@@ -12,7 +12,13 @@ from decimal import Decimal
 
 from warranty.domain.budget import Reservation, ReservationError
 from warranty.domain.contract import OperationalContract, ResourceRef, SignalSpec
+from warranty.domain.tokens import ModelReply, TokenUsage
 from warranty.domain.verification import Measurement, Verdict
+
+#: 대역이 자칭하는 모델 id. ⚠️ 실물 id를 쓰지 않는다 — 이 저장소는 아직 실물 모델을
+#: 호출해 본 적이 없고(design 06§2), 대역에 실물 이름을 적으면 테스트가 그 이름을
+#: **확인된 것처럼** 만든다.
+FAKE_MODEL = "fake-model"
 
 
 class FrozenClock:
@@ -173,6 +179,36 @@ class FakeBudget:
 
     def unsettled(self) -> int:
         return len(self._open)
+
+
+class ScriptedModel:
+    """★ `ModelPort`의 대역 — **사용량을 함께 낸다** (REQ-603).
+
+    Spec: specs/warranty/design/06-agent-runtime.md (REQ-603)
+
+    ⚠️ 사용량 없는 대역을 쓰면 계량 테스트가 계량을 안 태운다. 그리고 `raises`가 없으면
+       *"호출은 실패했는데 토큰은 나갔다"*는 경우가 값으로 안 실리고, 그러면 기록을
+       `finally`에 둔 이유가 가드에서 사라진다 (docs/PRINCIPLES.md #8).
+    """
+
+    def __init__(
+        self,
+        verdict: Verdict = Verdict.NOT_RECOVERED,
+        rationale: str = "fake",
+        usage: TokenUsage | None = None,
+        raises: Exception | None = None,
+    ) -> None:
+        self._reply = ModelReply(verdict, rationale, usage or TokenUsage(FAKE_MODEL, 1000, 200))
+        self._raises = raises
+        self.calls = 0
+
+    def judge_ambiguous(
+        self, baseline: Measurement, after: Measurement, criterion_note: str
+    ) -> ModelReply:
+        self.calls += 1
+        if self._raises is not None:
+            raise self._raises
+        return self._reply
 
 
 class FakeJudge:
