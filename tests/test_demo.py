@@ -18,6 +18,7 @@ Spec: specs/warranty/design/11-demo.md (REQ-803)
 
 from __future__ import annotations
 
+import re
 import subprocess
 from datetime import datetime
 from decimal import Decimal
@@ -30,9 +31,36 @@ from warranty.domain.contract import ResourceRef
 from warranty.domain.verification import Measurement, classify
 
 ROOT = Path(__file__).resolve().parent.parent
+DESIGN = ROOT / "specs" / "warranty" / "design" / "11-demo.md"
 
-#: design 11§2가 이름 붙인 다섯 단계. **순서까지가 서사다.**
-DESIGN_STEPS = ("provision", "inject", "remediate", "manual", "report")
+#: design 11§2의 단계 블록을 여는 표제. ⚠️ 표제가 바뀌면 파서가 **못 찾고 예외를 낸다** —
+#: 조용히 0단계를 읽고 아래 검사를 공허하게 통과시키는 것보다 낫다.
+DESIGN_SECTION = "## 2. `make demo`"
+
+#: 번호 매긴 단계 줄. 번호가 **순서의 권위**다.
+DESIGN_STEP_RE = re.compile(r"^\s*[①②③④⑤⑥⑦⑧⑨]\s*(.+)$", re.MULTILINE)
+
+
+def _design_step_lines() -> list[str]:
+    """design 11§2가 번호로 세운 단계 줄들.
+
+    ⚠️ 예전에는 `("provision", "inject", ...)`를 이 파일에 **손으로 베껴** 두고 그것과
+       맞댔다(T0-10). 테스트 이름은 *"설계가 이름 붙인 다섯 단계"*라고 말하는데 실제로
+       묻는 것은 **사본과의 일치**였다 — 설계에서 단계가 빠져도 사본은 안 줄고 초록이다.
+
+    ⚠️ 여기서 이름을 **정확히 일치**로 묻지 않는 이유: 설계는 ③을 `remediate #1`,
+       ④를 `remediate #2 … ★ MANUAL`로 부르고 코드는 `remediate`·`manual`로 부른다.
+       설계의 이름은 서사의 이름이고 코드의 이름은 식별자다. 그래서 집행할 수 있는 것은
+       **개수와 순서**, 그리고 *"n번째 단계의 이름이 n번째 줄에 나오는가"*다.
+    """
+    text = DESIGN.read_text(encoding="utf-8")
+    start = text.find(DESIGN_SECTION)
+    if start < 0:
+        raise AssertionError(f"design 11의 단계 절을 못 찾았다: {DESIGN_SECTION!r}")
+    match = re.search(r"```\n(.*?)```", text[start:], re.DOTALL)
+    if match is None:
+        raise AssertionError("design 11§2에 단계 블록(```)이 없다")
+    return DESIGN_STEP_RE.findall(match.group(1))
 
 
 @pytest.fixture(scope="module")
@@ -91,8 +119,24 @@ def test_req_803_the_five_steps_are_the_ones_the_design_names(run: demo.DemoRun)
 
     단계가 조용히 빠지면 서사가 바뀐다 — 특히 ④(MANUAL)는 **아무 일도 안 일어나는**
     단계라 빠져도 출력이 멀쩡해 보인다.
+
+    ⚠️ 이름 목록을 **설계에서 읽는다** — 여기 베껴 두면 설계→코드 방향이 안 걸린다(T0-10).
     """
-    assert tuple(step.name for step in run.steps) == DESIGN_STEPS
+    lines = _design_step_lines()
+    names = [step.name for step in run.steps]
+    assert lines, "design 11§2가 단계를 하나도 선언하지 않았다 — 파서가 깨졌다"
+    assert len(names) == len(lines), (
+        f"design 11§2는 {len(lines)}단계를 세우는데 데모는 {len(names)}단계다: {names}"
+    )
+    assert len(set(names)) == len(names), (
+        f"단계 이름이 겹친다: {names} — 겹치면 순서를 이름으로 못 묶는다"
+    )
+    misplaced = [
+        f"{i}: {name!r} ∉ {line!r}"
+        for i, (name, line) in enumerate(zip(names, lines, strict=True), start=1)
+        if name.lower() not in line.lower()
+    ]
+    assert not misplaced, f"데모의 단계가 design 11§2의 순서와 어긋난다: {misplaced}"
 
 
 # ── ② 절정: 검증 실패 → 자동 롤백 ─────────────────────────────────────────

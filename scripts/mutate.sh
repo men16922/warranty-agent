@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-49|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-52|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -221,6 +221,16 @@ apply() {
     M-49) # `all` 목록에서 마지막 변이를 뺀다 (기록은 N종이라는데 스윕은 N-1건만 돈다)
       backup scripts/mutate.sh
       perl -0pi -e 's/(for m in .*) M-\d\d;/${1};/' scripts/mutate.sh ;;
+    M-50) # REQ-206 — 대기 초를 **함수 안의 지역 이름**에 담아 쓴다 (T0-10 · M-44가 못 잡는 우회)
+           # ⚠️ 최상위 상수도 아니고 리터럴도 아니다 — M-42·M-44 둘 다 통과한다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^        self\.clock\.sleep\(VERIFY_DELAY_S\)$/        delay_s = 45\n        self.clock.sleep(delay_s)/m' src/warranty/usecases/remediate.py ;;
+    M-51) # REQ-508 — 설계가 리포트 칸의 **이름을 바꾼다** (T0-10: 손으로 베낀 목록은 안 따라온다)
+      backup specs/warranty/design/05-accountability-ledger.md
+      perl -0pi -e 's/"model_decided": 5/"model_decided_count": 5/' specs/warranty/design/05-accountability-ledger.md ;;
+    M-52) # REQ-803 — 설계에서 데모 단계 하나를 **없앤다** (T0-10: 사본은 안 줄고 초록이던 자리)
+      backup specs/warranty/design/11-demo.md
+      perl -0pi -e 's/^   ④ remediate #2[^\n]*\n//m' specs/warranty/design/11-demo.md ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -253,5 +263,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

@@ -635,10 +635,13 @@ def test_req_405_the_approved_path_reserves_through_the_same_seam() -> None:
     assert r.budgets.unsettled() == 0
 
 
-def test_req_206_verification_delay_is_a_named_constant_used_once() -> None:
+def test_req_206_the_loop_sleeps_the_value_the_tunables_module_holds() -> None:
     """Verifies: REQ-206, REQ-804
 
-    ⚠️ 값이 흩어지면 영상 재촬영 때 반드시 하나를 놓친다.
+    ⚠️ **이 테스트는 값만 묻는다** — 이름을 쓰는지는 `tests/test_tunables.py`가 구문으로
+    묻는다(T0-10). 예전 이름은 *"named constant used once"*였는데 그건 **이 단언이 하지
+    않는 약속**이었다: 호출부에 `45`를 박아도 잔 시간은 여전히 45라서 초록이다(M-44).
+    여기가 지키는 것은 배선뿐이다 — *그 값이 정말 시계까지 간다.*
 
     ⚠️ 값을 **`tunables`에서** 읽는다 — `remediate.VERIFY_DELAY_S`는 재수출일 뿐이다(T6-3).
     거기서 읽으면 `remediate`가 상수를 국소로 가려도 자기 자신과는 맞아 초록이 된다.

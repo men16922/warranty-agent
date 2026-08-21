@@ -9,9 +9,12 @@ Spec: specs/warranty/design/05-accountability-ledger.md §5 (REQ-508)
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import fields, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -47,22 +50,33 @@ FROZEN = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)  # REQ-802: 살아 있는 시�
 DAY = FROZEN.date()
 AGENT = "warranty"
 
-#: design 05§5가 이름 붙인 칸. **여기서 하나라도 빠지면 리포트가 다른 문서가 된다.**
-DESIGN_COLUMNS = frozenset(
-    {
-        "date",
-        "agent_id",
-        "executed",
-        "improved",
-        "improvement_rate",
-        "rolled_back",
-        "escalated",
-        "unverifiable",
-        "manual_required",
-        "wasted_usd",
-        "model_decided",
-    }
-)
+ROOT = Path(__file__).resolve().parent.parent
+DESIGN = ROOT / "specs" / "warranty" / "design" / "05-accountability-ledger.md"
+
+#: design 05§5의 리포트 예시를 여는 표제. ⚠️ 표제가 바뀌면 파서가 **못 찾고 예외를 낸다** —
+#: 조용히 0칸을 읽고 아래 검사를 공허하게 통과시키는 것보다 낫다 (test_tunables.py와 같은 규칙).
+DESIGN_SECTION = "## 5. ★ 일간 리포트 (REQ-508)"
+
+#: `//` 주석. jsonc를 json으로 만들려면 이것부터 지운다.
+JSONC_COMMENT_RE = re.compile(r"//[^\n]*")
+
+
+def _design_declared_columns() -> frozenset[str]:
+    """design 05§5의 ```jsonc 블록이 **이름 붙인 칸**.
+
+    ⚠️ 예전에는 이 집합을 이 파일에 **손으로 베껴** 두고 그것과 맞댔다(T0-10). 그러면
+       테스트 이름은 *"설계가 이름 붙인 칸"*이라고 말하는데 실제로 묻는 것은 **사본과의
+       일치**다 — 설계가 칸을 하나 더 선언해도 사본은 안 늘고, 가드는 초록이다.
+       **손 목록은 가드가 아니다**(T0-5와 같은 계열).
+    """
+    text = DESIGN.read_text(encoding="utf-8")
+    start = text.find(DESIGN_SECTION)
+    if start < 0:
+        raise AssertionError(f"design 05의 리포트 절을 못 찾았다: {DESIGN_SECTION!r}")
+    match = re.search(r"```jsonc\n(.*?)```", text[start:], re.DOTALL)
+    if match is None:
+        raise AssertionError("design 05§5에 리포트 블록(```jsonc)이 없다")
+    return frozenset(json.loads(JSONC_COMMENT_RE.sub("", match.group(1))))
 
 
 def _m(value: str, points: int = 30) -> Measurement:
@@ -272,8 +286,13 @@ def test_req_508_report_carries_every_column_the_design_names() -> None:
 
     ⚠️ 칸이 조용히 빠지는 것을 막는다. 특히 `unverifiable`·`escalated`는 성적을
     나쁘게 보이게 하는 칸이라 **빠져도 아무도 불평하지 않는다.**
+
+    ⚠️ 이름 집합을 **설계에서 읽는다** — 여기 베껴 두면 설계→코드 방향이 안 걸린다(T0-10).
     """
-    assert _report(_entry("e1")).as_dict().keys() >= DESIGN_COLUMNS
+    declared = _design_declared_columns()
+    assert declared, "design 05§5가 칸을 하나도 선언하지 않았다 — 파서가 깨졌다"
+    missing = declared - _report(_entry("e1")).as_dict().keys()
+    assert not missing, f"design 05§5가 이름 붙인 칸이 리포트에 없다: {sorted(missing)}"
 
 
 def test_req_508_model_decided_is_counted_so_the_judge_is_visible() -> None:

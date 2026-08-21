@@ -4,10 +4,16 @@
 영상 재촬영 전에 타이머를 줄이고, **호출부 하나에 박아 둔 숫자를 못 본다.**
 그 파일은 예전 값으로 계속 돌고 게이트는 초록이다.
 
-그래서 세 가지를 묻는다 (design 11§5):
+그래서 네 가지를 묻는다 (design 11§5):
   ① `warranty.tunables` **밖에** 대기·창 모양의 모듈 상수가 정의돼 있지 않은가
   ② 대기·창을 받는 자리(`sleep(...)`·`window_s=`)에 **숫자 리터럴**이 박혀 있지 않은가
   ③ design 11§5가 **선언한 이름 집합**과 그 모듈이 정의한 집합이 같은가
+  ④ 그 자리에 들어가는 이름이 **`warranty.tunables`에서 온 이름인가** (T0-10)
+
+⚠️ ④가 ②의 되풀이가 아닌 이유: ①과 ②는 **모듈 최상위 상수**와 **리터럴**만 본다.
+   그 사이에 구멍이 있다 — `delay_s = 45`를 **함수 안에** 두고 `sleep(delay_s)`를 하면
+   최상위 상수도 아니고 리터럴도 아니라서 둘 다 통과한다. 그 자리는 tunables를 고쳐도
+   안 바뀌고, 그 어긋남은 ②가 막으려던 것과 **정확히 같은 것**이다.
 
 ⚠️ 스캔 범위는 `src/warranty/`뿐이다. 테스트는 자기 픽스처로 창 길이를 정할 수 있어야
    한다 — 그건 산재가 아니라 **그 테스트가 무엇을 재는지**의 일부다. 프로덕션 코드가
@@ -46,6 +52,10 @@ TUNABLE_NAME_RE = re.compile(
 SLEEP_METHOD = "sleep"
 WINDOW_KWARG = "window_s"
 
+#: 그 자리에 들어가도 되는 이름의 **유일한 출처**. `from ... import X`만 인정한다 —
+#: 값이 하나뿐이라는 사실을 안 깨는 유일한 표기이기 때문이다.
+TUNABLES_MODULE = "warranty.tunables"
+
 #: 공허 통과 방지 — 스캐너가 아무것도 못 읽고 초록을 내는 것을 막는다.
 MIN_SCANNED_FILES = 8
 MIN_TUNABLES = 4
@@ -75,26 +85,52 @@ def _module_constants(path: Path) -> dict[str, int]:
     return found
 
 
-def _literal_sinks(path: Path) -> list[str]:
-    """`x.sleep(3)` · `window_s=120` 처럼 **박힌 숫자**를 찾는다."""
+def _sink_args(path: Path) -> list[tuple[str, ast.expr]]:
+    """대기·창이 **값으로 들어가는** 표현식들. 아래 두 검사가 같은 자리 목록을 본다."""
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    hits: list[str] = []
+    args: list[tuple[str, ast.expr]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         func = node.func
         if isinstance(func, ast.Attribute) and func.attr == SLEEP_METHOD:
-            hits += [
-                f"{path.name}:{arg.lineno} {SLEEP_METHOD}({arg.value!r})"
-                for arg in node.args
-                if isinstance(arg, ast.Constant)
-            ]
-        hits += [
-            f"{path.name}:{kw.value.lineno} {kw.arg}={kw.value.value!r}"
-            for kw in node.keywords
-            if kw.arg == WINDOW_KWARG and isinstance(kw.value, ast.Constant)
-        ]
-    return hits
+            args += [(SLEEP_METHOD, arg) for arg in node.args]
+        args += [(WINDOW_KWARG, kw.value) for kw in node.keywords if kw.arg == WINDOW_KWARG]
+    return args
+
+
+def _literal_sinks(path: Path) -> list[str]:
+    """`x.sleep(3)` · `window_s=120` 처럼 **박힌 숫자**를 찾는다."""
+    return [
+        f"{path.name}:{arg.lineno} {label}={arg.value!r}"
+        for label, arg in _sink_args(path)
+        if isinstance(arg, ast.Constant)
+    ]
+
+
+def _tunable_import_names(path: Path) -> set[str]:
+    """이 모듈이 `warranty.tunables`**에서** 들여온 이름."""
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == TUNABLES_MODULE
+        for alias in node.names
+    }
+
+
+def _unsourced_sinks(path: Path) -> list[str]:
+    """대기·창 자리에 들어간 표현식 중 **tunables에서 온 이름이 아닌 것**.
+
+    ⚠️ 리터럴만 막으면 `delay_s = 45` 한 줄로 우회된다 — 그 이름은 최상위 상수가 아니라
+       ①에도 안 걸린다. 물어야 할 것은 *"숫자가 아닌가"*가 아니라 **"어디서 온 이름인가"**다.
+    """
+    allowed = _tunable_import_names(path)
+    return [
+        f"{path.name}:{arg.lineno} {label}={ast.unparse(arg)}"
+        for label, arg in _sink_args(path)
+        if not (isinstance(arg, ast.Name) and arg.id in allowed)
+    ]
 
 
 def _sink_call_sites(path: Path) -> int:
@@ -181,6 +217,30 @@ def test_req_804_no_wait_or_window_literal_is_hardcoded_at_a_call_site(
     """
     hardcoded = [hit for path in scanned for hit in _literal_sinks(path)]
     assert not hardcoded, f"대기·창 자리에 숫자가 박혀 있다: {hardcoded} — 이름으로 가리켜야 한다"
+
+
+def test_req_804_every_wait_or_window_argument_comes_from_the_tunables_module(
+    scanned: list[Path],
+) -> None:
+    """Verifies: REQ-206, REQ-804
+
+    ④ ⚠️ **이름을 쓰는지 묻는 것과 숫자가 아닌지 묻는 것은 다르다** (T0-10 · M-44 계열).
+    `delay_s = 45`를 함수 안에 두고 `sleep(delay_s)`를 하면 ①(최상위 상수)에도
+    ②(리터럴)에도 안 걸린다. 그런데 그 자리는 tunables를 고쳐도 **안 바뀐다** —
+    ②가 막으려던 바로 그것이다. 그래서 인자가 **`warranty.tunables`에서 들여온 이름**인지를
+    구문으로 묻는다.
+
+    ⚠️ 공허 통과 방지가 여기 붙어 있다 — 자리가 0개면 이 단언은 아무것도 안 물은 것이다.
+    """
+    sinks = [(path, arg) for path in scanned for arg in _sink_args(path)]
+    assert len(sinks) >= 2, (
+        f"대기·창을 값으로 받는 자리를 {len(sinks)}개만 찾았다 — 이 검사가 공허하다"
+    )
+    unsourced = [hit for path in scanned for hit in _unsourced_sinks(path)]
+    assert not unsourced, (
+        f"대기·창 자리가 {TUNABLES_MODULE}에서 온 이름이 아니다: {unsourced} — "
+        "그 값은 tunables를 고쳐도 안 바뀐다"
+    )
 
 
 def test_req_804_the_module_defines_exactly_what_the_design_declares() -> None:
