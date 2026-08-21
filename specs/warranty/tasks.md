@@ -113,9 +113,15 @@
 ## T5 — 출력 (08-25~26)
 
 - [ ] **T5-1** 응답에 판정·검증 근거·트래픽 배분 · `Implements: REQ-604` · `Design: 08§3.1`
-- [ ] [auto] **T5-2** ★ **회복률 리포트** · `Implements: REQ-508` · `Design: 05§5`
+- [x] [auto] **T5-2** ★ **회복률 리포트** · `Implements: REQ-508` · `Design: 05§5`
       `Done:` 원장에서 `executed·improved·improvement_rate·rolled_back·escalated·unverifiable·wasted_usd`를
       **유도**한다(저장 금지 — G8과 같은 계열). 회복 실패 조치가 쓴 비용이 분리돼 나온다.
+      ★ **분모는 `executed`다** — 전체 건수로 나누면 게이트가 잘 막을수록 성적이 나빠 보인다.
+      실행 0이면 비율은 `0`이 아니라 **정의되지 않는다**. `escalated`는 `rolled_back`의
+      **부정이 아니다**(부정으로 세면 회복된 조치가 전부 잡힌다).
+      **M-30·M-31·M-32 red 확인** · `make check` 96 passed.
+      ⚠️ 루프가 쓰는 행의 `assumed`가 지금 **항상 0**이라 `wasted_usd`는 실물 경로에서 늘 0이다
+      — 비용 경로(T3·REQ-503)가 붙기 전까지 이 칸은 손으로 태운 행에서만 하중을 받는다.
 - [ ] [auto] **T5-3** 모델 호출도 원장에 · `Implements: REQ-603` · `Design: 06§5`
       `Done:` fake 모델 포트 호출 1회 = 원장 1행. 원장을 만드는 경로 **전부**를 가드가 훑는다(#9).
 - [ ] **T5-4** G5 (게이트 중 라이브 어댑터 0) 변이 확인 · `Implements: REQ-801` · **G5**
@@ -160,5 +166,5 @@
 | G8 ★ `improved` 유도 | T1-5 | **[x]** M-13 |
 | G9 ★ 검증불가는 AUTO 아님 | T1-6 | **[x]** M-14 |
 
-**게이트**: `make check` → **83 passed** (2026-08-21 로컬 macOS·py3.13)
+**게이트**: `make check` → **96 passed** (2026-08-21 로컬 macOS·py3.13)
 ⚠️ 숫자는 **여기 한 곳에만** 적는다.

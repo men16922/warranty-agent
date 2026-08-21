@@ -108,6 +108,16 @@ class LedgerEntry:
     def rolled_back(self) -> bool:
         return self.rollback is not None and self.rollback.performed
 
+    @property
+    def escalated(self) -> bool:
+        """롤백을 **시도했는데 못 했다** — 사람에게 넘어간 것이다 (REQ-305).
+
+        ⚠️ `rolled_back`의 부정이 아니다. 애초에 롤백이 필요 없었던 조치(회복됨)는
+        여기 안 든다. 부정으로 세면 **성공한 조치가 전부 에스컬레이션이 되고**,
+        리포트의 `escalated` 칸이 성공 건수를 세게 된다.
+        """
+        return self.rollback is not None and not self.rollback.performed
+
 
 class InMemoryLedger:
     """원장 저장소.

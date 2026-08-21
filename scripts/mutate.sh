@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-29|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-32|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -158,6 +158,15 @@ apply() {
     M-29) # REQ-405 — 정산을 건너뛴다 (예약이 안 풀려 예산이 **조용히 잠긴다**)
       backup src/warranty/usecases/remediate.py
       perl -0pi -e 's/^            self\.budgets\.settle\(reservation, actual\)$/            pass/m' src/warranty/usecases/remediate.py ;;
+    M-30) # REQ-508 — 회복률의 분자를 `executed`로 센다 (★ 헤드라인이 늘 100%가 된다)
+      backup src/warranty/domain/report.py
+      perl -0pi -e 's/improved=sum\(1 for row in executed if row\.improved\)/improved=len(executed)/' src/warranty/domain/report.py ;;
+    M-31) # REQ-508 — 낭비 비용이 회복 여부를 안 본다 ("쓴 돈 전부"가 되어 아무것도 안 말한다)
+      backup src/warranty/domain/report.py
+      perl -0pi -e 's/wasted = tuple\(row for row in executed if not row\.improved\)/wasted = executed/' src/warranty/domain/report.py ;;
+    M-32) # REQ-305 — 에스컬레이션을 `rolled_back`의 **부정**으로 센다 (회복된 조치가 전부 잡힌다)
+      backup src/warranty/domain/entry.py
+      perl -0pi -e 's/return self\.rollback is not None and not self\.rollback\.performed/return not self.rolled_back/' src/warranty/domain/entry.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -190,5 +199,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
