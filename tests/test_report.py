@@ -9,9 +9,10 @@ Spec: specs/warranty/design/05-accountability-ledger.md §5 (REQ-508)
 
 from __future__ import annotations
 
-from dataclasses import fields
+from dataclasses import fields, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -92,18 +93,21 @@ def _verified(verdict: Verdict, by: DecidedBy = DecidedBy.RULE) -> Verification:
     )
 
 
-def _entry(entry_id: str, **over: object) -> LedgerEntry:
-    base: dict[str, object] = {
-        "entry_id": entry_id,
-        "agent_id": AGENT,
-        "action_id": "shift_traffic",
-        "status": Status.EXECUTED,
-        "started_at": FROZEN,
-        "attribution": Attribution(Method.RESOURCE_LABEL, label_value=entry_id),
-        "assumed": _assumed("0.10"),
-    }
-    base.update(over)
-    return LedgerEntry(**base)  # type: ignore[arg-type]
+def _entry(entry_id: str, **over: Any) -> LedgerEntry:
+    """⚠️ 기본값도 타입 검사를 받게 생성자로 만든다 — `dict[str, object]`로 쌓으면
+    `LedgerEntry(**base)`의 억제가 **기본값의 오타까지** 함께 덮는다(T0-9).
+    ⛔ 재정의 인자는 여전히 검사 밖이다(`Any`).
+    """
+    base = LedgerEntry(
+        entry_id=entry_id,
+        agent_id=AGENT,
+        action_id="shift_traffic",
+        status=Status.EXECUTED,
+        started_at=FROZEN,
+        attribution=Attribution(Method.RESOURCE_LABEL, label_value=entry_id),
+        assumed=_assumed("0.10"),
+    )
+    return replace(base, **over)
 
 
 def _report(*entries: LedgerEntry, day: date = DAY, agent_id: str = AGENT) -> DailyReport:

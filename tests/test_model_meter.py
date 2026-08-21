@@ -11,9 +11,10 @@ Spec: specs/warranty/design/06-agent-runtime.md (REQ-603)
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import get_protocol_members
+from typing import Any, get_protocol_members
 
 import pytest
 
@@ -340,19 +341,19 @@ def test_req_603_a_model_row_with_a_decision_is_rejected_at_construction() -> No
     reply = ModelReply(Verdict.RECOVERED, "ok", TokenUsage(FAKE_MODEL, 1, 1))
     assert reply.usage.model == FAKE_MODEL  # 응답이 사용량을 **함께** 갖는다
 
-    def _row(**over: object) -> LedgerEntry:
-        fields: dict[str, object] = {
-            "entry_id": "e1",
-            "agent_id": AGENT,
-            "action_id": f"{MODEL_ACTION_PREFIX}judge_ambiguous",
-            "status": Status.EXECUTED,
-            "started_at": FROZEN,
-            "attribution": Attribution(Method.TOKEN_METER),
-            "assumed": PRICES.cost_of(TokenUsage(FAKE_MODEL, 1, 1), priced_at=FROZEN),
-            "kind": EntryKind.MODEL_CALL,
-        }
-        fields.update(over)
-        return LedgerEntry(**fields)  # type: ignore[arg-type]
+    def _row(**over: Any) -> LedgerEntry:
+        # ⚠️ 기본값을 생성자로 만든다 — dict로 쌓으면 그 기본값이 검사를 안 받는다(T0-9).
+        base = LedgerEntry(
+            entry_id="e1",
+            agent_id=AGENT,
+            action_id=f"{MODEL_ACTION_PREFIX}judge_ambiguous",
+            status=Status.EXECUTED,
+            started_at=FROZEN,
+            attribution=Attribution(Method.TOKEN_METER),
+            assumed=PRICES.cost_of(TokenUsage(FAKE_MODEL, 1, 1), priced_at=FROZEN),
+            kind=EntryKind.MODEL_CALL,
+        )
+        return replace(base, **over)
 
     assert _row().decision is None
     with pytest.raises(LedgerError):

@@ -5,6 +5,8 @@ Spec: specs/warranty/design/08-interfaces.md §5
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from warranty.config import Adapters, ConfigError, Settings, load_settings
@@ -81,22 +83,28 @@ def test_reconcile_deadline_must_be_a_positive_integer() -> None:
         _load(WR_RECONCILE_DEADLINE_DAYS="0")
 
 
-def test_settings_do_not_read_disk_when_environ_is_given(tmp_path: object) -> None:
+def test_settings_do_not_read_disk_when_environ_is_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Verifies: REQ-802
 
     ⚠️ 게이트가 **레포에 없는 파일**(`.env`)에 의존하면 그 초록은 이 기계에서만 참이다.
     첫 판이 정확히 이걸 어겼다 — `environ`을 줘도 `.env`를 함께 읽어 테스트 결과가
     로컬 파일 내용에 따라 달라졌다. 변이 M-12가 이 회귀를 잡는다.
+
+    ⚠️ 스파이가 원래 시그니처를 그대로 받는다 — `lambda *a, **k`로 두면 `load_env_file`의
+    인자가 바뀌어도 여기서는 안 깨지고, 그러면 이 테스트는 **없는 함수를 감시**하게 된다.
     """
     import warranty.config as cfg
 
-    calls: list[object] = []
-    original = cfg.load_env_file
-    cfg.load_env_file = lambda *a, **k: calls.append(1) or {}  # type: ignore[assignment]
-    try:
-        settings = load_settings(BASE)
-    finally:
-        cfg.load_env_file = original  # type: ignore[assignment]
+    calls: list[Path] = []
+
+    def _spy(path: Path = cfg.ENV_FILE) -> dict[str, str]:
+        calls.append(path)
+        return {}
+
+    monkeypatch.setattr(cfg, "load_env_file", _spy)
+    settings = load_settings(BASE)
 
     assert settings.project_id == "warranty-hack"
     assert calls == [], "environ을 줬는데 디스크를 읽었다 — 게이트가 결정론적이지 않다"

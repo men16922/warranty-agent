@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -43,18 +45,24 @@ def _measured(amount: str = "1.9000") -> CostFact:
     return CostFact(amount_usd=Decimal(amount), priced_at=FROZEN, basis=Basis.BILLING_EXPORT)
 
 
-def _entry(**over: object) -> LedgerEntry:
-    base: dict[str, object] = {
-        "entry_id": ENTRY_ID,
-        "agent_id": "fleet-steward",
-        "action_id": "restart_service",
-        "status": Status.EXECUTED,
-        "started_at": FROZEN,
-        "attribution": Attribution(Method.RESOURCE_LABEL, label_value=ENTRY_ID),
-        "assumed": _assumed(),
-    }
-    base.update(over)
-    return LedgerEntry(**base)  # type: ignore[arg-type]
+def _entry(**over: Any) -> LedgerEntry:
+    """⚠️ 기본값을 `dict[str, object]`로 쌓으면 **기본값 자체가 타입 검사를 안 받는다** —
+    필드 이름 오타도 값 타입 오류도 `LedgerEntry(**base)`의 억제 뒤로 숨는다(T0-9).
+    생성자로 한 번 만들고 `replace`로 덮으면 기본값이 검사를 받는다.
+
+    ⛔ **재정의 인자는 여전히 검사를 안 받는다**(`Any`) — 다만 `replace`가 모르는 필드
+    이름은 런타임에 `TypeError`고, 억제 주석과 달리 **아무것도 덮지 않는다.**
+    """
+    base = LedgerEntry(
+        entry_id=ENTRY_ID,
+        agent_id="fleet-steward",
+        action_id="restart_service",
+        status=Status.EXECUTED,
+        started_at=FROZEN,
+        attribution=Attribution(Method.RESOURCE_LABEL, label_value=ENTRY_ID),
+        assumed=_assumed(),
+    )
+    return replace(base, **over)
 
 
 # ── REQ-503 ────────────────────────────────────────────────────────────────
@@ -94,6 +102,9 @@ def test_req_503_inputs_are_not_mutable_after_construction() -> None:
     """Verifies: REQ-503"""
     fact = _assumed()
     with pytest.raises(TypeError):
+        # ⛔ 남은 억제 하나. **일부러** 타입이 금지하는 짓을 한다 — `inputs`는 `Mapping`이라
+        #    `__setitem__`이 없고, 이 테스트가 묻는 것은 *"런타임에도 정말 막히는가"*다
+        #    (선언만 `Mapping`이고 실제로 `dict`면 조용히 성공한다). 억제를 지우면 red다.
         fact.inputs["cpu_seconds"] = Decimal(999)  # type: ignore[index]
 
 
@@ -121,7 +132,7 @@ def test_req_504_verifiability_is_derived_from_method(
         kwargs["label_value"] = ENTRY_ID
     elif method is Method.NONE:
         kwargs["reason"] = "read-only action"
-    assert Attribution(method, **kwargs).verifiability is expected  # type: ignore[arg-type]
+    assert Attribution(method, **kwargs).verifiability is expected
 
 
 def test_req_504_entry_derives_verifiability_and_does_not_store_it() -> None:

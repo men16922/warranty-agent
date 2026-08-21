@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -27,18 +29,21 @@ def _m(value: str | None, points: int = 30) -> Measurement:
     return Measurement(Decimal(value) if value is not None else None, points)
 
 
-def _entry(**over: object) -> LedgerEntry:
-    base: dict[str, object] = {
-        "entry_id": "01k2m9x7q3f4b8n0v6c1t5r2wz",
-        "agent_id": "warranty",
-        "action_id": "shift_traffic",
-        "status": Status.EXECUTED,
-        "started_at": FROZEN,
-        "attribution": Attribution(Method.NONE, reason="no billable resource"),
-        "assumed": CostFact(Decimal(0), FROZEN, Basis.PUBLISHED_RATE),
-    }
-    base.update(over)
-    return LedgerEntry(**base)  # type: ignore[arg-type]
+def _entry(**over: Any) -> LedgerEntry:
+    """⚠️ 기본값도 타입 검사를 받게 생성자로 만든다 — `dict[str, object]`로 쌓으면
+    `LedgerEntry(**base)`의 억제가 **기본값의 오타까지** 함께 덮는다(T0-9).
+    ⛔ 재정의 인자는 여전히 검사 밖이다(`Any`).
+    """
+    base = LedgerEntry(
+        entry_id="01k2m9x7q3f4b8n0v6c1t5r2wz",
+        agent_id="warranty",
+        action_id="shift_traffic",
+        status=Status.EXECUTED,
+        started_at=FROZEN,
+        attribution=Attribution(Method.NONE, reason="no billable resource"),
+        assumed=CostFact(Decimal(0), FROZEN, Basis.PUBLISHED_RATE),
+    )
+    return replace(base, **over)
 
 
 def _verification(verdict: Verdict) -> Verification:

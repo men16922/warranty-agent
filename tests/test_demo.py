@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from warranty import demo
+import warranty.demo as demo  # `from warranty import demo`는 재수출이 아니다(strict)
 from warranty.domain.contract import ResourceRef
 from warranty.domain.verification import Measurement, classify
 

@@ -44,4 +44,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 python_version = "3.13"
 strict = true
-files = ["src", "tools"]
+# ⚠️ `tests`가 여기 없으면 테스트의 `type: ignore`는 **아무도 안 읽는 주석**이다 —
+#    strict의 `warn_unused_ignores`가 안 돌아서 필요 없어진 억제가 조용히 쌓인다(T0-9).
+#    들어온 이상 남은 억제는 전부 **지금도 필요한 것**이고, 필요 없어지면 게이트가 red다.
+files = ["src", "tools", "tests"]

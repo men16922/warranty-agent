@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-08-21 — T0-9: 억제를 **읽는 사람**부터 만들었다 — 62개 중 61개는 아무도 안 읽고 있었다 (gate 129)
+
+- **Status**: `[auto]` T0-9 완료. REQ 상태 변화 **없다**(테스트 타이핑이라 요구사항을 안 건드린다 —
+  `make trace` 분포 그대로). 남은 `[auto]`는 T0-10·T3-2.
+- **Changed**: ① `pyproject.toml` — mypy `files`에 **`tests` 추가**(22→33 파일). ② 픽스처가
+  만들던 억제를 픽스처에서 없앴다: `_decide`·`_run`이 `object`가 아니라 `Decision`·`LedgerEntry`를
+  반환하고(쓰이지도 않던 `**over` 통로는 제거), `_MISSING = object()`는 **단일 멤버 enum** 센티널로,
+  `_build(**kwargs)` 루프는 `TypedDict`로, `LedgerEntry(**base)` 넷은 **생성자 + `replace`**로.
+  ③ `decision`·`verification`·`rollback`·`approval`을 좁혀 읽는 헬퍼 넷과 fake 기록 표면
+  (`_budgets`·`_clock`·`_contracts`)을 더했다. ④ `test_config`의 손수 monkeypatch를
+  `pytest.MonkeyPatch` + **원래 시그니처를 받는** 스파이로. **`src/`는 0줄 건드렸다.**
+- **Verified**: `make check` → **129 passed** · mypy strict **33 files 초록** · lint 초록
+  (2026-08-21 로컬 macOS·py3.13). 통과 수는 작업 전과 **동일**하다. 억제 **62→1**.
+  ⚠️ 새 하중은 **손으로** red 확인했다 — `tests/test_report.py`에 군더더기 `# type: ignore` 하나를
+  심으니 `unused-ignore`로 red, 빼니 초록. **이 변이는 하네스에 없다**(아래).
+- **⛔ 발견(이번 판에서 가장 큰 것)**: **62개 중 61개는 집행되지 않는 주석이었다.** mypy가
+  `files = ["src", "tools"]`라 테스트를 아예 안 봤고, 그래서 strict의 `warn_unused_ignores`가
+  안 돌았다 — 필요 없어진 억제가 쌓여도 아무도 몰랐다(실제로 5개는 이미 죽어 있었다).
+  ⇒ **억제를 세기 전에 억제를 읽는 사람을 먼저 만들어야 했다.** 안 그러면 62를 0으로 만드는
+  가장 쉬운 방법이 *"전부 지우기"*이고 그것도 초록이다. T0-7·T0-8과 같은 계열의 네 번째 사례다.
+- **⚠️ 발견**: 억제가 **다른 결함을 덮고 있었다.** `attr-defined`로 눌러 둔 자리의 진짜 오류는
+  `union-attr`이었다 — `entry.decision`은 `Decision | None`이고 **테스트는 그걸 모른 채** 쓰고
+  있었다. 그리고 `cfg.load_env_file = lambda *a, **k: calls.append(1) or {}`는 `append`가
+  `None`을 반환하므로 **`or {}`가 항상 타는 죽은 표현**이었다(mypy `func-returns-value`).
+  둘 다 억제를 지우자마자 나왔다. ★ 억제는 자기가 이름 붙인 것만 덮지 않는다.
+- **Blockers**: 없음(이 항목 한정). ⛔ 레포 전체는 그대로 — **전용 GCP 프로젝트**가 T2를 잠그고
+  **08-24 중단 기준**의 판정 대상이다.
+- **Next**: **T0-10**(값-대-구문 착각 전수 점검) · T3-2(계약 유도).
+  ⛔ **남긴 빚 둘.** ① 위의 red 확인이 `scripts/mutate.sh`에 **없다** — 넣으려면 T0-8의 신선도
+  가드 때문에 전체 스윕을 다시 돌려야 해서 이번 범위 밖으로 뒀다. 즉 *"tests가 mypy에 들어와
+  있다"*를 지키는 **하네스 변이는 아직 없다.** ② 남은 억제 1개(`test_domain_ledger`의
+  `[index]`)는 **일부러** 타입이 금지한 짓을 하는 자리라 사유를 달아 남겼다. 그리고
+  재정의 인자(`**over: Any`)는 여전히 검사 밖이다 — 줄인 것은 억제지 `Any`가 아니다.
+  ⚠️ 이 파일이 예산(120줄)을 **넘겼다** — 다음에 `/tidy-docs`로 T6-3을 아카이브로 민다.
+
 ## 2026-08-21 — T0-8: 기록이 아직 참인지를 게이트가 묻는다 — 신선도는 참임의 **대리**다 (gate 129)
 
 - **Status**: `[auto]` T0-8 완료. REQ 상태 변화 **없다**(이 가드는 특정 요구사항이 아니라
