@@ -36,10 +36,13 @@
       인용 REQ가 **실재하는지** 집행한다 (G6④). 손으로 센 5곳이 아니라 **6곳**이었다 —
       `remediate.py`의 줄임 표기는 어떤 규칙으로도 안 풀렸다. ⇒ 저장소 루트 기준 전체 경로만 허용.
       dangling 0 · **M-23·M-24·M-25 red 확인** · `make check` 68 passed.
-- [ ] [auto] **T0-6** 스테일 문자열 정리 — `mutate.sh` 사용법이 `M-01~M-04`인데 실제는 **M-22까지**이고,
-      인라인 REQ 주석이 **구 번호**다(M-06이 REQ-204라고 적혀 있으나 기록은 REQ-505).
-      `tools/spec_trace.py` 리포트 헤더도 아직 `fleet-ledger`다.
-      `Done:` 셋 다 현행으로 맞고 `make check` 초록.
+- [x] [auto] **T0-6** 스테일 문자열 정리 — **넷**이었다(셋으로 적었는데 하나 더 있었다):
+      `mutate.sh` 사용법 `M-01~M-04`→**M-25까지** · 인라인 REQ 주석 넷이 구 번호
+      (M-06·07·08·09 → REQ-505·504·501·503) · `spec_trace.py` 리포트 헤더 `fleet-ledger`→`warranty` ·
+      `mutations.md` 절차 인용 `fleet-ledger/design/07-verification.md`→`warranty/design/09-quality-gate.md`
+      (**문서 번호도 바뀌었다** — 07은 지금 tenant-identity다).
+      ⚠️ **넷 다 기계가 안 읽는 자리**라 G6④(파이썬 도크스트링)도 `scan_mutation_refs`도 못 잡는다
+      — 다음 이름 변경 때 **재발한다**. `make check` 68 passed.
 
 ## T1 — 도메인 *(일부 완료 · 전부 오프라인)*
 

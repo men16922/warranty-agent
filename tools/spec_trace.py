@@ -349,7 +349,7 @@ def _mark(items: tuple[str, ...]) -> str:
 
 def render_report(rows: list[TraceRow]) -> str:
     lines = [
-        "spec 추적성 매트릭스 — fleet-ledger",
+        "spec 추적성 매트릭스 — warranty",
         "",
         f"{'REQ':<9} {'상태':<12} {'설계':>4} {'태스크':>6} {'테스트':>6} {'변이':>4}  제목",
         "-" * 96,

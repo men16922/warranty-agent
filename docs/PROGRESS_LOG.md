@@ -6,6 +6,33 @@
 
 ---
 
+## 2026-08-21 — T0-6: 기계가 안 읽는 문자열이 썩어 있었다 — 사람만 속는 자리 넷 (gate 68)
+
+- **Status**: `[auto]` T0-6 완료. 문자열 정리뿐이고 동작은 안 건드렸다. 클라우드는 여전히 막혀 있다(T0-3).
+- **Changed**: 넷을 현행으로 맞췄다. ① `mutate.sh` 사용법이 `<M-01|M-02|M-03|M-04|all>`이었다 —
+  실제 변이는 **M-25까지**다(`all` 목록은 이미 맞았고 사용법 줄만 안 따라왔다) ⇒ `<M-01..M-25|all>`.
+  ② `mutate.sh` 인라인 REQ 주석 넷이 **구 번호**였다 — M-06 `REQ-204`→`REQ-505` ·
+  M-07 `REQ-203`→`REQ-504` · M-08 `REQ-201`→`REQ-501` · M-09 `REQ-202`→`REQ-503`
+  (권위는 `docs/evidence/mutations.md`의 REQ 칸, 그리고 tasks.md의 T1-1~T1-3와 일치한다).
+  ③ `tools/spec_trace.py`의 리포트 헤더가 아직 `fleet-ledger`였다 ⇒ `warranty`.
+  ④ `mutations.md` 머리말의 절차 인용이 `specs/fleet-ledger/design/07-verification.md`였다 ⇒
+  현행 `specs/warranty/design/09-quality-gate.md` §4(문서 번호까지 바뀌었다 — 07은 지금
+  `07-tenant-identity.md`라 경로만 갈아끼우면 **다른 문서를 가리켰을 것**이다).
+- **Verified**: `make check` → **68 passed** (2026-08-21 로컬 macOS·py3.13). 변이 기록은
+  안 늘렸다 — 주석·사용법 문자열이라 밀 가드가 없다(있다고 적으면 그게 G6가 막는 거짓 주장이다).
+- **Verified(왜 가드가 이걸 못 잡았나)**: 넷 다 **기계가 안 읽는 자리**다. `scan_mutation_refs`는
+  `mutations.md`의 표만 읽고 `mutate.sh` 주석은 안 읽는다. G6④는 파이썬 도크스트링의 `Spec:`만
+  본다 — 셸 주석·마크다운 산문·출력 헤더는 사거리 밖이다. ⚠️ **그래서 이건 재발한다.**
+  다음에 이름을 바꾸면 같은 자리가 또 썩는다. 자동화는 T0-6의 범위가 아니라서 안 했다.
+- **남긴 것(의도)**: `PROGRESS_LOG`·`DECISIONS`·`spec_trace.py:193` 도크스트링·
+  `tests/test_g6_traceability.py`·`mutations.md`의 T0-5 회고에 남은 `fleet-ledger`는
+  **이름 변경을 서술하는 역사**다. 고치면 문장이 거짓이 된다.
+- **Blockers**: 없음(이 항목 한정). ⛔ 레포 전체는 그대로 — **전용 GCP 프로젝트**가 T2를
+  잠그고 **08-24 중단 기준**의 판정 대상이다.
+- **Next**: 오프라인 `[auto]` 남은 것은 T4-11a(승인 집행) · T4-11b(예산 예약) · T5-2(회복률
+  리포트) · T5-3(모델 호출 원장) · T6-2(T5-2 선행) · T6-3(상수 한 모듈).
+  ⚠️ 그 여섯을 다 해도 **중단 기준의 판정 대상(T2-2)은 안 움직인다.**
+
 ## 2026-08-21 — T0-5: 참조를 **양방향으로** 물었다 — 코드→spec 방향이 썩고 있었다 (gate 68)
 
 - **Status**: `[auto]` T0-5 완료. 오프라인 하네스 작업이고 클라우드는 여전히 막혀 있다(T0-3).

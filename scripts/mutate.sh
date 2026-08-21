@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01|M-02|M-03|M-04|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-25|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -84,16 +84,16 @@ apply() {
       backup specs/warranty/requirements.md; backup tests/test_domain_ledger.py
       perl -0pi -e 's/^### REQ-101(.*?)^상태: `TODO`$/### REQ-101$1상태: `IMPLEMENTED`/sm' specs/warranty/requirements.md
       printf '\n\ndef test_mentions_but_does_not_verify() -> None:\n    """이 테스트는 REQ-101을 언급만 한다. 커버리지가 되면 안 된다."""\n    assert True\n' >> tests/test_domain_ledger.py ;;
-    M-06) # G2 — 화해가 assumed를 덮게 한다 (REQ-204)
+    M-06) # G2 — 화해가 assumed를 덮게 한다 (REQ-505)
       backup src/warranty/domain/entry.py
       perl -0pi -e 's/            measured=measured,/            measured=measured,\n            assumed=measured,/' src/warranty/domain/entry.py ;;
-    M-07) # G3 — method↔verifiability 매핑을 깬다 (REQ-203)
+    M-07) # G3 — method↔verifiability 매핑을 깬다 (REQ-504)
       backup src/warranty/domain/attribution.py
       perl -0pi -e 's/Method\.TOKEN_METER: Verifiability\.ASSUMED_ONLY,/Method.TOKEN_METER: Verifiability.RECONCILABLE,/' src/warranty/domain/attribution.py ;;
-    M-08) # G7 — 같은 id로 덮어쓰기를 허용한다 (REQ-201)
+    M-08) # G7 — 같은 id로 덮어쓰기를 허용한다 (REQ-501)
       backup src/warranty/domain/entry.py
       perl -0pi -e 's/^        if entry\.entry_id in self\._rows:$/        if False:/m' src/warranty/domain/entry.py ;;
-    M-09) # REQ-202 — 수량·단가 키 일치 검사를 없앤다
+    M-09) # REQ-503 — 수량·단가 키 일치 검사를 없앤다
       backup src/warranty/domain/cost.py
       perl -0pi -e 's/set\(self\.inputs\) != set\(self\.unit_prices\)/False/' src/warranty/domain/cost.py ;;
     M-10) # 설정이 ADK 프로젝트 불일치를 그냥 넘기게 한다

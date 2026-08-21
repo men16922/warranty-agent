@@ -4,7 +4,7 @@
 > 요구사항 상태를 `VERIFIED`로 올리려면 여기에 **red 확인** 행이 있어야 하고,
 > `tools/spec_trace.py`가 그것을 읽어 집행한다(가드 G6).
 
-**절차** (`specs/fleet-ledger/design/07-verification.md` §4) — 전부 `scripts/mutate.sh` 안에서:
+**절차** (`specs/warranty/design/09-quality-gate.md` §4) — 전부 `scripts/mutate.sh` 안에서:
 ① 기준선 → ② 변이 → ③ 전체 스위트가 red인가·**몇 건이 죽었나** → ④ 복구 →
 ⑤ **초록 복귀 확인** → ⑥ **백업 대조로** 잔여 확인.
 
