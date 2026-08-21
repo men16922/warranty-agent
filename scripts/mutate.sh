@@ -137,6 +137,15 @@ apply() {
     M-22) # REQ-204 — 명확한 경우에도 모델을 부른다 (판정이 비결정적이 된다)
       backup src/warranty/usecases/remediate.py
       perl -0pi -e 's/        if verdict is Verdict\.AMBIGUOUS:/        if True:/' src/warranty/usecases/remediate.py ;;
+    M-23) # G6④ — `Spec:`가 없는 설계 문서를 가리키게 한다 (이름 변경 때 실제로 난 썩음)
+      backup src/warranty/domain/contract.py
+      perl -0pi -e 's|design/01-operational-contract\.md|design/99-nonexistent.md|' src/warranty/domain/contract.py ;;
+    M-24) # G6④ — `Spec:`가 정의 없는 REQ를 인용하게 한다
+      backup src/warranty/ports.py
+      perl -0pi -e 's/REQ-801, REQ-802/REQ-801, REQ-999/' src/warranty/ports.py ;;
+    M-25) # G6④ 공허 통과 방지 — 스캐너가 `Spec:`를 하나도 못 읽게 한다
+      backup tools/spec_trace.py
+      perl -0pi -e 's/r"\^Spec:/r"^NotSpec:/' tools/spec_trace.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -169,5 +178,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

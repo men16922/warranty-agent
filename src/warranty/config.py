@@ -1,6 +1,6 @@
 """설정 — 환경변수를 **검증해서** 읽는다.
 
-Spec: specs/fleet-ledger/design/06-interfaces.md §6
+Spec: specs/warranty/design/08-interfaces.md §5
 
 ⚠️ 이 모듈은 클라우드 SDK를 임포트하지 않는다. 게이트가 오프라인이려면(REQ-701)
    설정 계층이 라이브 클라이언트를 만들 수 없어야 한다.

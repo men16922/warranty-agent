@@ -6,6 +6,9 @@
    `상태: IMPLEMENTED`라고 적혀 있으면 테스트가 있어야 하고,
    `VERIFIED`라고 적혀 있으면 변이로 red를 확인한 기록이 있어야 한다.
    주장과 현실이 어긋나면 게이트가 red다.
+
+⚠️ 참조는 **양방향으로** 썩는다. spec→코드만 물으면 코드→spec(`Spec:` 도크스트링)이
+   없는 문서를 가리켜도 게이트가 초록이다. 그래서 `scan_spec_refs`가 그 방향도 묻는다.
 """
 
 from __future__ import annotations
@@ -33,8 +36,13 @@ DESIGN_SOURCES = (
     ROOT / "docs" / "PRINCIPLES.md",
 )
 
+#: `Spec:` 도크스트링을 찾는 곳. 코드가 설계를 가리키는 방향의 참조다.
+SPEC_REF_SOURCES = (ROOT / "src", ROOT / "tests", ROOT / "tools")
+
 #: 공허 통과 방지. 파서가 망가져 0개를 읽으면 모든 검사가 조용히 통과한다.
 MIN_REQUIREMENTS = 30
+#: 같은 이유로 `Spec:` 스캐너에도 바닥을 둔다. 0개를 읽으면 정합성 검사가 사라진다.
+MIN_SPEC_REFS = 8
 
 REQ_RE = re.compile(r"REQ-(\d{3})")
 REQ_SNAKE_RE = re.compile(r"req_(\d{3})")
@@ -42,6 +50,11 @@ HEADING_RE = re.compile(r"^### (REQ-\d{3})\s+—\s+(.+?)\s*$", re.MULTILINE)
 STATUS_RE = re.compile(r"^상태:\s*`([A-Z]+)`\s*$", re.MULTILINE)
 #: 테스트 독스트링에서 이 접두사가 붙은 줄만 추적성 선언으로 인정한다.
 VERIFIES_RE = re.compile(r"^Verifies:\s*REQ-")
+#: `Spec:` 줄과 **들여쓴 이어짐 줄들**을 한 덩어리로 잡는다 (entry.py가 두 줄이다).
+SPEC_BLOCK_RE = re.compile(r"^Spec:[ \t]*(.*(?:\n[ \t]+\S.*)*)", re.MULTILINE)
+MD_PATH_RE = re.compile(r"[\w./-]+\.md")
+#: `REQ-201~206` 형태. **범위를 펼치지 않으면 끝 번호가 검사에서 빠진다.**
+REQ_RANGE_RE = re.compile(r"REQ-(\d{3})~(\d{3})")
 
 
 class Status(StrEnum):
@@ -57,6 +70,15 @@ class Requirement:
     req_id: str
     title: str
     status: Status
+
+
+@dataclass(frozen=True, slots=True)
+class SpecRef:
+    """코드가 설계를 가리키는 한 건 — `Spec: <경로> (REQ-###)`."""
+
+    source: str
+    paths: tuple[str, ...]
+    reqs: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +186,87 @@ def scan_mutation_refs(path: Path = MUTATIONS) -> dict[str, set[str]]:
     return found
 
 
+def scan_spec_refs(sources: tuple[Path, ...] = SPEC_REF_SOURCES) -> list[SpecRef]:
+    """도크스트링의 `Spec:` 블록에서 **설계 경로와 인용 REQ**를 읽는다.
+
+    ⚠️ 이 방향의 참조는 **아무도 안 물으면 조용히 썩는다.** 실제로 썩었다 —
+    `fleet-ledger` → `warranty` 이름 변경 때 다섯 곳이 안 따라왔고,
+    게이트는 초록이었다. 설계 문서를 지우거나 옮겨도 마찬가지다.
+    """
+    out: list[SpecRef] = []
+    for source in sources:
+        if not source.exists():
+            continue
+        for path in sorted(source.rglob("*.py")):
+            rel = str(path.relative_to(ROOT))
+            tree = ast.parse(_read(path), filename=str(path))
+            for node in ast.walk(tree):
+                if not isinstance(
+                    node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+                ):
+                    continue
+                doc = ast.get_docstring(node) or ""
+                for block in SPEC_BLOCK_RE.findall(doc):
+                    out.append(_parse_spec_block(rel, block))
+    return out
+
+
+def _parse_spec_block(source: str, block: str) -> SpecRef:
+    reqs: set[str] = set()
+    for start, end in REQ_RANGE_RE.findall(block):
+        reqs.update(f"REQ-{n:03d}" for n in range(int(start), int(end) + 1))
+    rest = REQ_RANGE_RE.sub("", block)
+    reqs.update(f"REQ-{m.group(1)}" for m in REQ_RE.finditer(rest))
+    paths = tuple(sorted(set(MD_PATH_RE.findall(block))))
+    return SpecRef(source=source, paths=paths, reqs=tuple(sorted(reqs)))
+
+
+#: `Spec:` 경로는 **저장소 루트 기준 전체 경로**로만 적는다.
+#: ⚠️ 줄임 표기(`· 03-atomic-rollback.md`)를 허용하면 해석 규칙이 "직전 경로의 형제"가 되고,
+#:    그 규칙은 조용히 틀린다 — 실제로 remediate.py가 그 형태였고 두 곳이 안 풀렸다.
+SPEC_PATH_PREFIX = "specs/"
+
+
+def unresolved_spec_path(token: str) -> str | None:
+    """`Spec:` 경로 하나가 **왜** 안 풀리는지. 풀리면 `None`.
+
+    판정이 한 곳에 있어야 `make trace`와 테스트가 갈라지지 않는다.
+    """
+    if not token.startswith(SPEC_PATH_PREFIX):
+        return f"경로가 줄임 표기다 — 저장소 루트 기준 `{SPEC_PATH_PREFIX}...` 전체 경로로 적는다"
+    if not (ROOT / token).is_file():
+        return "가리키는 설계 문서가 없다"
+    return None
+
+
+def spec_reference_violations(
+    refs: list[SpecRef] | None = None, defined: set[str] | None = None
+) -> list[str]:
+    """`Spec:`가 가리키는 설계 경로와 인용 REQ가 **실재하는가.**"""
+    items = refs if refs is not None else scan_spec_refs()
+    known = defined if defined is not None else {req.req_id for req in load_requirements()}
+
+    if len(items) < MIN_SPEC_REFS:
+        return [
+            f"`Spec:` 참조를 {len(items)}개만 읽었다 (최소 {MIN_SPEC_REFS}) "
+            f"— 스캐너가 깨졌거나 참조가 통째로 지워졌다"
+        ]
+
+    out: list[str] = []
+    for ref in items:
+        out += [
+            f"{ref.source}: `Spec: {token}` — {reason}"
+            for token in ref.paths
+            if (reason := unresolved_spec_path(token)) is not None
+        ]
+        out += [
+            f"{ref.source}: `Spec:`가 requirements.md에 없는 {req_id}를 인용한다"
+            for req_id in ref.reqs
+            if req_id not in known
+        ]
+    return out
+
+
 def build_matrix(requirements: list[Requirement] | None = None) -> list[TraceRow]:
     reqs = requirements if requirements is not None else load_requirements()
     designs = scan_markdown_refs(DESIGN_SOURCES)
@@ -216,10 +319,12 @@ def all_violations(rows: list[TraceRow] | None = None) -> list[str]:
             f"— 파서가 깨졌거나 spec이 지워졌다"
         ]
 
+    defined = {row.req.req_id for row in matrix}
     out: list[str] = []
     for row in matrix:
         out.extend(row_violations(row))
-    out.extend(orphan_references({row.req.req_id for row in matrix}))
+    out.extend(orphan_references(defined))
+    out.extend(spec_reference_violations(defined=defined))
     return out
 
 

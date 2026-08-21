@@ -1,6 +1,6 @@
 """비용 사실(CostFact) — 총액만 적지 않는다.
 
-Spec: specs/fleet-ledger/design/01-domain-model.md §2.1 (REQ-202)
+Spec: specs/warranty/design/05-accountability-ledger.md §2 (REQ-503, REQ-505)
 """
 
 from __future__ import annotations

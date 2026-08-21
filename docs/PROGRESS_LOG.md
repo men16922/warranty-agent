@@ -6,6 +6,29 @@
 
 ---
 
+## 2026-08-21 — T0-5: 참조를 **양방향으로** 물었다 — 코드→spec 방향이 썩고 있었다 (gate 68)
+
+- **Status**: `[auto]` T0-5 완료. 오프라인 하네스 작업이고 클라우드는 여전히 막혀 있다(T0-3).
+- **Changed**: G6에 **④ spec 참조 정합성**을 붙였다(`tools/spec_trace.py`의
+  `scan_spec_refs`·`unresolved_spec_path`·`spec_reference_violations`). 코드 도크스트링의
+  `Spec:` 블록에서 설계 경로와 인용 REQ를 AST로 읽어 **실재하는지** 묻는다.
+  `REQ-201~206` 같은 **범위 표기를 펼친다**(안 펼치면 끝 번호가 검사에서 빠진다).
+  판정은 `all_violations` 한 곳 → `make trace`와 테스트가 안 갈라진다.
+  dangling 6곳을 고쳤다(`specs/fleet-ledger/...` 5 + `remediate.py` 줄임 표기 1).
+  `entry.py`가 인용하던 **REQ-207은 존재하지 않는 요구사항**이었다.
+- **Verified**: `make check` → **68 passed** (2026-08-21 로컬 macOS·py3.13).
+  **M-23·M-24·M-25 전부 red 확인** · 복구 후 68 passed · 잔여 0 (`docs/evidence/mutations.md`).
+  각각 없는 설계 문서 · 정의 없는 REQ · 스캐너 공허 통과를 민다.
+- **Verified(가드가 태스크보다 정확했다)**: T0-5는 dangling을 **5곳**으로 적었는데 기계는 **6곳**을
+  셌다. `remediate.py`가 `02-verification.md · 03-atomic-rollback.md`처럼 **직전 경로의 형제**를
+  줄여 적고 있었다. 해석 규칙을 형제 추론으로 만들면 조용히 틀리므로 **저장소 루트 기준
+  전체 경로만** 허용하고 줄임 표기 자체를 위반으로 센다. ⚠️**손으로 센 목록은 가드가 아니다.**
+- **Blockers**: 없음(이 항목 한정). ⛔ 레포 전체의 블로커는 그대로 — **전용 GCP 프로젝트**가
+  T2를 잠그고 있고 **08-24 중단 기준**의 판정 대상이다.
+- **Next**: T0-6(스테일 문자열 — `mutate.sh` 사용법 `M-01~M-04`, `spec_trace.py` 리포트 헤더
+  `fleet-ledger`, `mutations.md` 머리말의 `specs/fleet-ledger/design/07-verification.md`).
+  ⚠️ 마지막 것은 **마크다운 산문**이라 G6④(파이썬 도크스트링)가 안 잡는다 — T0-6이 가져가야 한다.
+
 ## 2026-08-19 — 레포 생성부터 루프 배선까지: spec을 집행 가능하게 만들고, GCP 올인으로 재정의했다 (gate 65)
 
 - **Status**: 저장소를 새로 만들었다(커밋 6). Google All Things Agentic Hackathon 제출물.

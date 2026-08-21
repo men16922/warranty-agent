@@ -1,6 +1,6 @@
 """설정 계층 — 조용한 기본값을 만들지 않는다.
 
-Spec: specs/fleet-ledger/design/06-interfaces.md §6
+Spec: specs/warranty/design/08-interfaces.md §5
 """
 
 from __future__ import annotations

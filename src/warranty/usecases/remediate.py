@@ -1,6 +1,8 @@
 """조치 → 검증 → 롤백 — 이 프로젝트의 루프 전체.
 
-Spec: specs/warranty/design/02-verification.md · 03-atomic-rollback.md · 04-decision-gate.md
+Spec: specs/warranty/design/02-verification.md
+      specs/warranty/design/03-atomic-rollback.md
+      specs/warranty/design/04-decision-gate.md
       (REQ-104, REQ-201~205, REQ-301~305, REQ-401~403)
 
     ⛔ 검증할 수 없는 조치는 자동으로 실행하지 않는다.

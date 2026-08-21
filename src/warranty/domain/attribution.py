@@ -1,6 +1,6 @@
 """귀속 — 어떻게 청구서에 닿는가, 그리고 **닿을 수 없다면 그 사실**.
 
-Spec: specs/fleet-ledger/design/02-attribution.md (REQ-203, REQ-205, REQ-206)
+Spec: specs/warranty/design/05-accountability-ledger.md §3 (REQ-504)
 """
 
 from __future__ import annotations

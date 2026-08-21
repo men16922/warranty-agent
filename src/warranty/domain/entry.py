@@ -1,7 +1,8 @@
 """원장 항목과 그것을 담는 저장소 — **불변식을 API 모양으로 집행한다.**
 
-Spec: specs/fleet-ledger/design/01-domain-model.md §2 · design/06-interfaces.md §3
-      (REQ-201, REQ-204, REQ-207)
+Spec: specs/warranty/design/05-accountability-ledger.md §1
+      specs/warranty/design/08-interfaces.md §2
+      (REQ-501, REQ-502, REQ-505, REQ-507)
 """
 
 from __future__ import annotations

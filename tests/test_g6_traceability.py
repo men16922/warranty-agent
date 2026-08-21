@@ -7,11 +7,15 @@
 `상태: IMPLEMENTED`라고 적혀 있으면 테스트가 있어야 하고, `VERIFIED`라면
 변이로 red를 확인한 기록이 있어야 한다. 주장과 현실이 어긋나면 red다.
 
-형제 검사 셋을 함께 한다 (design/07-verification.md §3.2):
+형제 검사 넷을 함께 한다 (design/07-verification.md §3.2):
   ① 상태가 주장하는 테스트/변이 기록이 실제로 있는가
   ② 모든 요구사항에 그것을 만드는 태스크가 있는가
   ③ 모든 요구사항에 설계 귀속처가 있는가
+  ④ 코드의 `Spec:`가 가리키는 설계 경로와 인용 REQ가 실재하는가
 ①만 묻는 G6는 절반만 묻는 가드다.
+
+⚠️ ④가 없으면 참조가 **한 방향으로만** 지켜진다. 실제로 `fleet-ledger` → `warranty`
+   이름 변경 때 다섯 곳의 `Spec:`가 없는 파일을 가리켰고 게이트는 초록이었다.
 """
 
 from __future__ import annotations
@@ -70,6 +74,43 @@ def test_g6_no_orphan_requirement_references(matrix: list[spec_trace.TraceRow]) 
     """정의 없는 REQ를 가리키는 참조 — 오타이거나 지워진 요구사항이다."""
     orphans = spec_trace.orphan_references({row.req.req_id for row in matrix})
     assert not orphans, orphans
+
+
+@pytest.fixture(scope="module")
+def spec_refs() -> list[spec_trace.SpecRef]:
+    return spec_trace.scan_spec_refs()
+
+
+def test_g6_spec_refs_parse_and_are_not_empty(spec_refs: list[spec_trace.SpecRef]) -> None:
+    """공허 통과 방지 — 스캐너가 0개를 읽으면 아래 두 검사가 조용히 통과한다."""
+    assert len(spec_refs) >= spec_trace.MIN_SPEC_REFS, (
+        f"`Spec:` 참조를 {len(spec_refs)}개만 읽었다. 스캐너가 깨졌거나 참조가 지워졌다."
+    )
+
+
+def test_g6_spec_refs_point_at_existing_designs(spec_refs: list[spec_trace.SpecRef]) -> None:
+    """④ 코드 → 설계 방향. **없는 문서를 가리키는 참조는 참조가 아니라 거짓말이다.**"""
+    dangling = [
+        f"{ref.source} → {token} ({reason})"
+        for ref in spec_refs
+        for token in ref.paths
+        if (reason := spec_trace.unresolved_spec_path(token)) is not None
+    ]
+    assert not dangling, f"`Spec:`가 안 풀리는 경로를 가리킨다: {dangling}"
+
+
+def test_g6_spec_refs_cite_defined_requirements(
+    spec_refs: list[spec_trace.SpecRef], matrix: list[spec_trace.TraceRow]
+) -> None:
+    """④ 인용한 REQ가 requirements.md에 실재하는가 (범위 표기 `REQ-201~206`도 펼친다)."""
+    defined = {row.req.req_id for row in matrix}
+    unknown = [
+        f"{ref.source} → {req_id}"
+        for ref in spec_refs
+        for req_id in ref.reqs
+        if req_id not in defined
+    ]
+    assert not unknown, f"`Spec:`가 정의 없는 요구사항을 인용한다: {unknown}"
 
 
 def test_g6_reports_no_violations(matrix: list[spec_trace.TraceRow]) -> None:
