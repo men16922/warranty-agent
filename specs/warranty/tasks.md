@@ -219,9 +219,14 @@
       ⇒ `tests/test_verification_order.py` — design 02§2의 절차를 **파싱해** 순서와 인자 출처를 묻는다.
       기준선 측정 · **같은 신호를 같은 방법으로** 재측정 · 회복 판정 기준은 계약이 선언.
       `Done:` 셋 각각 변이 red 확인 + `mutations.md` 기록 + `requirements.md` → `VERIFIED`.
-- [ ] [auto] **T9-2** 롤백 2종 · `Implements: REQ-301, REQ-302`
-      롤백 계획을 **조치 전에** 확보 · 회복 실패 시 자동 롤백.
-      `Done:` 둘 다 변이 red 확인 + 기록 + `VERIFIED`.
+- [x] [auto] **T9-2** 롤백 2종 · `Implements: REQ-301, REQ-302`
+      ⛔ **M-60·M-62가 살아남았다** — 계획이 *조치 전에* 묶이는지 묻는 자리도, *모델이 닫은*
+      미회복이 롤백되는지 묻는 자리도 없었다. 물어지던 것은 REQ-301의 절반
+      (*"다시 조회하지 않는가"* · `contracts.lookups == 1`)뿐이다.
+      ⇒ `tests/test_rollback_plan_order.py` — 계획이 **조치 전에** 묶이고, 롤백이 **그 이름을**
+      받고, 조치 뒤에 계약 저장소를 **다시 안 읽는지**를 AST로 묻는다.
+      + 모델이 닫은 미회복도 롤백한다(반대편: 모델 경로라고 무조건 롤백하지도 않는다).
+      `Done:` 셋 각각 변이 red 확인 + `mutations.md` 기록 + `requirements.md` → `VERIFIED`.
 - [ ] [auto] **T9-3** 계약 수명 2종 · `Implements: REQ-104, REQ-105`
       계약 없는 리소스는 자동 조치 대상 아님 · 리소스가 사라지면 계약도 종료.
       `Done:` 둘 다 변이 red 확인 + 기록 + `VERIFIED`.
@@ -246,7 +251,7 @@
 | G8 ★ `improved` 유도 | T1-5 | **[x]** M-13 |
 | G9 ★ 검증불가는 AUTO 아님 | T1-6 | **[x]** M-14 |
 
-**게이트**: `make check` → **144 passed** (2026-08-21 로컬 macOS·py3.13)
+**게이트**: `make check` → **150 passed** (2026-08-21 로컬 macOS·py3.13)
 ⚠️ 숫자는 **여기 한 곳에만** 적는다. ⛔ 다만 `docs/evidence/mutations.md`의 최신 스윕 기준선은
 **같은 숫자를 다시 적는다** — 그건 중복이 아니라 *"기록이 어느 스위트를 보고 적혔는가"*이고,
 T0-8의 가드가 그 둘이 갈라지는 것을 집행한다.

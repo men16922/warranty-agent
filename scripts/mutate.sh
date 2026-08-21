@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-59|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-62|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -261,6 +261,21 @@ apply() {
       perl -0pi -e 's/^            verdict = classify\(baseline, after, contract\.recovery_criterion\)$/            verdict = classify(baseline, after, _ACTION_CRITERION)/m' src/warranty/usecases/remediate.py
       perl -0pi -e 's/^from warranty\.tunables import VERIFY_DELAY_S$/from warranty.tunables import VERIFY_DELAY_S\n\n_ACTION_CRITERION = Criterion(Direction.DECREASE, Decimal("0.5"), CriterionMode.RELATIVE, Decimal("0.1"))/m' src/warranty/usecases/remediate.py
       perl -0pi -e 's/^from warranty\.domain\.contract import \($/from warranty.domain.contract import (\n    Criterion,\n    CriterionMode,\n    Direction,/m' src/warranty/usecases/remediate.py ;;
+    M-60) # REQ-301 — 롤백 계획을 **조치 뒤에** 읽는다 (T9-2: 값은 하나도 안 바뀐다)
+           # ⚠️ 계약은 루프 시작에 한 번 읽은 얼어붙은 값이라 계획도 판정도 전환 대상도 그대로다.
+           #    바뀌는 것은 *"그 계획이 조치 전에 고정됐는가"*뿐이고, 그 어긋남은 값으로 안 보인다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            plan = contract\.rollback_plan\n//m' src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            actual = projected_usd$/            actual = projected_usd\n            plan = contract.rollback_plan/m' src/warranty/usecases/remediate.py ;;
+    M-61) # REQ-301 — 롤백 계획을 **계약 저장소에서 다시 읽는다** (조치가 바꾼 세상에서 온다)
+           # ⚠️ 값은 여전히 같다 — fake 저장소가 같은 계약을 돌려주니까. 늘어나는 것은 조회 횟수뿐이다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            plan = contract\.rollback_plan\n//m' src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            actual = projected_usd$/            actual = projected_usd\n            fresh = self.contracts.active_for(resource)\n            plan = None if fresh is None else fresh.rollback_plan/m' src/warranty/usecases/remediate.py ;;
+    M-62) # REQ-302 — **모델이 닫은** 미회복은 롤백하지 않는다 (규칙이 닫은 경우만 되돌린다)
+           # ⚠️ 롤백이 사라지는 구간이 하필 판단이 애매한 구간과 겹친다. 원장은 똑같아 보인다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            if verdict is Verdict\.RECOVERED:$/            if verdict is Verdict.RECOVERED or decided_by is DecidedBy.MODEL:/m' src/warranty/usecases/remediate.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -293,5 +308,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

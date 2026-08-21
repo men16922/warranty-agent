@@ -316,6 +316,43 @@ def test_req_302_failed_verification_triggers_rollback() -> None:
     assert run.shifts == [PREVIOUS]
 
 
+def test_req_302_a_not_recovered_the_model_closed_rolls_back_too() -> None:
+    """Verifies: REQ-302, REQ-204
+
+    ⛔ **REQ-302는 누가 판정했는지를 말하지 않는다** — *"검증이 `not_recovered`일 때"*다.
+    그런데 위 테스트가 태우는 것은 **규칙이 닫은 경우 하나뿐**이었다. 모델이 닫은
+    미회복을 롤백에서 빼도 144건이 전부 초록이었다 (M-62).
+
+    ⚠️ 그 구멍이 특히 나쁜 이유: 모델이 불리는 경우는 정의상 **애매한 경우**다
+    (tolerance 안쪽). 즉 *"롤백이 조용히 사라지는 구간"*이 하필 **판단이 어려운 구간**과
+    정확히 겹친다 — 그리고 원장은 `executed=true`만 남긴 채 똑같아 보인다.
+    """
+    r, _, run, _, judge = _build(series=[_m("1.0"), _m("0.5"), _m("1.0")])
+    entry = _run(r)
+    assert judge.calls == 1, "이 경우가 모델 경로가 아니다 — 이 테스트는 아무것도 안 묻고 있다"
+    assert _verification(entry).decided_by is DecidedBy.MODEL
+    assert _verification(entry).verdict is Verdict.NOT_RECOVERED
+    assert entry.improved is False
+    assert entry.rolled_back is True, "모델이 닫은 미회복이 롤백을 건너뛰었다"
+    assert run.shifts == [PREVIOUS]
+
+
+def test_req_302_a_recovered_the_model_closed_does_not_roll_back() -> None:
+    """Verifies: REQ-302, REQ-204
+
+    ⚠️ 위 테스트만 있으면 *"모델 경로면 무조건 롤백"*으로 고쳐도 초록이다 — 그건
+    **나아진 조치를 되돌리는** 반대편 오류이고, 원장에는 `rolled_back=true`로 남는다.
+    롤백을 여는 것은 경로가 아니라 **판정**이어야 한다.
+    """
+    r, _, run, _, judge = _build(series=[_m("1.0"), _m("0.5")], judge_verdict=Verdict.RECOVERED)
+    entry = _run(r)
+    assert judge.calls == 1
+    assert _verification(entry).decided_by is DecidedBy.MODEL
+    assert entry.improved is True
+    assert entry.rolled_back is False
+    assert run.shifts == []
+
+
 def test_req_303_rollback_is_proved_by_reading_the_traffic_split_back() -> None:
     """Verifies: REQ-303
 
