@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-52|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-56|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -231,6 +231,20 @@ apply() {
     M-52) # REQ-803 — 설계에서 데모 단계 하나를 **없앤다** (T0-10: 사본은 안 줄고 초록이던 자리)
       backup specs/warranty/design/11-demo.md
       perl -0pi -e 's/^   ④ remediate #2[^\n]*\n//m' specs/warranty/design/11-demo.md ;;
+    M-53) # REQ-103 — `resource_filter`를 응답의 이름이 아니라 **박은 문자열**로 한다
+           # (T3-2: 데모 이름과 우연히 같아서 값만 보는 테스트로는 안 잡히던 자리)
+      backup src/warranty/usecases/provision.py
+      perl -0pi -e 's/^            resource_filter=response\.name,[^\n]*$/            resource_filter="demo-target",/m' src/warranty/usecases/provision.py ;;
+    M-54) # REQ-103 — 유도되는 자리를 **인자로 다시 연다** (계약이 선언으로 되돌아가는 경로)
+           # ⚠️ 값은 하나도 안 바뀐다 — 구문으로 묻지 않으면 이 변이는 전부 초록이다.
+      backup src/warranty/usecases/provision.py
+      perl -0pi -e 's/^    recovery_criterion: Criterion,$/    recovery_criterion: Criterion,\n    previous_revision: str | None = None,/m' src/warranty/usecases/provision.py ;;
+    M-55) # REQ-103 — 설계의 유도 표에서 **한 행을 지운다** (금지 집합이 조용히 줄어드는 경로)
+      backup specs/warranty/design/01-operational-contract.md
+      perl -0pi -e 's/^\| `reversibility` \|[^\n]*\n//m' specs/warranty/design/01-operational-contract.md ;;
+    M-56) # REQ-103 — 가역성을 **리소스 타입만 보고** 정한다 (돌아갈 자리가 없어도 가역)
+      backup src/warranty/usecases/provision.py
+      perl -0pi -e 's/Reversibility\.IRREVERSIBLE if rollback_plan is None else Reversibility\.REVERSIBLE/Reversibility.REVERSIBLE/' src/warranty/usecases/provision.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -263,5 +277,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

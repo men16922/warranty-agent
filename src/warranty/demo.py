@@ -46,14 +46,12 @@ from warranty.domain.contract import (
     Direction,
     OperationalContract,
     ResourceRef,
-    Reversibility,
-    RollbackPlan,
-    SignalSpec,
 )
 from warranty.domain.entry import InMemoryLedger, LedgerEntry
 from warranty.domain.report import daily_report
 from warranty.domain.verification import Measurement
-from warranty.tunables import DEMO_BUDGET_USD, VERIFY_WINDOW_S
+from warranty.tunables import DEMO_BUDGET_USD
+from warranty.usecases.provision import ProvisionResponse, derive_contract
 from warranty.usecases.remediate import Remediator
 
 # ── 데모 상수. ⚠️ 대기·창·예산은 여기 없다 — `warranty.tunables` 한 곳에 있다
@@ -67,6 +65,16 @@ DEMO_CLOCK_ISO = "2026-08-21T09:00:00+00:00"
 
 #: 프로비저닝 시점에 서빙 중이던 리비전. **롤백이 돌아갈 곳이다.**
 HEALTHY_REVISION = "demo-target-00007-abc"
+
+#: ★ 생성 API가 돌려줬다고 **치는** 응답. 계약은 여기서 유도된다 (REQ-103).
+#: ⛔ 각본인 것은 이 응답이지 계약이 아니다 — 계약의 네 자리는 실물 코드가 이 응답에서
+#:    계산한다. 실물 Cloud Run 응답이 이 모양인지는 T3-1에서만 확인된다(`CAVEATS` 참조).
+DEMO_PROVISION_RESPONSE = ProvisionResponse(
+    kind="cloud_run_service",
+    name=DEMO_SERVICE,
+    region=DEMO_REGION,
+    previous_revision=HEALTHY_REVISION,
+)
 #: 장애 주입용 — 신호를 악화시키는 리비전. 조치가 여기로 트래픽을 옮긴다.
 SLOW_REVISION = "demo-target-00008-slow"
 
@@ -86,7 +94,8 @@ TITLE = "warranty — make demo (offline · deterministic)"
 #: 실물 왕복으로 읽힌다 (docs/PRINCIPLES.md #3).
 CAVEATS = (
     "신호는 ScriptedSignal이 낸다 — 실물 Cloud Monitoring이 아니다 (REQ-601·602는 TODO).",
-    "계약은 프로비저닝 응답에서 유도된 것이 아니라 여기서 구성된다 (REQ-103 미착수).",
+    "계약은 생성 응답에서 유도되지만(REQ-103) 그 응답이 각본이다 — "
+    "실물 Cloud Run 응답이 이 모양으로 오는지는 확인 안 됐다 (T3-1).",
     "wasted_usd가 0인 것은 낭비가 없어서가 아니라 조치에 비용 경로가 아직 없어서다 (REQ-503).",
 )
 
@@ -144,29 +153,25 @@ def _measured(value: Decimal) -> Measurement:
     return Measurement(value, SIGNAL_POINTS)
 
 
-def demo_contract(resource: ResourceRef, provisioned_at: datetime) -> OperationalContract:
+def demo_contract(provisioned_at: datetime) -> OperationalContract:
     """★ Day-1이 Day-2에 넘기는 것 — 무엇을 재고, 무엇을 회복이라 부르고, 어떻게 되돌리나.
 
     ⚠️ 판정 기준이 **여기 한 곳**에 있다. 테스트가 자기 사본을 들고 있으면 기준을 바꿔도
        테스트는 옛 기준으로 초록이고, 그 어긋남은 조용하다.
+
+    ⚠️ **리소스도 인자가 아니다** (REQ-103). 리소스 이름·리전·롤백 목적지는 전부
+       `DEMO_PROVISION_RESPONSE`에서 온다 — 계약을 손으로 조립하던 자리를 지우고
+       `derive_contract` 하나만 남겼다. 사람이 정하는 것은 아래 `recovery_criterion`뿐이다.
     """
-    return OperationalContract(
-        contract_id="ct-demo-0001",
-        resource=resource,
-        health_signal=SignalSpec(
-            metric_type="run.googleapis.com/request_latencies",
-            resource_filter=DEMO_SERVICE,
-            aggregation="P95",
-            window_s=VERIFY_WINDOW_S,
-        ),
+    return derive_contract(
+        DEMO_PROVISION_RESPONSE,
         recovery_criterion=Criterion(
             direction=Direction.DECREASE,
             threshold=Decimal("0.5"),
             mode=CriterionMode.RELATIVE,
             tolerance=Decimal("0.1"),
         ),
-        rollback_plan=RollbackPlan(previous_revision=HEALTHY_REVISION),
-        reversibility=Reversibility.REVERSIBLE,
+        contract_id="ct-demo-0001",
         provisioned_at=provisioned_at,
         provisioned_by="demo-provisioner",
     )
@@ -199,12 +204,17 @@ def run_demo() -> DemoRun:
     """
     clock = FrozenClock(DEMO_CLOCK_ISO)
     started = datetime.fromisoformat(clock.now_iso())
-    resource = ResourceRef("cloud_run_service", DEMO_SERVICE, DEMO_REGION)
     orphan = ResourceRef("cloud_run_service", ORPHAN_SERVICE, DEMO_REGION)
 
-    # ── ① provision — 계약 방출
+    # ── ① provision — 계약 방출. ⚠️ **리소스가 계약에서 온다**(REQ-103) — 반대가 아니다.
+    #    조치·검증·롤백이 가리키는 리소스는 생성 응답이 말한 그것이지 이 파일이 적은 이름이 아니다.
     contracts = InMemoryContracts()
-    contract = demo_contract(resource, started)
+    contract = demo_contract(started)
+    resource = contract.resource
+    if contract.rollback_plan is None:
+        # 유도가 돌아갈 자리를 못 냈다 → ③(자동 롤백)의 서사가 성립하지 않는다.
+        raise DemoError(f"유도된 계약에 롤백 계획이 없다: {contract.contract_id}")
+    rollback_to = contract.rollback_plan.previous_revision
     contracts.put(contract)
     run = FakeRun(current=HEALTHY_REVISION)
     provision = DemoStep(
@@ -220,7 +230,7 @@ def run_demo() -> DemoRun:
                 f"{contract.recovery_criterion.threshold} "
                 f"({contract.recovery_criterion.mode}, ±{contract.recovery_criterion.tolerance})"
             ),
-            "rollback_to": HEALTHY_REVISION,
+            "rollback_to": rollback_to,
             "reversibility": str(contract.reversibility),
         },
     )

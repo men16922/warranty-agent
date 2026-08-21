@@ -27,7 +27,6 @@ from pathlib import Path
 import pytest
 
 import warranty.demo as demo  # `from warranty import demo`는 재수출이 아니다(strict)
-from warranty.domain.contract import ResourceRef
 from warranty.domain.verification import Measurement, classify
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -180,10 +179,7 @@ def test_req_803_the_verdict_is_computed_from_the_numbers_it_printed(run: demo.D
     같은 계약 기준으로 다시 판정해 **출력된 판정과 맞는지** 묻는다.
     """
     acted = _step(run, "remediate")
-    contract = demo.demo_contract(
-        ResourceRef("cloud_run_service", demo.DEMO_SERVICE, demo.DEMO_REGION),
-        datetime.fromisoformat(demo.DEMO_CLOCK_ISO),
-    )
+    contract = demo.demo_contract(datetime.fromisoformat(demo.DEMO_CLOCK_ISO))
     recomputed = classify(
         Measurement(Decimal(str(acted["baseline_p95_ms"])), demo.SIGNAL_POINTS),
         Measurement(Decimal(str(acted["after_p95_ms"])), demo.SIGNAL_POINTS),
