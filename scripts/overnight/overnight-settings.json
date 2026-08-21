@@ -1,5 +1,5 @@
 {
-  "$comment": "무인 overnight 루프 전용 권한 경계 (`claude -p --settings`로만 로드된다 — 대화형 설정은 건드리지 않는다). DENY가 ALLOW를 이긴다. make 타깃은 개별 화이트리스트다(`Bash(make *)` 통짜 허용 금지) — 나중에 파괴적 타깃이 생겨도 자동으로 열리지 않는다. 이 레포의 안전 조건은 REQ-801·REQ-802/PRINCIPLES #3: 게이트는 오프라인이고 어떤 과금 API도 부르지 않는다. 그래서 gcloud/bq/docker/terraform/uv 같은 온라인·과금 경로와 `make live-check`·`pytest -m live`는 전부 deny다.",
+  "$comment": "무인 overnight 루프 전용 권한 경계 (`claude -p --settings`로만 로드된다 — 대화형 설정은 건드리지 않는다). DENY가 ALLOW를 이긴다. make 타깃은 개별 화이트리스트다(`Bash(make *)` 통짜 허용 금지) — 나중에 파괴적 타깃이 생겨도 자동으로 열리지 않는다. 이 레포의 안전 조건은 REQ-801·REQ-802/PRINCIPLES #3: 게이트는 오프라인이고 어떤 과금 API도 부르지 않는다. 그래서 gcloud/bq/docker/terraform/uv 같은 온라인·과금 경로와 `make live-check`·`pytest -m live`는 전부 deny다. ⚠️ `make demo`는 allow다 — REQ-803이 결정론을 요구하고 게이트 안의 테스트가 그것을 집행한다(fake 포트 위). 실물 어댑터를 데모에 물리면 그 테스트가 먼저 red다.",
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
@@ -12,6 +12,7 @@
       "Bash(make types)",
       "Bash(make test)",
       "Bash(make trace)",
+      "Bash(make demo)",
       "Bash(make clean)",
       "Bash(.venv/bin/pytest)",
       "Bash(.venv/bin/pytest tests/*)",
@@ -42,7 +43,6 @@
     ],
     "deny": [
       "Bash(make live-check*)",
-      "Bash(make demo*)",
       "Bash(make venv*)",
       "Bash(make deploy*)",
       "Bash(make publish*)",
@@ -57,7 +57,6 @@
       "Bash(uv *)",
       "Bash(pip *)",
       "Bash(*pip install*)",
-      "Bash(*warranty.demo*)",
       "Bash(cat .env)",
       "Bash(git push*)",
       "Bash(git reset --hard*)",

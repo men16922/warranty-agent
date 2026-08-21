@@ -10,21 +10,26 @@ Spec: specs/warranty/design/11-demo.md (REQ-803)
    ② **결과를 박아 두지 않았는가** — 판정이 출력된 측정값에서 다시 계산되는가
    ③ **데모가 증명하지 않는 것을 말하는가** — fake 위의 초록은 실물 왕복이 아니다
 
-⛔ `python -m warranty.demo`를 **하위 프로세스로 띄우지 않는다.** 무인 루프의 권한 경계가
-   그 호출을 막는다(`scripts/overnight/overnight-settings.json`). 그래서 진입점은
-   `demo.main()`을 직접 불러 태운다 — 남는 구멍은 `__main__` 두 줄뿐이다.
+⛔ 그 셋은 전부 `demo.main()`을 직접 불러 태운다. **그것만으로는 진입점이 검증되지 않는다** —
+   실제로 `make demo`는 `ModuleNotFoundError`로 죽어 있었고 위 셋은 초록이었다.
+   그래서 `test_req_803_declared_entrypoint_runs`가 선언된 명령을 그대로 태운다
+   (권한 경계도 그에 맞춰 `make demo`를 allow로 열었다 — 오프라인·결정론이다).
 """
 
 from __future__ import annotations
 
+import subprocess
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
 from warranty import demo
 from warranty.domain.contract import ResourceRef
 from warranty.domain.verification import Measurement, classify
+
+ROOT = Path(__file__).resolve().parent.parent
 
 #: design 11§2가 이름 붙인 다섯 단계. **순서까지가 서사다.**
 DESIGN_STEPS = ("provision", "inject", "remediate", "manual", "report")
@@ -215,3 +220,27 @@ def test_req_803_the_demo_says_what_it_does_not_prove(run: demo.DemoRun) -> None
     assert run.caveats
     assert any("REQ-601" in caveat for caveat in run.caveats)
     assert "이 데모가 증명하지 않는 것" in run.render()
+
+
+def test_req_803_declared_entrypoint_runs() -> None:
+    """`make demo`가 **실제로 도는가** (REQ-803).
+
+    ⛔ 이 저장소에서 실제로 깨져 있었다. `demo.main()`을 직접 부르는 위의 테스트들은
+       전부 초록인데 `make demo`는 `ModuleNotFoundError`였다 — pytest는
+       `pythonpath = ["src", "."]`를 주입하지만 `python -m`은 아무도 안 주입한다.
+       ⇒ **진입점을 그 진입점으로 태우지 않으면 그 진입점은 검증되지 않는다.**
+
+    ⚠️ `PYTHONPATH`를 여기서 직접 세우지 않는다. 세우면 Makefile이 그것을 빠뜨려도
+       이 테스트는 초록이다 — 물어야 할 것은 **선언된 명령**이지 우리가 고친 환경이 아니다.
+    """
+    result = subprocess.run(
+        ["make", "demo"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (
+        f"`make demo` 실패:\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}"
+    )
+    assert "report" in result.stdout, "다섯 단계의 마지막이 출력에 없다"

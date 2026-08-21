@@ -37,7 +37,7 @@ live-check:
 	$(PYTEST) -m live
 
 demo:
-	$(PY) -m warranty.demo
+	PYTHONPATH=src $(PY) -m warranty.demo
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache
