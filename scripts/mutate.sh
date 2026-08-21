@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-36|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-41|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -179,6 +179,21 @@ apply() {
     M-36) # REQ-603 — 호출이 예외로 끝나면 행을 안 남긴다 (실패했는데 나간 토큰이 사라진다)
       backup src/warranty/usecases/meter.py
       perl -0pi -e 's/        finally:\n            self\._record\(action_id, usage\)/        except Exception:\n            raise\n        else:\n            self._record(action_id, usage)/' src/warranty/usecases/meter.py ;;
+    M-37) # REQ-803 — 데모가 **살아 있는 시계**를 쓴다 (재현이 아니라 실행이 된다)
+      backup src/warranty/demo.py
+      perl -0pi -e 's/clock = FrozenClock\(DEMO_CLOCK_ISO\)/clock = FrozenClock(datetime.now().astimezone().isoformat())/' src/warranty/demo.py ;;
+    M-38) # REQ-803 — 렌더가 **사전 순서**에 기댄다 (프로세스마다 다른 문자열이 될 수 있다)
+      backup src/warranty/demo.py
+      perl -0pi -e 's/for key in sorted\(step\.detail\)/for key in step.detail/' src/warranty/demo.py ;;
+    M-39) # REQ-303 — 데모의 조치가 트래픽을 **안 옮긴다** (롤백의 배분 재확인이 공허해진다)
+      backup src/warranty/demo.py
+      perl -0pi -e 's/^        self\.run\.shift_all_traffic\(resource, self\.revision\)$/        pass/m' src/warranty/demo.py ;;
+    M-40) # REQ-803 — 화면의 재측정값을 **보기 좋게 손본다** (판정과 숫자가 어긋난다)
+      backup src/warranty/demo.py
+      perl -0pi -e 's/"after_p95_ms": "·" if after is None else str\(after\.value\),/"after_p95_ms": "120",/' src/warranty/demo.py ;;
+    M-41) # REQ-803 — 데모가 **증명하지 않는 것**을 말하지 않는다 (fake 초록이 실물로 읽힌다)
+      backup src/warranty/demo.py
+      perl -0pi -e 's/^        caveats=CAVEATS,$/        caveats=(),/m' src/warranty/demo.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -211,5 +226,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
