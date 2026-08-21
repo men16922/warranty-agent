@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-66|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-69|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -293,6 +293,20 @@ apply() {
     M-66) # REQ-105 — 종료해도 **상태가 `active`로 남는다** (종료가 이름만 있는 동작이 된다)
       backup src/warranty/domain/contract.py
       perl -0pi -e 's/^        return replace\(self, state=ContractState\.RETIRED\)$/        return replace(self, state=ContractState.ACTIVE)/m' src/warranty/domain/contract.py ;;
+    M-67) # REQ-507 — 막는 판정에는 **행을 안 만든다** (원장이 실행된 것만 센다)
+           # ⚠️ 반환값은 그대로 `LedgerEntry`고 상태도 `denied`/`manual_required` 그대로다.
+           #    사라지는 것은 **원장에 남았는가**뿐이고, 반환만 보는 자리에서는 안 보인다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^        self\.ledger\.create\(entry\)\n\n//m' src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^        return self\._execute_and_verify\(\n            entry_id=entry_id,\n            agent_id=agent_id,/        self.ledger.create(entry)\n        return self._execute_and_verify(\n            entry_id=entry_id,\n            agent_id=agent_id,/m' src/warranty/usecases/remediate.py ;;
+    M-68) # REQ-507 — **예약이 막은 것**을 원장에 안 적는다 (행은 `executed`로 남는다)
+           # ⚠️ 게이트가 여유를 읽은 뒤 다른 조치가 다 가져간 경우다. 실행기는 안 불렸는데
+           #    원장은 *"실행했다"*고 말하고, 그 거짓말은 리포트의 분모에 실린다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^        if reservation is None:\n            return self\.ledger\.complete\(entry_id, status=Status\.DENIED\)$/        if reservation is None:\n            stale = self.ledger.get(entry_id)\n            assert stale is not None\n            return stale/m' src/warranty/usecases/remediate.py ;;
+    M-69) # REQ-507 — 실패한 조치를 **`executed`로 적는다** (실패가 원장에서 사라진다)
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/status=Status\.FAILED/status=Status.EXECUTED/' src/warranty/usecases/remediate.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -325,5 +339,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

@@ -237,9 +237,17 @@
       예산이 막는 경우에도 **`manual_required`가 유지되는가** · 조치 경로에서 `retired`가
       **계약으로 안 실리는가**(회복하는 신호를 태워 공허 통과 방지).
       `Done:` 넷 각각 변이 red 확인 + `mutations.md` 기록 + `requirements.md` → `VERIFIED`.
-- [ ] [auto] **T9-4** 원장 완결성 · `Implements: REQ-507`
-      거부·실패·수동 필요도 원장에 남는다. 테스트 3개인데 변이 0이다.
-      `Done:` 변이 red 확인 + 기록 + `VERIFIED`.
+- [x] [auto] **T9-4** 원장 완결성 · `Implements: REQ-507`
+      ⛔ **M-68이 살아남았다** — 예약 실패 분기에 **도달하는 입력이 스위트에 없었다.**
+      재진입으로는 그 순서가 안 만들어진다(안쪽 조치는 줄어든 여유를 다시 읽어 판정부터
+      `DENY`다). 그때 원장은 게이트가 적은 `executed`로 남아 **리포트의 분모**에 실린다.
+      ⛔ **M-67을 죽이던 아홉 건은 전부 승인 경로**였고(`approve()`가 행을 찾아야 해서),
+      M-69의 하중은 **예산 정산 테스트**가 들고 있었다 — 둘 다 이 요구사항을 겨냥한
+      자리가 아니다.
+      ⇒ `test_remediate_loop.py` 3건 + `_RacingBudget` — 막힌 세 경우가 **원장에** 남는가
+      (반환값이 아니라 `ledger.get`/`all_entries`에 묻는다) · 경합에서 진 예약이 `denied`로
+      남는가 · 실패가 `failed`로 남는가(둘 다 회복하는 신호를 태워 공허 통과 방지).
+      `Done:` 셋 각각 변이 red 확인 + `mutations.md` 기록 + `requirements.md` → `VERIFIED`.
 - [ ] [auto] **T9-5** 화해 2종 *(선택)* · `Implements: REQ-506, REQ-509`
       멱등·기한 · 추정과 실측의 차이는 파생값.
       `Done:` 둘 다 변이 red 확인 + 기록 + `VERIFIED`.
@@ -258,7 +266,7 @@
 | G8 ★ `improved` 유도 | T1-5 | **[x]** M-13 |
 | G9 ★ 검증불가는 AUTO 아님 | T1-6 | **[x]** M-14 |
 
-**게이트**: `make check` → **153 passed** (2026-08-22 로컬 macOS·py3.13)
+**게이트**: `make check` → **156 passed** (2026-08-22 로컬 macOS·py3.13)
 ⚠️ 숫자는 **여기 한 곳에만** 적는다. ⛔ 다만 `docs/evidence/mutations.md`의 최신 스윕 기준선은
 **같은 숫자를 다시 적는다** — 그건 중복이 아니라 *"기록이 어느 스위트를 보고 적혔는가"*이고,
 T0-8의 가드가 그 둘이 갈라지는 것을 집행한다.

@@ -729,6 +729,95 @@ def test_req_405_the_approved_path_reserves_through_the_same_seam() -> None:
     assert r.budgets.unsettled() == 0
 
 
+# ── ★ 원장 완결성 — 막힌 것·실패한 것도 남는다 (REQ-507) ─────────────
+
+
+class _RacingBudget(FakeBudget):
+    """게이트가 여유를 **읽은 직후** 다른 조치가 전부 예약해 간다.
+
+    ⚠️ 이 fake 없이는 *"판정은 `AUTO`인데 예약이 막는다"*가 값이 안 된다. 재진입으로는
+       안 만들어진다 — 안쪽 조치는 **이미 줄어든 여유를** 게이트가 다시 읽으므로 판정부터
+       `DENY`이고, 그러면 예약 실패 분기에는 도달하지 못한다.
+    """
+
+    def headroom(self, agent_id: str) -> Decimal:
+        seen = super().headroom(agent_id)
+        super().reserve("other-agent", seen)  # 창 안에서 다른 조치가 다 가져갔다
+        return seen
+
+
+def test_req_507_a_blocked_action_still_leaves_its_row_in_the_ledger() -> None:
+    """Verifies: REQ-507, REQ-403
+
+    ⛔ **반환값이 아니라 원장에 묻는다.** 막힌 조치의 행을 아예 안 만들어도 호출자가 받는
+    객체는 똑같다 — 상태도 `denied`/`manual_required` 그대로다. 사라지는 것은 *"원장에
+    남았는가"*뿐이고, 그러면 원장은 **실행된 것만** 세게 된다. 게이트가 얼마를 막았는지는
+    게이트의 유일한 실적 지표이고, 그 숫자가 없으면 게이트는 비용으로만 보인다.
+
+    ⚠️ 지금까지 이 자리를 물던 것은 승인 경로였다 — `approve()`가 행을 **찾아야 해서**
+       죽었을 뿐이다. `awaiting_approval`이 아닌 두 상태는 아무도 안 묻고 있었다.
+    """
+    cases: tuple[tuple[_Case, str, Status], ...] = (
+        (_Case(headroom="0.10"), "5.00", Status.DENIED),
+        (
+            _Case(contract=_contract(reversible=False), readable=False),
+            "0.01",
+            Status.MANUAL_REQUIRED,
+        ),
+        (_Case(contract=None), "0.01", Status.MANUAL_REQUIRED),
+    )
+    for kwargs, projected, expected in cases:
+        r, executor, _, ledger, _ = _build(series=[_m("1.0")], **kwargs)
+        entry = _run(r, projected=projected)
+        assert executor.call_count == 0, f"막는 판정인데 실행됐다: {expected}"
+        assert [row.entry_id for row in ledger.all_entries()] == [entry.entry_id], (
+            f"막힌 조치가 원장에 안 남았다: {expected}"
+        )
+        stored = ledger.get(entry.entry_id)
+        assert stored is not None and stored.status is expected
+
+
+def test_req_507_a_reservation_that_loses_the_race_is_recorded_as_denied() -> None:
+    """Verifies: REQ-507, REQ-405
+
+    ⛔ 판정은 `AUTO`인데 **예약이 막은** 경우다 — 게이트가 여유를 읽은 시점과 돈이 나가는
+    시점 사이는 창이고, 그 창에서 막히면 판정은 이미 낡았다. 원장을 안 고치면 그 행은
+    게이트가 적어 둔 `executed`로 남는다: 실행기는 안 불렸는데 원장이 *"실행했다"*고
+    말하고, 그 거짓말은 리포트의 **분모**에 실려 회복률을 희석한다.
+
+    ⚠️ 회복하는 신호를 태운다 — 막히지 않았다면 `executed` + `improved`로 닫혔을 입력이라
+       이 단언이 공허하게 통과할 수 없다.
+    """
+    r, executor, _, ledger, _ = _build(series=[_m("1.0"), _m("0.1")])
+    r = replace(r, budgets=_RacingBudget(Decimal("0.50")))
+    entry = _run(r, projected="0.10")
+    assert _decision(entry).verdict is Gate.AUTO, "게이트에서 먼저 막히면 예약 분기를 안 묻는다"
+    assert executor.call_count == 0
+    stored = ledger.get(entry.entry_id)
+    assert stored is not None
+    assert stored.status is Status.DENIED
+    assert stored.executed is False
+
+
+def test_req_507_a_failed_action_is_recorded_as_failed_not_as_executed() -> None:
+    """Verifies: REQ-507
+
+    ⚠️ 이 문장의 하중을 들고 있던 것은 **예산 정산 테스트**였다(REQ-405). 실패를
+    `executed`로 적어도 그 테스트가 죽는 이유는 상태가 아니라 정산액이고, 정산을 묻는
+    자리가 정리되면 *"실패도 원장에 남는다"*는 조용히 안 물어지게 된다.
+
+    ⚠️ 여기서도 회복하는 신호를 태운다 — 실행이 성공했다면 `improved`로 닫혔을 입력이다.
+    """
+    r, _, _, ledger, _ = _build(series=[_m("1.0"), _m("0.1")])
+    r = replace(r, executor=RecordingExecutor(succeeds=False))
+    entry = _run(r, projected="0.10")
+    stored = ledger.get(entry.entry_id)
+    assert stored is not None
+    assert stored.status is Status.FAILED
+    assert stored.executed is False
+    assert stored.improved is False
+
+
 def test_req_206_the_loop_sleeps_the_value_the_tunables_module_holds() -> None:
     """Verifies: REQ-206, REQ-804
 
