@@ -490,6 +490,56 @@ def test_req_305_irreversible_failure_escalates_instead_of_retrying() -> None:
     assert run.shifts == []
 
 
+def test_req_305_an_irreversible_action_that_did_not_recover_escalates_and_stops() -> None:
+    """Verifies: REQ-305
+
+    ⛔ **위 테스트는 게이트가 막는 경우다** — 조치가 아예 안 돌아서 *"에스컬레이션한다"*는
+    절반을 안 태운다. 비가역 계약이 실제로 실행되는 입구는 **승인**뿐이고(REQ-404),
+    그때 `_rollback`의 *"계획이 없다"* 분기에 처음 도달한다. 그 자리에 오는 입력이
+    스위트에 없었다 — 즉 M-84가 태우는 자리는 여기서만 값이 된다.
+
+    ⚠️ **`escalated`는 `rolled_back`의 부정이 아니다**(REQ-508). 되돌릴 계획이 없으면
+    트래픽을 건드리지도 않는다 — 그런데 조치는 이미 나갔고 신호는 안 돌아왔다.
+    그 상태를 원장이 *"되돌렸다"*로도 *"아무 일 없었다"*로도 적으면 안 된다.
+    """
+    r, executor, run, _, _ = _build(
+        series=[_m("1.0"), _m("0.95")], contract=_contract(reversible=False)
+    )
+    entry = _run(r)
+    assert _decision(entry).verdict is Gate.APPROVE
+
+    approved = r.approve(entry_id=entry.entry_id, resource=RESOURCE, approver="oncall")
+
+    assert approved.status is Status.EXECUTED
+    assert approved.improved is False, "이 경우가 회복이면 롤백 분기에 도달하지 않는다"
+    assert _rollback(approved).performed is False
+    assert "escalated" in _rollback(approved).reason
+    assert approved.escalated is True, "되돌릴 수 없는 미회복이 에스컬레이션으로 안 남았다"
+    assert approved.rolled_back is False
+    assert run.shifts == [], "롤백 계획이 없는데 트래픽을 옮겼다"
+    assert executor.call_count == 1, "에스컬레이션한 뒤에 더 조치했다"
+
+
+def test_req_305_a_rollback_that_failed_escalates_and_does_not_try_again() -> None:
+    """Verifies: REQ-305
+
+    ⛔ **REQ-305의 조건은 둘이다** — *"비가역이라 선언했거나 **롤백이 실패하면**"*.
+    배분이 안 옮겨진 경우를 태우는 자리는 있었지만(REQ-303) 그 자리는 `performed is False`
+    까지만 물었다. **실패한 자동화가 계속 시도하는 것이 가장 나쁜 상태다** — 재시도를
+    넣어도 원장의 `rollback` 칸은 똑같아 보이고, 늘어나는 것은 호출 횟수뿐이다.
+
+    ⚠️ 그래서 값이 아니라 **호출 흔적**에 묻는다: 전환 1회 · 조치 1회.
+    """
+    r, executor, run, _, _ = _build(series=[_m("1.0"), _m("0.95"), _m("1.0")], honors_shift=False)
+    entry = _run(r)
+
+    assert _rollback(entry).performed is False, "이 경우가 롤백 성공이면 아무것도 안 묻고 있다"
+    assert entry.escalated is True, "실패한 롤백이 에스컬레이션으로 안 남았다"
+    assert entry.rolled_back is False
+    assert run.shifts == [PREVIOUS], "롤백이 실패하자 전환을 다시 시도했다"
+    assert executor.call_count == 1, "롤백이 실패한 뒤에 조치를 다시 했다"
+
+
 # ── ★ 승인 집행 (REQ-404) ──────────────────────────────────────────────
 
 

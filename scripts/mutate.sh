@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-82|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-86|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -365,6 +365,29 @@ apply() {
            #    ⛔ 합쳐져 있던 테스트는 이 변이에 **초록이었다** — 행 수만 물었기 때문이다.
       backup src/warranty/domain/entry.py
       perl -0pi -e 's/^        self\._rows\[entry\.entry_id\] = entry$/        self._rows[entry.entry_id] = replace(entry, retry_of=None)/m' src/warranty/domain/entry.py ;;
+    M-83) # REQ-305 — 롤백이 실패하면 **조치를 다시 해 본다** (더 조치하지 않는다가 죽는다)
+           # ⚠️ 원장의 `rollback` 칸은 **한 글자도 안 바뀐다** — 되돌리기는 여전히 실패로
+           #    남고 `escalated`도 그대로다. 늘어나는 것은 호출 횟수뿐이고, 그게 정확히
+           #    *"실패한 자동화가 계속 시도하는"* 상태다. 값으로는 안 보인다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            rollback = self\._rollback\(contract, resource, plan, baseline, verification\)$/            rollback = self._rollback(contract, resource, plan, baseline, verification)\n            if not rollback.performed:\n                self.executor.execute(action_id, resource)/m' src/warranty/usecases/remediate.py ;;
+    M-84) # REQ-305 — 되돌릴 **계획이 없는데 롤백을 성공으로 적는다**
+           # ⚠️ 사유 문자열은 그대로 `escalated`라고 말한다. 뒤집히는 것은 `performed`
+           #    하나뿐이고, 그 순간 `escalated`는 False가 되고 `rolled_back`이 True가 된다 —
+           #    **트래픽은 건드리지도 않았는데** 리포트가 되돌렸다고 센다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^            return Rollback\(performed=False, reason="irreversible or no rollback plan — escalated"\)$/            return Rollback(performed=True, reason="irreversible or no rollback plan — escalated")/m' src/warranty/usecases/remediate.py ;;
+    M-85) # REQ-802 — 항목의 시각을 **주입된 시계가 아니라 살아 있는 시계**에서 읽는다
+           # ⚠️ 예외도 안 나고 값도 그럴듯하다. 갈라지는 것은 **같은 입력의 두 실행**뿐이라
+           #    한 번만 돌려 보는 테스트는 전부 초록이다 — 그래서 데모를 두 번 돌린다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^        started = datetime\.fromisoformat\(self\.clock\.now_iso\(\)\)$/        started = datetime.now().astimezone()/m' src/warranty/usecases/remediate.py ;;
+    M-86) # REQ-802 — 항목 id를 **주입된 생성기가 아니라 난수**에서 만든다
+           # ⚠️ 원장은 여전히 1회=1행이고 id는 유일하다(REQ-501은 초록이다). 사라지는 것은
+           #    *"같은 서사가 같은 바이트를 낸다"*뿐이고, 그게 촬영·회귀 비교의 전제다.
+      backup src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^from dataclasses import dataclass$/import uuid\nfrom dataclasses import dataclass/m' src/warranty/usecases/remediate.py
+      perl -0pi -e 's/^        entry_id = self\.ids\.new_entry_id\(\)$/        entry_id = uuid.uuid4().hex/m' src/warranty/usecases/remediate.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -397,5 +420,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
