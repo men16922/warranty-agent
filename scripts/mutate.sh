@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-96|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-99|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -427,6 +427,23 @@ apply() {
            # ⚠️ 스윕은 `make check`가 아니라 pytest를 돌리므로 이 변이는 배포를 실행하지 않는다.
       backup Makefile
       perl -0pi -e 's/^check: lint types test trace$/check: lint types test trace deploy/m' Makefile ;;
+    M-97) # REQ-805 — 설계와 코드를 **함께** 1로 바꾼다 (T11-2가 존재하는 이유)
+           # ⛔ 일치 검사(test_deploy_artifacts ④)는 **초록이다** — 둘이 같으니까. 렌더러도
+           #    이 상수를 그대로 실으니 ②도 초록이다. 유휴 0을 **값으로** 묻는 자리만 운다.
+      backup src/warranty/config.py
+      backup specs/warranty/design/10-deployment.md
+      perl -0pi -e 's/^MIN_INSTANCES = 0$/MIN_INSTANCES = 1/m' src/warranty/config.py
+      perl -0pi -e 's/min-instances=0/min-instances=1/' specs/warranty/design/10-deployment.md ;;
+    M-98) # REQ-805 — 배포 스크립트가 **GKE 클러스터를 만든다** (노드 풀은 요청이 0이어도 돈다)
+           # ⚠️ 다른 검사는 전부 초록이다. 값도 안 바뀌고 사본도 안 생긴다 — 늘어나는 것은
+           #    청구서뿐이고, 배포는 게이트에 없으니 두 번째로 알아챌 경로가 없다.
+      backup scripts/deploy.sh
+      printf '\ngcloud container clusters create demo-cluster --num-nodes=3\n' >> scripts/deploy.sh ;;
+    M-99) # REQ-805 — **설계 표**가 GKE를 구성 요소로 선언한다 (스크립트는 아직 안 따라왔다)
+           # ⛔ 실행 표면 스캔은 초록이다. 사람이 먼저 고치는 자리가 설계이고, 그 상태로
+           #    콘솔에서 만들면 게이트는 끝까지 아무 말도 안 한다.
+      backup specs/warranty/design/10-deployment.md
+      perl -0pi -e 's/^(\| Cloud Run 서비스 `warranty-api`.*\n)/$1| GKE 클러스터 `warranty-gke` | 노드 3 | 805 |\n/m' specs/warranty/design/10-deployment.md ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -459,5 +476,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
