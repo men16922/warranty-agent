@@ -1,6 +1,7 @@
 """설정 — 환경변수를 **검증해서** 읽는다.
 
 Spec: specs/warranty/design/08-interfaces.md §5
+      specs/warranty/design/10-deployment.md §1–2, §4 (REQ-602, REQ-805)
 
 ⚠️ 이 모듈은 클라우드 SDK를 임포트하지 않는다. 게이트가 오프라인이려면(REQ-701)
    설정 계층이 라이브 클라이언트를 만들 수 없어야 한다.
@@ -117,3 +118,84 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         reconcile_deadline_days=int(raw_days),
         billing_table=billing_table,
     )
+
+
+# ── 배포 산출물이 읽는 값 (T11-1 · design 10§1–2, §4) ─────────────────────────
+#
+# ⛔ **여기가 유일한 출처다.** `Dockerfile`도 `scripts/deploy.sh`도 이 값을 다시 적지 않는다.
+#    다시 적는 순간 배포 산출물과 코드가 **따로 썩고**, 그 어긋남은 배포가 성공할 때까지
+#    안 보인다 — 그리고 배포는 게이트에 없다. 게이트가 그것을 대신 묻는다
+#    (tests/test_deploy_artifacts.py).
+# ⚠️ **리전은 여기 없다.** 리전은 `Settings.region`(`WR_REGION`)이고, 배포도 앱과 **같은
+#    설정 로더**가 검증한 값을 쓴다. 두 번째 리전 상수를 만드는 것이 첫 번째 어긋남이다.
+
+#: Cloud Run 서비스명 — design 10§2.
+SERVICE_NAME = "warranty-api"
+
+#: ⛔ REQ-805 — 유휴 시 0으로 수렴한다. **0이 아니면 그 순간부터 상시 과금이다.**
+MIN_INSTANCES = 0
+MAX_INSTANCES = 2
+
+#: 이미지가 사는 Artifact Registry 저장소 — design 10§2.
+IMAGE_REPO = "warranty"
+
+#: 인프라 라벨 — design 10§4. ⚠️ 귀속 라벨(`wr_entry`)과 **섞지 않는다**: 화해 질의가
+#: 인프라 라벨로 매칭하면 인프라 비용이 조치에 귀속된다.
+INFRA_LABELS: tuple[tuple[str, str], ...] = (("wr_project", "warranty"), ("wr_env", "hack"))
+
+#: 컨테이너가 받아 가야 하는 설정 변수. ⚠️ `load_settings`가 **기본값을 안 주므로**
+#: 이 목록이 빠지면 컨테이너는 부팅하다 `ConfigError`로 죽는다 — 조용한 실패가 아니라
+#: 시끄러운 실패이고, 그게 설계다(design 08§5).
+RUNTIME_ENV_KEYS = ("WR_PROJECT_ID", "WR_REGION", "WR_MODEL", "WR_ADAPTERS")
+
+
+def image_uri(settings: Settings, tag: str) -> str:
+    """Artifact Registry 이미지 주소. 리전·프로젝트는 **설정에서** 온다.
+
+    ⚠️ 태그를 강제하는 이유: `latest`는 *"어느 리비전이 도는가"*를 안 말한다. 롤백이
+       리비전 전환인 시스템에서 그 침묵은 되돌릴 대상을 모르게 만든다(REQ-302).
+    """
+    if not tag.strip():
+        raise ConfigError("이미지 태그가 비어 있다 — 어느 리비전인지 말하지 않는 배포는 안 한다")
+    return (
+        f"{settings.region}-docker.pkg.dev/{settings.project_id}/{IMAGE_REPO}/{SERVICE_NAME}:{tag}"
+    )
+
+
+def deploy_argv(settings: Settings, tag: str) -> tuple[str, ...]:
+    """`gcloud`에 넘길 인자 전부. 배포 스크립트는 이것을 **받아서 실행만** 한다.
+
+    ⛔ 이 함수가 배포의 **유일한 렌더러**다. 스크립트가 플래그를 하나라도 직접 적으면
+       그 플래그는 코드가 안 보는 값이 되고, `min-instances`가 그 자리에 있으면
+       REQ-805는 **아무도 안 읽는 문장**이 된다.
+    """
+    labels = ",".join(f"{key}={value}" for key, value in INFRA_LABELS)
+    env_vars = ",".join(f"{key}={_runtime_env_value(settings, key)}" for key in RUNTIME_ENV_KEYS)
+    return (
+        "run",
+        "deploy",
+        SERVICE_NAME,
+        f"--project={settings.project_id}",
+        f"--region={settings.region}",
+        f"--image={image_uri(settings, tag)}",
+        f"--min-instances={MIN_INSTANCES}",
+        f"--max-instances={MAX_INSTANCES}",
+        f"--labels={labels}",
+        f"--set-env-vars={env_vars}",
+        "--no-allow-unauthenticated",
+    )
+
+
+def _runtime_env_value(settings: Settings, key: str) -> str:
+    """컨테이너에 실릴 값 — **설정 객체에서** 읽는다(두 번째 사본을 안 만든다)."""
+    match key:
+        case "WR_PROJECT_ID":
+            return settings.project_id
+        case "WR_REGION":
+            return settings.region
+        case "WR_MODEL":
+            return settings.model
+        case "WR_ADAPTERS":
+            return str(settings.adapters)
+        case _:
+            raise ConfigError(f"컨테이너에 실을 값을 모른다: {key}")

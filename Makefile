@@ -9,7 +9,7 @@ PYTEST := .venv/bin/pytest
 RUFF := .venv/bin/ruff
 MYPY := .venv/bin/mypy
 
-.PHONY: check test lint types trace venv live-check demo mutate clean
+.PHONY: check test lint types trace venv live-check demo mutate deploy clean
 
 ## 게이트 — 오프라인 · 결정론적 (REQ-701, REQ-702)
 check: lint types test trace
@@ -48,6 +48,11 @@ mutate:
 
 demo:
 	PYTHONPATH=src $(PY) -m warranty.demo
+
+## ⛔ 게이트 아님 — 과금하고 되돌리기 어렵다 (design 10§5). 무인 루프의 deny 목록에 있다.
+## ⚠️ `--yes` 없이는 계획만 찍는다. 값의 출처는 src/warranty/config.py 하나다.
+deploy:
+	bash scripts/deploy.sh --yes
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache
