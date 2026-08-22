@@ -90,6 +90,17 @@ def _expand(first: str, last: str) -> set[str]:
     return {f"M-{n:02d}" for n in range(int(first), int(last) + 1)}
 
 
+def _number(mutation_id: str) -> int:
+    """`M-100` → 100. ⛔ **문자열로 비교하면 `"M-100" < "M-99"`다.**
+
+    T11-2가 정확히 여기서 막혔다 — 새 가드의 공허 통과 경로를 태울 변이를 넣으려는데
+    `M-100`을 정의하는 순간 아래 「사용법 문자열」 검사가 *"마지막은 M-99인데 M-100이라 적혔다"*
+    로 red를 냈다. 그래서 그 변이를 **못 넣고 적어 두고 끝냈다**(mutations.md T11-2 절).
+    ⇒ 정렬의 기준은 표기가 아니라 **번호**다. 두 자리 천장은 하네스의 성질이 아니라 이 한 줄이었다.
+    """
+    return int(mutation_id.split("-", 1)[1])
+
+
 def _declared_mutations(sweep: str) -> set[str]:
     match = SWEEP_RANGE_RE.search(sweep)
     if match is None:
@@ -205,9 +216,10 @@ def test_the_newest_sweep_covers_every_mutation_the_harness_can_run() -> None:
         f"정의에만 {sorted(cases - _harness_all_list())} — 스윕이 조용히 덜 돈다"
     )
     usage = HARNESS_USAGE_RE.search(_read(HARNESS))
-    assert usage is not None and usage.group(1) == max(cases), (
+    last = max(cases, key=_number)
+    assert usage is not None and usage.group(1) == last, (
         f"사용법 문자열이 {usage.group(1) if usage else '없음'}까지라고 말하는데 "
-        f"실제 마지막 변이는 {max(cases)}다"
+        f"실제 마지막 변이는 {last}다"
     )
 
 

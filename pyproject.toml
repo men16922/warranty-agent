@@ -1,7 +1,7 @@
 [project]
 name = "warranty"
 version = "0.1.0"
-description = "An agent fleet's ledger — attributing cloud spend to the actions that caused it"
+description = "Operational warranty for a GCP remediation agent — verify the action improved the signal, roll back atomically, and record what it cost"
 requires-python = ">=3.13"
 dependencies = []
 
@@ -9,6 +9,11 @@ dependencies = []
 # ⚠️ 클라우드 의존성은 게이트에 들어가지 않는다 (REQ-701).
 # 게이트는 이것들 없이 통과해야 한다 — 있으면 fake 어댑터가 무의미해진다.
 cloud = [
+    # ⛔ **대회 필수 프레임워크다** (REQ-601 · design 06§1). 여기 없으면 `pip install ".[cloud]"`
+    #    한 줄로 의존성을 얻는 배포 이미지에 **안 실린다** — 그 사실은 빌드에서도 게이트에서도
+    #    안 보이고, 실물 호출을 처음 하는 날에 보인다. 버전 바닥은 실제로 설치해 introspect한
+    #    2.7.1에서 온다 (design 06§2 · docs/evidence/adk-api-probe-2026-08-19.log).
+    "google-adk>=2.7",
     "google-cloud-firestore>=2.16",
     "google-cloud-bigquery>=3.20",
     "google-genai>=1.0",

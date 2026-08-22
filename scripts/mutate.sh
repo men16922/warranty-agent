@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-99|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-105|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -219,8 +219,10 @@ apply() {
       backup tests/test_mutation_freshness.py
       perl -0pi -e 's/^SWEEP_HEADING = "## 전체 스윕"$/SWEEP_HEADING = "## 전체 스윕이 아닌 표제"/m' tests/test_mutation_freshness.py ;;
     M-49) # `all` 목록에서 마지막 변이를 뺀다 (기록은 N종이라는데 스윕은 N-1건만 돈다)
+           # ⚠️ `\d+`다. `\d\d`였을 때 M-100이 생기면 **패턴이 안 맞아 조용히 무효**가 됐다 —
+           #    그 결과는 가드에 대한 판정이 아니라 하네스가 자기 자신을 못 깬 것이다(T11-3).
       backup scripts/mutate.sh
-      perl -0pi -e 's/(for m in .*) M-\d\d;/${1};/' scripts/mutate.sh ;;
+      perl -0pi -e 's/(for m in .*) M-\d+;/${1};/' scripts/mutate.sh ;;
     M-50) # REQ-206 — 대기 초를 **함수 안의 지역 이름**에 담아 쓴다 (T0-10 · M-44가 못 잡는 우회)
            # ⚠️ 최상위 상수도 아니고 리터럴도 아니다 — M-42·M-44 둘 다 통과한다.
       backup src/warranty/usecases/remediate.py
@@ -444,6 +446,36 @@ apply() {
            #    콘솔에서 만들면 게이트는 끝까지 아무 말도 안 한다.
       backup specs/warranty/design/10-deployment.md
       perl -0pi -e 's/^(\| Cloud Run 서비스 `warranty-api`.*\n)/$1| GKE 클러스터 `warranty-gke` | 노드 3 | 805 |\n/m' specs/warranty/design/10-deployment.md ;;
+    M-100) # T11-3 — 선언에서 `google-adk`를 지운다 (**T11-3 이전의 상태 그 자체다**)
+            # ⛔ REQ-601이 필수로 이름하고 design 06§2가 실물 introspect 증거까지 남긴 그 이름이
+            #    `pyproject.toml`에는 없던 상태. 두 문서는 서로 완벽히 일치했다 —
+            #    일치는 그것이 **설치된다**는 뜻이 아니다.
+      backup pyproject.toml
+      perl -0pi -e 's/^    "google-adk>=2\.7",\n//m' pyproject.toml ;;
+    M-101) # T11-3 — 이미지가 **extra 없이** 설치한다 (`.[cloud]` → `.`)
+            # ⛔ 선언은 멀쩡하다. 빌드도 통과한다. 클라우드 스택만 이미지에서 조용히 빠진다.
+      backup Dockerfile
+      perl -0pi -e 's/^RUN pip install --no-cache-dir "\.\[cloud\]"$/RUN pip install --no-cache-dir "."/m' Dockerfile ;;
+    M-102) # T11-3 — `google-adk`를 cloud extra에서 `[project].dependencies`로 **옮긴다**
+            # ⛔ 선언은 여전히 있다(④는 초록이다). 그런데 게이트의 `.[dev]` 설치가 그것을 끌고,
+            #    fake 어댑터의 전제(REQ-801)가 깨진다. ⑤만 이 자리를 본다.
+      backup pyproject.toml
+      perl -0pi -e 's/^dependencies = \[\]$/dependencies = ["google-adk>=2.7"]/m; s/^    "google-adk>=2\.7",\n//m' pyproject.toml ;;
+    M-103) # T11-3 — 소스가 **선언 없는** 서드파티를 임포트한다 (설치는 돼 있다: pytest의 전이 의존)
+            # ⛔ 이 기계에서는 돈다. 배포 이미지는 `.[cloud]`만 설치하므로 거기서 죽고,
+            #    그 죽음은 빌드가 아니라 첫 요청에서 보인다.
+      backup tools/spec_trace.py
+      perl -0pi -e 's/^import argparse$/import argparse\nimport pluggy/m' tools/spec_trace.py ;;
+    M-104) # T11-3 — 새 배포판을 선언하고 스캐너에게는 안 가르친다
+            # ⛔ ②는 아무 말도 안 한다 — 아직 아무도 임포트하지 않으니까. 처음 임포트하는 날
+            #    선언은 멀쩡한데 *"선언 안 된 임포트"*로 잡힌다. ③이 선언 쪽에서 그것을 본다.
+      backup pyproject.toml
+      perl -0pi -e 's/^    "google-cloud-firestore>=2\.16",$/    "google-cloud-monitoring>=2.0",\n    "google-cloud-firestore>=2.16",/m' pyproject.toml ;;
+    M-105) # T11-3 공허 통과 방지 — stdlib 판정을 깨서 **아무것도 서드파티로 안 잡게** 한다
+            # ⛔ ②는 0건을 잡고 초록이 된다. 그 초록은 *"선언이 다 있다"*가 아니라
+            #    **"아무것도 안 봤다"**이다. T11-2가 못 태우고 적어 둔 자리가 여기다.
+      backup tests/test_dependency_declaration.py
+      perl -0pi -e 's/^    return module\.split\("\.", 1\)\[0\] in sys\.stdlib_module_names$/    return True/m' tests/test_dependency_declaration.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -476,5 +508,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
