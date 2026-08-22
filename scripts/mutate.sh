@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-105|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-112|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -476,6 +476,39 @@ apply() {
             #    **"아무것도 안 봤다"**이다. T11-2가 못 태우고 적어 둔 자리가 여기다.
       backup tests/test_dependency_declaration.py
       perl -0pi -e 's/^    return module\.split\("\.", 1\)\[0\] in sys\.stdlib_module_names$/    return True/m' tests/test_dependency_declaration.py ;;
+    M-106) # T11-4 — 장애를 **노이즈보다 작게** 줄인다 (DEGRADED 900 → 640)
+            # ⛔ 판정은 그대로 `not_recovered`다(⑤는 초록이다). 그런데 롤백 후 재측정이
+            #    *"돌아왔다"*를 **되돌리지 않아도** 말하게 되고, REQ-304가 하중을 잃는다.
+      backup src/warranty/demo_target.py
+      perl -0pi -e 's/^DEGRADED_LATENCY_MS = 900$/DEGRADED_LATENCY_MS = 640/m' src/warranty/demo_target.py ;;
+    M-107) # T11-4 — 나쁜 리비전이 **헬스 프로브에서 죽는다** (프로브 분기를 지운다)
+            # ⛔ 그러면 Cloud Run이 트래픽을 안 옮긴다 — 장애 주입이 **배포 실패**가 되고
+            #    데모의 절정(검증 실패 → 자동 롤백)은 한 번도 안 일어난다.
+      backup src/warranty/demo_target.py
+      perl -0pi -e 's/^        if path == HEALTH_PATH:\n            return Response\(OK, self\.name, 0\)\n//m' src/warranty/demo_target.py ;;
+    M-108) # T11-4 — 지연을 **선언만 하고 안 쓴다** (`pause` 호출을 지운다)
+            # ⛔ `Response.latency_ms`는 그대로라 **값으로는 안 보인다.** 남는 것은
+            #    *"느리다고 말하는 리비전"*이고, 그건 결과를 박아 두는 것과 같은 종류다.
+      backup src/warranty/demo_target.py
+      perl -0pi -e 's/^        pause\(self\.work_latency_ms \/ MS_PER_SECOND\)\n//m' src/warranty/demo_target.py ;;
+    M-109) # T11-4 — 장애 주입이 신호를 **좋게** 만든다 (900 → 200: 두 값을 뒤집은 모양)
+            # ⚠️ 여러 자리가 함께 운다 — 장애의 **방향**은 이 저장소의 서사 전체가 기대는 값이다.
+      backup src/warranty/demo_target.py
+      perl -0pi -e 's/^DEGRADED_LATENCY_MS = 900$/DEGRADED_LATENCY_MS = 200/m' src/warranty/demo_target.py ;;
+    M-110) # T11-4 — 데모가 기준선을 **다시 적는다** (값은 오늘 똑같다)
+            # ⛔ 값 검사는 **전부 초록이다.** 갈라지는 것은 앱의 지연을 바꾸는 날이고,
+            #    그때 데모는 존재하지 않는 리비전의 이야기를 한다 (T11-1·T11-3과 같은 계열).
+      backup src/warranty/demo.py
+      perl -0pi -e 's/^BASELINE_MS = Decimal\(HEALTHY\.work_latency_ms\)$/BASELINE_MS = Decimal("620")/m' src/warranty/demo.py ;;
+    M-111) # T11-4 공허 통과 방지 — 두 리비전이 **같은 이름**을 갖는다
+            # ⛔ 트래픽을 옮겨도 어디서 어디로인지가 없다. 비교할 상대가 사라지면
+            #    *"차이가 없다"*와 *"안 봤다"*가 같은 초록이 된다.
+      backup src/warranty/demo_target.py
+      perl -0pi -e 's/-00008-slow/-00007-abc/' src/warranty/demo_target.py ;;
+    M-112) # T11-4 — 모르는 경로도 **작업으로 친다** (404 분기를 지운다)
+            # ⛔ 오타 하나가 장애 주입이 되고, 그 지연이 계약이 재는 신호에 그대로 실린다.
+      backup src/warranty/demo_target.py
+      perl -0pi -e 's/^        if path != WORK_PATH:\n            return Response\(NOT_FOUND, self\.name, 0\)\n//m' src/warranty/demo_target.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -508,5 +541,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

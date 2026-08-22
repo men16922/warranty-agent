@@ -40,6 +40,7 @@ from warranty.adapters.fakes import (
     ScriptedSignal,
     SeededIdGen,
 )
+from warranty.demo_target import DEGRADED, HEALTHY, SERVICE_NAME
 from warranty.domain.contract import (
     Criterion,
     CriterionMode,
@@ -58,13 +59,16 @@ from warranty.usecases.remediate import Remediator
 #    (design 11§5, REQ-804). 아래 것들은 재촬영 때 손대는 값이 아니라 **서사의 배역**이다.
 DEMO_AGENT = "warranty"
 DEMO_REGION = "us-central1"
-DEMO_SERVICE = "demo-target"
+#: ⚠️ 조치 대상의 이름·리비전·지연은 **여기서 안 정한다** — 그 앱이 정한다
+#:    (`warranty.demo_target`). 여기 다시 적으면 앱을 고쳐도 서사는 옛 값으로 돌고,
+#:    그 어긋남은 배포해 보기 전까지 안 보인다.
+DEMO_SERVICE = SERVICE_NAME
 DEMO_ACTION_USD = Decimal("0.02")
 #: 살아 있는 시계를 안 쓴다 — 데모가 결정론적이려면 시각도 주입돼야 한다 (REQ-802).
 DEMO_CLOCK_ISO = "2026-08-21T09:00:00+00:00"
 
 #: 프로비저닝 시점에 서빙 중이던 리비전. **롤백이 돌아갈 곳이다.**
-HEALTHY_REVISION = "demo-target-00007-abc"
+HEALTHY_REVISION = HEALTHY.name
 
 #: ★ 생성 API가 돌려줬다고 **치는** 응답. 계약은 여기서 유도된다 (REQ-103).
 #: ⛔ 각본인 것은 이 응답이지 계약이 아니다 — 계약의 네 자리는 실물 코드가 이 응답에서
@@ -76,16 +80,22 @@ DEMO_PROVISION_RESPONSE = ProvisionResponse(
     previous_revision=HEALTHY_REVISION,
 )
 #: 장애 주입용 — 신호를 악화시키는 리비전. 조치가 여기로 트래픽을 옮긴다.
-SLOW_REVISION = "demo-target-00008-slow"
+SLOW_REVISION = DEGRADED.name
 
 #: 계약 없이 손으로 만든 리소스. **버그가 아니라 정책이다** (REQ-104).
 ORPHAN_SERVICE = "hand-made-api"
 
 #: 신호 각본 — 기준선(이미 나쁘다) → 조치 후(더 나빠졌다) → 롤백 후(원래대로).
 #: ⚠️ 이 셋이 각본인 것이지 판정이 각본인 것이 아니다. `classify`가 이 값을 보고 계산한다.
-BASELINE_MS = Decimal("620")
-AFTER_ACTION_MS = Decimal("900")
-AFTER_ROLLBACK_MS = Decimal("615")
+#: ⛔ **두 값은 여기서 안 정한다** — *어느 리비전이 서빙 중인가*에서 온다. 기준선과 롤백
+#:    후는 건강한 리비전이, 조치 후는 장애 주입 리비전이 내는 지연이다. 손으로 적으면
+#:    앱의 지연을 바꿔도 서사는 옛 숫자로 돌고, 데모는 **없는 리비전의 이야기**를 한다.
+BASELINE_MS = Decimal(HEALTHY.work_latency_ms)
+AFTER_ACTION_MS = Decimal(DEGRADED.work_latency_ms)
+#: 롤백 후 = 같은 리비전으로 돌아왔다. ⚠️ **정확히 같은 값을 내지 않는다** — 실물 신호는
+#: 흔들리고, 그 흔들림을 0으로 두면 롤백 재측정의 허용 오차가 하중을 안 받는다(REQ-304).
+SIGNAL_JITTER_MS = Decimal("5")
+AFTER_ROLLBACK_MS = BASELINE_MS - SIGNAL_JITTER_MS
 SIGNAL_POINTS = 30
 
 TITLE = "warranty — make demo (offline · deterministic)"

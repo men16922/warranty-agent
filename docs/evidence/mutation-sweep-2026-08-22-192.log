@@ -1,0 +1,97 @@
+── M-01 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (182 passed, 10 errors)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-02 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (3 failed, 189 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-03 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (5 failed, 187 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-04 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (2 failed, 190 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-05 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (4 failed, 189 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-06 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (1 failed, 191 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-07 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (3 failed, 189 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-08 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (1 failed, 191 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-09 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (1 failed, 191 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-10 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (1 failed, 191 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-11 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (1 failed, 191 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-12 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (7 failed, 185 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-13 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (14 failed, 178 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-14 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (11 failed, 181 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-15 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (1 failed, 191 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-16 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (1 failed, 191 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-17 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (1 failed, 191 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-18 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (2 failed, 190 passed)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-19 ──
+  기준선: 초록 (192 passed)
+  ✅ red — 가드가 하중을 받는다 (22 failed, 160 passed, 10 errors)
+  ✅ 복구 후 초록 (192 passed)
+  ✅ 잔여 없음 (백업 대조)
+── M-20 ──
+  기준선: 초록 (192 passed)
