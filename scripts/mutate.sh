@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-112|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-118|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -509,6 +509,36 @@ apply() {
             # ⛔ 오타 하나가 장애 주입이 되고, 그 지연이 계약이 재는 신호에 그대로 실린다.
       backup src/warranty/demo_target.py
       perl -0pi -e 's/^        if path != WORK_PATH:\n            return Response\(NOT_FOUND, self\.name, 0\)\n//m' src/warranty/demo_target.py ;;
+    M-113) # T11-5 — README가 **없는 타깃**을 적는다 (`make trace` → `make traceability`)
+            # ⛔ 죽은 명령을 적어 둔 README는 틀린 README보다 나쁘다 — 처음 오는 사람은
+            #    자기가 틀렸다고 생각하고 저장소를 닫는다. 실행해 보기 전에는 안 보인다.
+      backup README.md
+      perl -0pi -e 's/^make trace  /make traceability  /m' README.md ;;
+    M-114) # T11-5 — Makefile에서 **타깃이 사라진다** (`demo:` → `run-demo:`)
+            # ⛔ 이것이 실제로 났던 모양이다 — README는 그대로 `make demo`를 적고 있고
+            #    게이트는 초록이다. 반대 방향(이름을 바꾼 쪽)에서도 같은 자리가 울어야 한다.
+      backup Makefile
+      perl -0pi -e 's/^demo:$/run-demo:/m' Makefile ;;
+    M-115) # T11-5 공허 통과 방지 — 재현 절차 블록을 **통째로 지운다**
+            # ⛔ ②는 0개를 훑고 **초록이다.** 그 초록은 *"명령이 다 산다"*가 아니라
+            #    **"적힌 게 없다"**이다. REQ-901이 요구한 것은 절차의 존재고, ③만 그것을 본다.
+      backup README.md
+      perl -0pi -e 's/^```bash\nmake venv[^`]*```\n//m' README.md ;;
+    M-116) # T11-5 — 절차에서 **실행만** 빠진다 (`make demo` 한 줄)
+            # ⛔ 게이트만 적힌 README는 *맞는지*는 알려 주고 **무엇을 하는지는 안 알려 준다.**
+            #    ②는 초록이다(남은 둘은 실재하니까). 값을 묻는 자리는 ③ 하나다.
+      backup README.md
+      perl -0pi -e 's/^make demo .*\n//m' README.md ;;
+    M-117) # T11-5 — 제출물의 진입점이 **없는 문서를 가리킨다**
+            # ⛔ 재현은 첫 클릭에서 끝난다. G6④가 코드의 `Spec:`에 대해 하는 일을
+            #    README에 대해 하는 자리가 ④다 — 이름을 바꾼 날 두 방향이 함께 지켜져야 한다.
+      backup README.md
+      perl -0pi -e 's{\(docs/PRINCIPLES\.md\)}{(docs/ENGINEERING.md)}' README.md ;;
+    M-118) # T11-5 공허 통과 방지 — 스캐너가 **아무 명령도 못 뽑는다**
+            # ⛔ ②·③이 함께 조용해진다. 표본(①)만 그것을 잡는다 — 스캐너를 스캐너로
+            #    검사할 수는 없고, **기대값이 박힌 표본**이 유일한 바닥이다 (M-105와 같은 규칙).
+      backup tests/test_readme_procedure.py
+      perl -0pi -e 's/^MAKE_RE = re\.compile\(r"\\bmake/MAKE_RE = re.compile(r"\\bmakes/m' tests/test_readme_procedure.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -541,5 +571,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

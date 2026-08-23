@@ -68,5 +68,6 @@ reality — `IMPLEMENTED` needs a test, `VERIFIED` needs a mutation confirmed to
 
 ```bash
 make venv && make check     # offline, deterministic, no billable calls
+make demo                   # the narrative end to end — deterministic, offline
 make trace                  # spec traceability matrix
 ```
