@@ -1,6 +1,9 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = warranty-api의 실물 어댑터**(Cloud Run Admin · Monitoring).
+> ▶ **NEXT SESSION: 첫 행동 = `SignalSource` 실물 어댑터**(Cloud Monitoring).
+> API는 2026-08-23에 **실물로 introspect했다** — `docs/evidence/live-signal-2026-08-23.log`가
+> 필터·aligner·reducer·요청 모양을 전부 담는다. **추측하지 말고 그 파일을 읽어라.**
+> ⛔ `RunControl`은 이미 있다(`adapters/live_run.py`).
 > 배포·모델 호출·두 리비전 왕복은 **2026-08-23에 전부 실물에서 확인됐다.** 남은 것은
 > 그 왕복을 **에이전트가** 하는 것이다 — 지금 `/livez` 외 7경로가 501이다.
 > ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) ·
