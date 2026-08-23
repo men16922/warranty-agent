@@ -7,13 +7,13 @@
       "Edit",
       "Write",
       "Skill",
-      "Bash(make check)",
-      "Bash(make lint)",
-      "Bash(make types)",
-      "Bash(make test)",
-      "Bash(make trace)",
-      "Bash(make demo)",
-      "Bash(make clean)",
+      "Bash(make check*)",
+      "Bash(make lint*)",
+      "Bash(make types*)",
+      "Bash(make test*)",
+      "Bash(make trace*)",
+      "Bash(make demo*)",
+      "Bash(make clean*)",
       "Bash(.venv/bin/pytest)",
       "Bash(.venv/bin/pytest tests/*)",
       "Bash(.venv/bin/pytest -k *)",
@@ -39,7 +39,16 @@
       "Bash(find *)",
       "Bash(mkdir *)",
       "Bash(touch scripts/overnight/*)",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(make mutate*)",
+      "Bash(python3 *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(diff *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(rm -f docs/evidence/*.log)"
     ],
     "deny": [
       "Bash(make live-check*)",
@@ -69,7 +78,8 @@
       "mcp__github",
       "mcp__playwright",
       "mcp__claude-in-chrome"
-    ]
+    ],
+    "$comment2": "⛔ 2026-08-23: `Bash(make check)`가 **정확 일치**라 `make check > /tmp/gate.log 2>&1`가 거부됐고, 루프는 게이트를 못 돌려 두 판 연속 커밋 0으로 멈췄다(iter-1은 27분·$7.27을 쓰고도 산출물을 못 남겼다). 일이 없어서가 아니라 **판정을 못 해서** 멈춘 것이다. ⇒ 게이트 계열 타깃만 접미 와일드카드로 연다. `Bash(make *)` 통짜는 여전히 금지다 — 그러면 `make deploy`가 통과한다(COST_GUARDRAILS §2). deny가 allow를 이기므로 `make deploy`·`make venv`·`make live-check`는 아래 deny가 계속 막는다."
   },
   "enabledMcpjsonServers": []
 }
