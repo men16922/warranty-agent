@@ -34,6 +34,7 @@ from pathlib import Path
 
 import pytest
 
+from warranty import config
 from warranty.config import (
     MAX_INSTANCES,
     MIN_INSTANCES,
@@ -280,3 +281,41 @@ def test_the_entrypoint_module_exists_and_the_gate_never_deploys() -> None:
     assert "deploy" not in _check_prerequisites(), (
         f"게이트가 배포를 선행으로 건다: {_check_prerequisites()} — `make check`는 과금하면 안 된다"
     )
+
+
+# ── 빌드 명령도 **같은 프로젝트를 가리키는가** (2026-08-23 첫 배포가 여기서 죽었다) ─────
+
+
+def test_build_argv_names_the_project_explicitly() -> None:
+    """⛔ **실물이 이것을 가르쳤다.** `--project`가 없으면 `gcloud config`가 이긴다.
+
+    2026-08-23 첫 배포: `run deploy`에는 렌더된 `--project`가 실렸는데
+    `builds submit`에는 안 실렸다. 빌드는 **다른 프로젝트**에서 돌았고 push가 거부됐다:
+    `artifactregistry.repositories.uploadArtifacts denied`.
+    ⚠️ 빌드 자체는 **성공**해서 로그 대부분이 초록이었다 — *"이미지가 잘못됐다"*로 읽기 쉬웠다.
+
+    ⚠️ 여기서 묻는 것은 *"플래그가 있는가"*가 아니라 **어느 칸에서 왔는가**다.
+       그래서 픽스처의 프로젝트 id를 값으로 맞댄다.
+    """
+    argv = config.build_argv(SAMPLE, "t1")
+    assert f"--project={SAMPLE.project_id}" in argv, (
+        f"빌드 인자에 `--project`가 없다: {list(argv)} — 없으면 `gcloud config`의 "
+        "주변 설정이 이기고, 그 사본은 배포가 실패할 때까지 아무도 안 읽는다."
+    )
+    assert argv[:2] == ("builds", "submit"), f"빌드 명령이 아니다: {list(argv)}"
+
+
+def test_the_shell_never_writes_the_gcloud_flags_itself() -> None:
+    """⛔ 셸이 `gcloud builds submit --tag ...`를 직접 적으면 **사본이 다시 생긴다.**
+
+    ⚠️ `deploy.sh`는 렌더된 인자를 **받아서 실행만** 해야 한다. 이 규칙은 T11-1이
+       `run deploy`에 대해 세웠는데 `builds submit`이 그 규칙 밖에 있었다 —
+       **규칙이 있는데 한 줄만 빠져 있는 것**이 가장 안 보이는 모양이다.
+    """
+    shell = (ROOT / "scripts" / "deploy.sh").read_text(encoding="utf-8")
+    code = "\n".join(line for line in shell.splitlines() if not line.lstrip().startswith("#"))
+    assert "builds submit" not in code, (
+        "`deploy.sh`가 빌드 플래그를 자기가 적는다 — 값의 출처는 `config.py` 하나다."
+    )
+    for flag in ("--tag=", "--project=", "run deploy"):
+        assert flag not in code, f"`deploy.sh`가 `{flag}`를 직접 적는다 — 렌더해서 받아라"

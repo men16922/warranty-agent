@@ -197,6 +197,33 @@ def image_uri(settings: Settings, tag: str) -> str:
     )
 
 
+def build_argv(settings: Settings, tag: str) -> tuple[str, ...]:
+    """이미지를 빌드해 올리는 `gcloud` 인자. ⛔ **`--project`가 여기 있는 것이 요점이다.**
+
+    ⛔ **실제로 이것 때문에 첫 배포가 죽었다** (2026-08-23). `scripts/deploy.sh`가
+       `gcloud run deploy`에는 렌더된 `--project`를 넘기면서 `gcloud builds submit`에는
+       **안 넘겼다.** 그래서 빌드만 `gcloud config`의 **다른 프로젝트**에서 돌았고,
+       그 프로젝트의 빌드 서비스 계정은 우리 Artifact Registry에 쓸 권한이 없다:
+
+           denied: artifactregistry.repositories.uploadArtifacts denied
+                   on projects/warranty-hack/.../repositories/warranty
+
+       ⚠️ **빌드는 성공했다.** 죽은 것은 push다 — 그래서 로그 대부분이 초록이고
+       실패 한 줄이 맨 아래 있다. *"이미지가 잘못됐다"*로 읽기 딱 좋은 모양이다.
+
+    ⚠️ 값을 셸이 적으면 그것이 두 번째 출처가 된다. `gcloud`의 **주변 설정**(`gcloud config`)도
+       출처다 — 명시하지 않으면 그쪽이 이긴다. 이 저장소가 배포 값에서 계속 잡아 온 것과
+       같은 자리이고, 다른 점은 **사본이 파일이 아니라 CLI의 기본값**이라는 것뿐이다.
+    """
+    return (
+        "builds",
+        "submit",
+        f"--project={settings.project_id}",
+        f"--tag={image_uri(settings, tag)}",
+        ".",
+    )
+
+
 def deploy_argv(settings: Settings, tag: str) -> tuple[str, ...]:
     """`gcloud`에 넘길 인자 전부. 배포 스크립트는 이것을 **받아서 실행만** 한다.
 

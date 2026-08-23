@@ -56,7 +56,11 @@ DEPLOY_SH = ROOT / "scripts" / "deploy.sh"
 PREFLIGHT_TOOL = "tools/deploy_preflight.py"
 
 #: 셸이 이미지를 **올리는** 줄. ⚠️ 검사는 이 줄보다 위에 있어야 한다.
-BUILD_MARK = "gcloud builds submit"
+#: ⛔ **문자열이 바뀌었다** (2026-08-23): 셸이 `gcloud builds submit --tag ...`를 직접
+#: 적으면 `--project`가 빠지고 빌드가 `gcloud config`의 **다른 프로젝트**에서 돈다 —
+#: 첫 배포가 정확히 그렇게 죽었다(push 거부). 그래서 빌드 인자도 렌더해서 받는다.
+#: ⚠️ 여기가 겨냥하는 것은 **순서**지 명령의 철자가 아니다. 실행 배열 이름으로 찾는다.
+BUILD_MARK = "${BUILD_ARGS[@]}"
 
 #: ⑪이 겨냥하는 것들 — 실물을 찌르려면 **반드시 이 중 하나가 먼저 임포트된다.**
 #: ⚠️ `subprocess`가 여기 있는 이유: `gcloud`를 부르는 것도 네트워크를 여는 것이다.

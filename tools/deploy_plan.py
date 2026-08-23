@@ -15,7 +15,13 @@ from __future__ import annotations
 import argparse
 import sys
 
-from warranty.config import ConfigError, deploy_argv, image_uri, load_settings
+from warranty.config import (
+    ConfigError,
+    build_argv,
+    deploy_argv,
+    image_uri,
+    load_settings,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -23,14 +29,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tag", required=True, help="이미지 태그. `latest`를 쓰지 않는다")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--image", action="store_true", help="이미지 주소 한 줄")
-    mode.add_argument("--args", action="store_true", help="gcloud 인자, 한 줄에 하나")
+    mode.add_argument("--args", action="store_true", help="gcloud run deploy 인자, 한 줄에 하나")
+    mode.add_argument(
+        "--build-args", action="store_true", help="gcloud builds submit 인자, 한 줄에 하나"
+    )
     ns = parser.parse_args(argv)
 
     try:
         settings = load_settings()
         # ⚠️ 한 줄에 하나로 찍는 이유: 셸이 공백으로 다시 쪼개면 라벨·환경변수처럼
         #    쉼표와 등호가 든 인자에서 조용히 갈라진다.
-        lines = [image_uri(settings, ns.tag)] if ns.image else list(deploy_argv(settings, ns.tag))
+        if ns.image:
+            lines = [image_uri(settings, ns.tag)]
+        elif ns.build_args:
+            lines = list(build_argv(settings, ns.tag))
+        else:
+            lines = list(deploy_argv(settings, ns.tag))
     except ConfigError as exc:
         print(f"설정이 성립하지 않는다: {exc}", file=sys.stderr)
         return 2

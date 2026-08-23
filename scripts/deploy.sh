@@ -29,8 +29,14 @@ IMAGE="$(plan --image)"
 # ⚠️ 한 줄에 하나로 읽는다. 공백으로 쪼개면 라벨·환경변수처럼 쉼표가 든 인자가 갈라진다.
 ARGS=()
 while IFS= read -r line; do ARGS+=("$line"); done < <(plan --args)
+# ⛔ **빌드 인자도 렌더해서 받는다.** 여기서 `gcloud builds submit --tag ...`를 직접
+#    적으면 `--project`가 빠지고, 빌드는 `gcloud config`의 **다른 프로젝트**에서 돈다.
+#    2026-08-23 첫 배포가 정확히 그렇게 죽었다 — 빌드는 성공하고 push가 거부됐다.
+BUILD_ARGS=()
+while IFS= read -r line; do BUILD_ARGS+=("$line"); done < <(plan --build-args)
 
 echo "이미지: $IMAGE"
+printf '  gcloud %s\n' "${BUILD_ARGS[*]}"
 printf '  gcloud %s\n' "${ARGS[*]}"
 
 # ⛔ **올리기 전에 묻는다** (design 10§5 · T12-4). 서비스 못 하는 이미지는 여기서 막힌다.
@@ -44,7 +50,7 @@ if [ "${1:-}" != "--yes" ]; then
   exit 1
 fi
 
-gcloud builds submit --tag "$IMAGE" .
+gcloud "${BUILD_ARGS[@]}"
 gcloud "${ARGS[@]}"
 
 echo

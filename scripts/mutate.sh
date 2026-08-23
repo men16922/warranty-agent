@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-158|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-166|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -747,6 +747,50 @@ apply() {
             #    못 찾는다 — T11-1(배포 값)·T11-4(데모 기준선)와 같은 계열의 세 번째 자리다.
       backup src/warranty/adapters/adk_agent.py
       perl -0pi -e 's/^        "GOOGLE_CLOUD_LOCATION": settings\.vertex_location,$/        "GOOGLE_CLOUD_LOCATION": "global",/m' src/warranty/adapters/adk_agent.py ;;
+    M-159) # T12-5 ★ **design 09가 선언한 변이** — 라이브 클라이언트 주입
+            # ⛔ `build_agent`가 tripwire를 안 지난다. 조립도 인자도 그대로 옳고, 갈라지는
+            #    것은 *"게이트가 이걸 불렀을 때 아무 일도 안 일어난다"*뿐이다. 그 초록은
+            #    **부르지 않았다**가 아니라 **불러도 모른다**이다 (REQ-801).
+      backup src/warranty/adapters/adk_agent.py
+      perl -0pi -e 's/^    live_guard\.note\("adk_agent\.build_agent"\)\n//m' src/warranty/adapters/adk_agent.py ;;
+    M-160) # T12-5 — 네트워크에 가장 가까운 함수가 tripwire를 안 지난다
+            # ⛔ `_load_adk`는 이 저장소에서 실제로 임포트가 일어나는 유일한 자리다.
+            #    여기가 비면 다른 경로로 들어온 호출은 아무 표시도 안 남긴다.
+      backup src/warranty/adapters/adk_agent.py
+      perl -0pi -e 's/^    live_guard\.note\("adk_agent\._load_adk"\)\n//m' src/warranty/adapters/adk_agent.py ;;
+    M-161) # T12-5 — 게이트가 tripwire를 **안 건다**
+            # ⛔ 코드는 전부 그대로다. 거는 줄 하나가 사라지고, 그러면 라이브 어댑터를
+            #    만들어도 예외가 안 난다 — **가장 조용한 초록**이다 (M-91·M-154와 같은 계열:
+            #    *"검사가 있다"*와 *"검사를 지난다"*는 다른 문장).
+      backup tests/conftest.py
+      perl -0pi -e 's/^live_guard\.arm\(\)\n//m' tests/conftest.py ;;
+    M-162) # T12-5 — tripwire의 **극성이 뒤집힌다** (걸렸을 때 통과시킨다)
+            # ⛔ 기록은 그대로 쌓이고 `is_armed()`도 참이다. 막는 것만 안 한다 —
+            #    *"기록하는 가드"*와 *"막는 가드"*의 차이가 정확히 이 한 줄이다.
+      backup src/warranty/adapters/live_guard.py
+      perl -0pi -e 's/^    if _armed:$/    if not _armed:/m' src/warranty/adapters/live_guard.py ;;
+    M-163) # T12-5 공허 통과 방지 — census가 **지연 임포트를 못 본다**
+            # ⛔ 씨앗이 0이면 폐포도 0이고, ②는 훑을 대상 없이 초록이다. 이 저장소가
+            #    M-03·M-25·M-45·M-118에서 네 번 속은 그 모양이다.
+      backup tests/test_live_adapter_guard.py
+      perl -0pi -e 's/^        found = _cloud_import\(node\)$/        found = None/m' tests/test_live_adapter_guard.py ;;
+    M-164) # T12-5 ★ census가 **전이 폐포를 안 따라간다**
+            # ⛔ T12-5가 미리 적어 둔 함정의 정확한 얼굴이다: `build_agent`는 클라우드 이름을
+            #    한 글자도 안 적는다. 임포트하는 함수만 잡으면 그 호출자는 census 밖이고,
+            #    *"라이브 어댑터를 안 만든다"*는 **부르는 자리를 안 본 채** 참이 된다.
+      backup tests/test_live_adapter_guard.py
+      perl -0pi -e 's/^            if reached:$/            if False:/m' tests/test_live_adapter_guard.py ;;
+    M-165) # T2-2 ★ **첫 배포가 실제로 여기서 죽었다** — 빌드 인자에서 `--project`를 뺀다
+            # ⛔ 빌드는 `gcloud config`의 **다른 프로젝트**에서 돌고, 그 프로젝트의 빌드 SA는
+            #    우리 Artifact Registry에 못 쓴다. 빌드 자체는 **성공**해서 로그 대부분이
+            #    초록이고 실패 한 줄만 맨 아래 있다 — *"이미지가 잘못됐다"*로 읽기 쉽다.
+      backup src/warranty/config.py
+      perl -0pi -e 's/^        f"--project=\{settings\.project_id\}",\n        f"--tag=/        f"--tag=/m' src/warranty/config.py ;;
+    M-166) # T2-2 — 셸이 빌드 플래그를 **자기가 적는다** (렌더된 값을 안 쓴다)
+            # ⛔ 그 순간 값의 출처가 둘이 되고, 둘째 출처는 배포가 실패할 때까지 안 읽힌다.
+            #    T11-1이 `run deploy`에 세운 규칙에서 `builds submit` 한 줄만 빠져 있었다.
+      backup scripts/deploy.sh
+      perl -0pi -e 's/^gcloud "\$\{BUILD_ARGS\[\@\]\}"$/gcloud builds submit --tag "\$IMAGE" ./m' scripts/deploy.sh ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -779,5 +823,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

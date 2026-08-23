@@ -28,6 +28,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from warranty.adapters import live_guard
 from warranty.config import Settings
 
 #: 에이전트 이름 — design 06§3의 사본이다. ⚠️ `SERVICE_NAME`(`warranty-api`)과 **다른 값**이다:
@@ -160,7 +161,11 @@ def _load_adk() -> tuple[Any, Any]:
     ⚠️ `sessions`를 따로 임포트한다 — probe 로그 2절이 적은 최상위 export에 그 이름이 없다.
        `google.adk`만 임포트하고 `adk.sessions`를 읽으면 `AttributeError`가 날 수 있고,
        그 예외는 *"세션 서비스를 못 만들었다"*가 아니라 *"에이전트가 깨졌다"*로 읽힌다.
+
+    ⚠️ 첫 줄이 tripwire인 이유는 G5다 — 이 함수가 게이트에서 **불렸다는 사실 자체**가
+       REQ-801의 위반이고, 위반은 임포트가 실패해서가 아니라 **여기 온 것**으로 성립한다.
     """
+    live_guard.note("adk_agent._load_adk")
     try:
         # ⚠️ 억제가 첫 줄에만 붙는다: 이 줄이 `google.adk`를 `Any`로 만들면 아래 줄은
         #    mypy에게 이미 해결된 이름이다. 둘째 줄에도 붙이면 `warn_unused_ignores`가
@@ -180,14 +185,18 @@ def build_agent(spec: AgentSpec, tools: Sequence[Callable[..., Any]]) -> Any:
 
     ⚠️ 인자 검증은 임포트 **앞**이다 — 그래야 배선이 틀렸을 때 나는 말이
        *"google-adk가 없다"*가 아니라 *"명세와 도구가 다르다"*가 된다.
+    ⚠️ **tripwire는 그보다도 앞이다** — 인자 검증은 *"우리가 옳게 조립하는가"*를 묻고,
+       G5는 *"게이트가 여기 왔는가"*를 묻는다. 후자는 인자가 옳아도 위반이다(REQ-801).
     """
+    live_guard.note("adk_agent.build_agent")
     kwargs = agent_kwargs(spec, tools)
     adk, _ = _load_adk()
     return adk.Agent(**kwargs)
 
 
 def build_runner(spec: AgentSpec, tools: Sequence[Callable[..., Any]]) -> Any:
-    """★ 실제 `Runner`를 만든다. ⛔ **게이트는 이것을 안 부른다** (REQ-801)."""
+    """★ 실제 `Runner`를 만든다. ⛔ **게이트는 이것을 안 부른다** (REQ-801 · G5가 집행한다)."""
+    live_guard.note("adk_agent.build_runner")
     agent = build_agent(spec, tools)
     adk, sessions = _load_adk()
     session_service = getattr(sessions, spec.session_service)()

@@ -1,0 +1,23 @@
+# T2-2 사전 로컬 스모크 — 컨테이너 진입점이 실제로 포트를 여는가
+# 2026-08-23 20:13 KST · 실행: 로컬 프로세스(배포 아님) · Dockerfile CMD와 같은 진입점
+# ⛔ Cloud Run 포트 프로브가 하는 것과 같은 것을 미리 한다. T11-1이 예고한 함정의 확인.
+
+## 부팅
+  listening on :8899
+
+## 선언된 경로 (design 08§3 표)
+  GET    /healthz                           -> HTTP 200
+  POST   /resources:provision               -> HTTP 501
+  GET    /contracts/ct-1                    -> HTTP 501
+  POST   /actions/a-1:remediate             -> HTTP 501
+  POST   /ledger/e-1:approve                -> HTTP 501
+  GET    /ledger/e-1                        -> HTTP 501
+  GET    /report/daily?date=2026-08-23      -> HTTP 501
+  POST   /agent:chat                        -> HTTP 501
+  GET    /nope                               -> HTTP 404
+
+## 판정
+  ✅ 포트를 연다 · ✅ /healthz 200 ⇒ **Cloud Run 포트 프로브는 통과한다**
+  ⛔ 나머지 일곱은 501이다 — 정책이지 버그가 아니다(어댑터 없이 fake로 200을 내지 않는다).
+     ⚠️ 그러나 **배포가 성공해도 서비스는 아무것도 시연하지 못한다.**
+        심사위원이 URL을 열면 501 하나를 본다. 그 자리를 메우는 것이 다음이다.
