@@ -111,9 +111,27 @@
       항상 새 세션 → 대화 연속성을 가정하지 않는다).
       ⛔ **실제 모델 호출은 아직 안 했다** — 프로젝트·인증 없음.
       **"임포트가 된다"와 "호출이 된다"는 다르다.**
-- [ ] **T2-2** 컨테이너 → Artifact Registry → **Cloud Run 배포** · `Implements: REQ-602` · `Design: 10§2`
-- [ ] **T2-3** `demo-target` 서비스 배포 (리비전 2개) · `Design: 10§2`
-- [ ] **T2-4** 실물 왕복 증거 · `Implements: REQ-901` · `Design: 10§7`
+- [x] **T2-2** 컨테이너 → Artifact Registry → **Cloud Run 배포** · `Implements: REQ-602` · `Design: 10§2`
+      ⭐ **2026-08-23 배포됨** — `https://warranty-api-povpqj6m5a-uc.a.run.app` · 공개 ·
+      컨테이너 로그 `listening on :8080`. 증거 `docs/evidence/deploy-2026-08-23.log`.
+      ⛔ 첫 시도는 **push에서** 죽었다(빌드는 성공): `builds submit`에 `--project`가 없어
+      빌드만 다른 프로젝트에서 돌았다. 사본이 파일이 아니라 `gcloud config`였다(M-165·166).
+      ⛔ **`/healthz`는 Cloud Run이 가로챈다** — 로컬 200, 실물은 컨테이너 **도달조차 안 함**.
+      `/livez`로 옮겼다(M-167~169). ⚠️ 지금은 증상이 없었다(시작 프로브가 TCP) — 그래서 위험했다.
+      ⚠️ **`/livez` 외 7경로는 501이다** — 실물 어댑터가 아직 없다. 정책이지 버그가 아니다.
+- [x] **T2-3** `demo-target` 서비스 배포 (리비전 2개) · `Design: 10§2`
+      ⭐ **2026-08-23 배포됨** — `demo-target-00001-swl`(건강) · `demo-target-00002-lss`(악화).
+      `warranty-api`와 **같은 이미지**를 `--command/--args`로 진입점만 바꿔 올렸다 —
+      두 서비스가 같은 커밋에서 왔음이 태그로 증명되고 두 번째 Dockerfile이 안 썩는다.
+      ⛔ 진입점은 `WR_DEMO_REVISION`에 **기본값을 두지 않는다**(M-170): 두면 그 변수를
+      빠뜨린 배포가 에러 없이 건강한 쪽으로 뜨고, 장애 주입이 안 일어나는데 화면은 멀쩡하다.
+- [~] **T2-4** 실물 왕복 증거 · `Implements: REQ-901` · `Design: 10§7`
+      ⭐ **왕복의 물리적 절반이 실물에서 성립했다**(`docs/evidence/live-remediate-2026-08-23.log`):
+      620ms → 트래픽 전환 → **900ms(회복 안 됨)** → 롤백 → **배분 되읽기** → 620ms(회복).
+      ★ 악화 리비전이 **헬스에서 살아 있다** — 죽으면 트래픽 전환이 안 되고 데모의 절정이 사라진다.
+      ⛔ **남은 절반**: 그 왕복을 **에이전트가** 하는 것. 지금은 사람이 `gcloud`로 했고,
+      신호도 Cloud Monitoring이 아니라 curl 왕복 시간이며, 원장을 안 지났다.
+      ⇒ warranty-api의 실물 어댑터(Cloud Run Admin · Monitoring · Firestore)가 선행이다.
 
 ⚠️ **수용 기준은 "테스트 통과"가 아니라 "실제 라이브러리로 실제 응답"이다.**
 ⛔ **08-24까지 T2-2가 안 되면 접는다.** 포기 비용 0.
