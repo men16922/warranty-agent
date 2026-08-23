@@ -1,0 +1,35 @@
+# 실물 신호 증거 — Cloud Monitoring이 조치 실패와 롤백 회복을 증언한다 (T2-4 · REQ-201·202·304)
+# 2026-08-23 · warranty-hack / us-central1 · demo-target
+
+## 질의 (추측 아님 — API를 직접 introspect하고 친 것)
+  metric   : run.googleapis.com/request_latencies
+  filter   : metric.type="run.googleapis.com/request_latencies"
+             AND resource.labels.service_name="demo-target"
+  aligner  : ALIGN_PERCENTILE_95   (alignment_period 60s)
+  reducer  : REDUCE_PERCENTILE_95
+  ⚠️ `aggregation`은 별도 kwarg가 아니라 ListTimeSeriesRequest 안에 넣어야 한다.
+     kwarg로 주면 TypeError다 — 실제로 첫 시도가 거기서 죽었다.
+
+## ★ 세 구간 (각 구간에 40회씩 부하)
+  12:55  p95 =  674.2 ms   기준선   (건강 demo-target-00007-abc · 앱 620ms + 플랫폼 오버헤드)
+  12:56  p95 =  988.6 ms   조치 후  (악화 demo-target-00008-slow · 앱 900ms)   ❌ +46.6%
+  12:57  p95 =  674.2 ms   롤백 후  (건강으로 복귀)                            ✅ 회복
+
+  ⇒ **각본이 아니다.** 신호를 낸 것은 Google Cloud Monitoring이고, 우리는 읽기만 했다.
+  ⇒ 계약의 회복 기준(50% 상대 개선)으로 12:56은 not_recovered다 — 조치는 성공했고
+     신호는 나빠졌다. 그것이 이 프로젝트가 세는 `executed != improved`의 실물 사례다.
+
+## ⚠️ 이 실험이 가르친 운영상의 사실 — 설계 문서에 없던 것
+  **p95는 트래픽이 있어야 의미가 있다.** 첫 시도는 구간당 3회만 보냈고, 그때 Monitoring은
+  점 2개에 988.6ms 하나만 냈다 — 세 구간이 **구별되지 않았다.**
+  구간당 40회를 넣자 674 / 989 / 674로 갈라졌다.
+  ⇒ 데모 각본(design 11)은 각 구간에 **부하를 넣어야** 한다. 조치 한 번과 curl 한 번으로는
+     "신호가 나빠졌다"를 Monitoring이 증언하지 못한다.
+  ⚠️ 계약의 `window_s`(120s)와 alignment_period(60s)의 관계도 여기서 처음 실물로 보였다.
+
+## 이 증거가 말하지 않는 것
+  - 이 판정을 **에이전트가** 했는가 — 여기서는 사람이 프로브를 돌렸다.
+    SignalSource 실물 어댑터가 그 배선이고, 지금 작성 중이다.
+  - 원장에 남았는가 (REQ-501) — 안 지났다.
+  - 674.2ms가 앱의 620ms와 다른 이유는 플랫폼 오버헤드다. 계약이 재는 것은
+    **앱이 보고한 값이 아니라 Cloud Run이 관측한 값**이고, 그 차이가 정상이다.

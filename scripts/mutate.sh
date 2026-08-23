@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-172|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-175|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -820,6 +820,20 @@ apply() {
             #    T11-4가 "구현을 갖지 않고 주입받는다"고 정한 결정이 문서에만 남는다.
       backup src/warranty/demo_target.py
       perl -0pi -e 's/^from warranty import server$/import time\n\nfrom warranty import server\n\n_ = time.sleep/m' src/warranty/demo_target.py ;;
+    M-173) # T2-4 ★ 전환이 **부분적**이 된다 (100 → 50)
+            # ⛔ 남은 비율이 다른 리비전에 남는다. 그때 "되돌렸다"는 **부분적으로만** 참이고,
+            #    REQ-302가 약속한 원자성이 아니다 — 그 위에서 자동 롤백을 믿을 근거가 없다.
+      backup src/warranty/adapters/live_run.py
+      perl -0pi -e 's/^FULL_TRAFFIC = 100$/FULL_TRAFFIC = 50/m' src/warranty/adapters/live_run.py ;;
+    M-174) # T2-4 — 경로가 **설정의 리전**에서 온다 (계약이 가리키는 리소스가 아니라)
+            # ⛔ 리전이 둘인 날 **엉뚱한 서비스의 트래픽을 옮긴다.** 실패는 "권한 없음"이
+            #    아니라 "다른 것이 되돌아갔다"로 오고, 그건 훨씬 늦게 보인다.
+      backup src/warranty/adapters/live_run.py
+      perl -0pi -e 's/region=resource\.region/region="us-central1"/' src/warranty/adapters/live_run.py ;;
+    M-175) # T2-4 — 되읽기가 **이름 없는 항목을 버린다**
+            # ⛔ 합이 100이 아닌 것을 아무도 못 본다. 배분이 깨져도 "돌아갔다"가 참이 된다.
+      backup src/warranty/adapters/live_run.py
+      perl -0pi -e 's/^        revision = str\(getattr\(item, "revision", ""\) or ""\)$/        revision = str(getattr(item, "revision", "") or "")\n        if not revision:\n            continue/m' src/warranty/adapters/live_run.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -852,5 +866,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

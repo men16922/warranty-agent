@@ -58,6 +58,7 @@ FIRST_PARTY = ("warranty", "tools")
 IMPORT_TO_DIST: dict[str, str] = {
     "google.adk": "google-adk",
     "google.cloud.bigquery": "google-cloud-bigquery",
+    "google.cloud.run_v2": "google-cloud-run",
     "google.cloud.firestore": "google-cloud-firestore",
     "google.genai": "google-genai",
     "mypy": "mypy",

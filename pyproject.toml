@@ -14,6 +14,9 @@ cloud = [
     #    안 보이고, 실물 호출을 처음 하는 날에 보인다. 버전 바닥은 실제로 설치해 introspect한
     #    2.7.1에서 온다 (design 06§2 · docs/evidence/adk-api-probe-2026-08-19.log).
     "google-adk>=2.7",
+    # ⛔ **트래픽 전환·되읽기의 실물 절반이다**(REQ-301·302 · adapters/live_run.py).
+    #    이 저장소가 GCP 전용인 이유가 여기 있다 — 배분을 한 번에 바꾸고 **다시 읽어** 증명한다.
+    "google-cloud-run>=0.10",
     "google-cloud-firestore>=2.16",
     "google-cloud-bigquery>=3.20",
     "google-genai>=1.0",
