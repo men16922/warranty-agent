@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-132|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-140|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -613,6 +613,47 @@ apply() {
             #    고쳐도 이 줄은 안 따라오고, 그 어긋남은 첫 배포에서만 보인다.
       backup Dockerfile
       perl -0pi -e 's/^WORKDIR \/app$/WORKDIR \/app\nENV PORT=8080/m' Dockerfile ;;
+    M-133) # T12-2 — 모델이 `ambiguous`로 되돌려줘도 통과한다
+            # ⛔ 규칙이 이미 낸 답을 되돌려받으면 판정이 **안 닫힌다** — `Verification`이
+            #    거부하고, 조치 한 건이 검증 없이 예외로 끝난다.
+      backup src/warranty/adapters/model_judge.py
+      perl -0pi -e 's/^ALLOWED_VERDICTS: tuple\[Verdict, \.\.\.\] = \(Verdict\.RECOVERED, Verdict\.NOT_RECOVERED\)$/ALLOWED_VERDICTS: tuple[Verdict, ...] = tuple(Verdict)/m' src/warranty/adapters/model_judge.py ;;
+    M-134) # T12-2 ★ **가장 위험한 초록** — 파싱 실패가 조용히 `recovered`가 된다
+            # ⛔ 못 읽은 응답 하나가 *"나아졌다"*가 되고, 그 조치는 롤백 없이 남으며
+            #    리포트의 회복률만 오른다. 하필 모델이 불리는 구간은 **판단이 어려운 구간**이다.
+      backup src/warranty/adapters/model_judge.py
+      perl -0pi -e 's/^FALLBACK_VERDICT = Verdict\.NOT_RECOVERED$/FALLBACK_VERDICT = Verdict.RECOVERED/m' src/warranty/adapters/model_judge.py ;;
+    M-135) # T12-2 — 폴백이 **근거를 안 남긴다**
+            # ⛔ `Verification`이 *"모델이 판정했는데 근거가 없다"*로 예외를 낸다 —
+            #    그 예외는 조치 한 건을 통째로 날리고, 원인은 모델 답이 이상했다는 것뿐이다.
+      backup src/warranty/adapters/model_judge.py
+      perl -0pi -e 's/^    return f"\{FALLBACK_PREFIX\}: \{reason\} · raw\[:\{RAW_EXCERPT_CHARS\}\]=\{excerpt!r\}"$/    return ""/m' src/warranty/adapters/model_judge.py ;;
+    M-136) # T12-2 — **빈 근거**를 통과시킨다
+            # ⛔ 근거 없는 모델 판정은 검증이 아니라 주사위다(REQ-204). 그리고 그 빈 문장은
+            #    파싱을 지나 `Verification`에서 터진다 — 고칠 곳이 여기라는 말은 아무도 안 한다.
+      backup src/warranty/adapters/model_judge.py
+      perl -0pi -e 's/ or not rationale\.strip\(\)//' src/warranty/adapters/model_judge.py ;;
+    M-137) # T12-2 — 프롬프트가 **재측정 대신 기준선**을 두 번 싣는다
+            # ⛔ 모델은 조치 전 값만 보고 답하고, 그 답은 여전히 문장으로 그럴듯하다.
+            #    원장에서 *"모델이 재측정을 봤다"*와 구별되지 않는다.
+      backup src/warranty/adapters/model_judge.py
+      perl -0pi -e 's/^        after=_render\(after\),$/        after=_render(baseline),/m' src/warranty/adapters/model_judge.py ;;
+    M-138) # T12-2 — 폴백이 **원문을 안 싣는다**
+            # ⛔ 원장은 *"못 읽었다"*고만 말하고 무엇을 못 읽었는지는 사라진다.
+            #    프롬프트를 고쳐야 하는지 파서를 고쳐야 하는지 아무도 못 정한다.
+      backup src/warranty/adapters/model_judge.py
+      perl -0pi -e 's/^RAW_EXCERPT_CHARS = 200$/RAW_EXCERPT_CHARS = 0/m' src/warranty/adapters/model_judge.py ;;
+    M-139) # T12-2 — 코드펜스를 **안 벗긴다**
+            # ⛔ 모델은 JSON을 ```json으로 감싸는 쪽이 흔하다. 안 벗기면 **정상 응답이 전부
+            #    폴백**으로 떨어지고, 원장은 모델이 판단한 적 없다고 말한다. 루프는 계속 돌고
+            #    판정은 늘 보수적으로 옳아 보인다 — 조용한 실패의 교과서다.
+      backup src/warranty/adapters/model_judge.py
+      perl -0pi -e 's/^    if not stripped\.startswith\(FENCE\) or not stripped\.endswith\(FENCE\):$/    if True:/m' src/warranty/adapters/model_judge.py ;;
+    M-140) # T12-2 — 판정 호출이 **사용량을 0으로 지어낸다**
+            # ⛔ *"계량했는데 공짜였다"*와 *"얼마인지 모른다"*는 다른 문장이다(PRINCIPLES #2).
+            #    원장은 조용한 0을 적고, 예산은 그 호출이 없었던 것처럼 남는다.
+      backup src/warranty/adapters/model_judge.py
+      perl -0pi -e 's/^        return ModelReply\(verdict, rationale, raw\.usage\)$/        return ModelReply(verdict, rationale, TokenUsage(raw.usage.model, 0, 0))/m' src/warranty/adapters/model_judge.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -645,5 +686,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
