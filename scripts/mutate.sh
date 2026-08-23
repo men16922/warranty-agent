@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-148|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-156|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -693,6 +693,50 @@ apply() {
             #    M-146의 반대편이다: 그 검사만 있으면 이 상태는 가장 깨끗한 초록으로 보인다.
       backup src/warranty/adapters/adk_agent.py
       perl -0pi -e 's/^        import google\.adk as adk.*\n        from google\.adk import sessions$/        adk = sessions = None/m' src/warranty/adapters/adk_agent.py ;;
+    M-149) # T12-4 ★ **함정의 다음 얼굴** — 진입점이 `serve_forever`를 안 부른다
+            # ⛔ 임포트도 되고 타입도 맞고 단위 테스트도 전부 통과한다. 이름도 여전히
+            #    `warranty.server`라 `test_http_server` ⑧도 초록이다. 갈라지는 것은
+            #    **프로세스가 끝나는가**뿐이고, 그건 첫 배포의 포트 프로브에서만 보인다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^    httpd\.serve_forever\(\)\n//m' src/warranty/server.py ;;
+    M-150) # T12-4 — 진입점이 포트를 **박는다** (`load_port`를 안 부른다)
+            # ⛔ `test_http_server` ⑥은 초록이다 — `load_port` 자체는 멀쩡하고, 산출물
+            #    사본 검사가 보는 것은 `Dockerfile`·`deploy.sh`뿐이다. 진입점이 그 숫자를
+            #    직접 적는 자리는 아무도 안 봤다. 그때 이미지는 뜨고 프로브만 실패한다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^    port = load_port\(\)$/    port = 8080/m' src/warranty/server.py ;;
+    M-151) # T12-4 — 진입점의 `__main__` 가드가 사라진다
+            # ⛔ `python -m`이 임포트만 하고 **조용히 0으로 끝난다.** 죽지도 않고
+            #    서비스하지도 않으며, 로그에는 아무것도 안 남는다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^if __name__ == "__main__":\n    raise SystemExit\(main\(\)\)\n//m' src/warranty/server.py ;;
+    M-152) # T12-4 공허 통과 방지 — 호출 이름 수집기가 **늘 둘 다 있다고 말한다**
+            # ⛔ 0개를 훑는 초록의 반대 얼굴이다: 전부를 훑었다고 **지어내는** 초록.
+            #    그러면 데모를 가리켜도, 포트를 박아도 검사는 아무 말도 안 한다.
+      backup tools/deploy_preflight.py
+      perl -0pi -e 's/^    names: set\[str\] = set\(\)$/    names: set[str] = {PORT_SOURCE, BLOCKING_CALL}/m' tools/deploy_preflight.py ;;
+    M-153) # T12-4 ★ 셸이 검사를 **빌드 뒤에** 부른다 (순서 역전)
+            # ⛔ 검사는 그대로 있고 그대로 옳다. 부르는 자리만 한 칸 내려간다 — 그런데
+            #    그때는 이미 빌드 비용을 썼고 리비전이 생겼다. **올린 뒤에 막는 것은
+            #    안 막은 것과 같다.** 배포는 게이트에 없으니 다음 배포까지 아무도 모른다.
+      backup scripts/deploy.sh
+      perl -0pi -e 's/^PYTHONPATH=src "\$PY" tools\/deploy_preflight\.py[^\n]*\n//m' scripts/deploy.sh
+      perl -0pi -e 's/^gcloud builds submit --tag "\$IMAGE" \.$/gcloud builds submit --tag "\$IMAGE" .\nPYTHONPATH=src "\$PY" tools\/deploy_preflight.py --tag "\$TAG" --image "\$IMAGE"/m' scripts/deploy.sh ;;
+    M-154) # T12-4 — 셸이 검사를 **아예 안 부른다**
+            # ⛔ 도구도 테스트도 그대로다. 아무도 안 지날 뿐이고, 그 초록은 *"검사가 있다"*가
+            #    아니라 **"검사가 있는 파일이 있다"**이다 (M-91과 같은 계열).
+      backup scripts/deploy.sh
+      perl -0pi -e 's/^PYTHONPATH=src "\$PY" tools\/deploy_preflight\.py[^\n]*\n//m' scripts/deploy.sh ;;
+    M-155) # T12-4 — 발견이 있어도 **종료 코드 0**을 낸다
+            # ⛔ 발견은 stderr에 그대로 찍힌다. `set -e`가 안 멈출 뿐이고, 사람이 보는 것은
+            #    경고가 스쳐 지나간 **성공한 배포**다. 검사가 장식이 되는 정확한 한 줄.
+      backup tools/deploy_preflight.py
+      perl -0pi -e 's/^    return 1 if findings else 0$/    return 0/m' tools/deploy_preflight.py ;;
+    M-156) # T12-4 — 이미지 대조가 **아무것도 안 본다**
+            # ⛔ 빌드하는 주소와 배포하는 주소를 각각 집는 것은 셸이다. 갈라지면 올라간
+            #    이미지와 도는 이미지가 다르고, 그 어긋남은 로그에 *"배포 성공"*으로 남는다.
+      backup tools/deploy_preflight.py
+      perl -0pi -e 's/^    if f"--image=\{image\}" in rendered:$/    if True:/m' tools/deploy_preflight.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -725,5 +769,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

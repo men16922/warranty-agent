@@ -60,9 +60,15 @@
 ## 5. 절차
 
 ```bash
-make deploy         # 이미지 → Artifact Registry → Cloud Run
-make deploy-check   # /healthz + 실제 remediate 1건 왕복
+make deploy         # ⛔ 배포 전 검사 → 이미지 → Artifact Registry → Cloud Run
+                    #    검사가 red면 **올리지 않는다** (tools/deploy_preflight.py · T12-4)
+make deploy-check   # /healthz + 실제 remediate 1건 왕복 — 올린 **뒤**의 절반
 ```
+
+⚠️ **검사는 둘로 갈린다.** 앞의 절반은 *올리기 전*이고 오프라인이다 — 렌더된 배포 계획과
+이미지 선언을 맞대서, 포트를 안 여는 진입점을 **빌드 전에** 막는다. 뒤의 절반(`deploy-check`)은
+실물 서비스를 왕복하므로 배포 없이는 판정이 안 된다. **앞이 잡을 수 있는 것을 뒤로 미루면
+비용이 빌드 + 리비전 + 실패한 프로브**가 되고, 그 실패는 로그에서 *"배포 성공"* 뒤에 온다.
 
 ⚠️ **`make deploy`는 게이트에 없다.** 과금하고 되돌리기 어렵다 — 무인 루프의 deny 목록에 넣는다.
 

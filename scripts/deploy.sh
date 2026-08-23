@@ -33,6 +33,11 @@ while IFS= read -r line; do ARGS+=("$line"); done < <(plan --args)
 echo "이미지: $IMAGE"
 printf '  gcloud %s\n' "${ARGS[*]}"
 
+# ⛔ **올리기 전에 묻는다** (design 10§5 · T12-4). 서비스 못 하는 이미지는 여기서 막힌다.
+# ⚠️ **순서가 요점이다.** 빌드 뒤에 물으면 이미 올라간 뒤이고, 그건 안 막은 것과 같다.
+#    이 도구는 네트워크를 안 연다 — 읽는 것은 이 저장소의 파일뿐이다.
+PYTHONPATH=src "$PY" tools/deploy_preflight.py --tag "$TAG" --image "$IMAGE"
+
 if [ "${1:-}" != "--yes" ]; then
   echo
   echo "⛔ 실제로 배포하려면 --yes를 붙일 것. (이 스크립트는 과금한다)"
@@ -43,5 +48,5 @@ gcloud builds submit --tag "$IMAGE" .
 gcloud "${ARGS[@]}"
 
 echo
-echo "⚠️ 배포가 끝났다는 것과 서비스가 산다는 것은 다르다 — design 10§5의 deploy-check(T2-4)."
+echo "⚠️ 배포가 끝났다는 것과 서비스가 산다는 것은 다르다 — design 10§5의 뒤쪽 절반(T2-4)."
 echo "⚠️ 증거를 docs/evidence/deploy-\$(date +%F).log에 남길 것 (REQ-901 · design 10§7)."
