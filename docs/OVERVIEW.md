@@ -64,7 +64,7 @@ flowchart TB
     NL["Request<br/>(natural language or API)"] --> RUN
 
     subgraph RUN["Cloud Run · warranty-api  (scale-to-zero)"]
-        AGENT["ADK Agent · Gemini 3.5 Flash"]
+        AGENT["ADK Agent · Gemini 3.7 Flash"]
         PROV["provision<br/>creates resource"]
         CONTRACT["★ Operational Contract<br/>health signal · recovery criterion<br/>rollback plan · reversibility"]
         GATE["decision gate<br/>reversibility × <b>verifiability</b> × budget"]
@@ -160,7 +160,7 @@ wasted            $0.84 ←  회복 실패 조치가 쓴 비용
 
 | 요건 | 충족 |
 |---|---|
-| Gemini 3.5 이상 | **Gemini 3.5 Flash** (Vertex AI) |
+| Gemini 3.5 이상 | **Gemini 3.7 Flash** (Vertex AI) |
 | Google Agent Framework | **ADK** |
 | Google Cloud 인프라 | **Cloud Run** + Firestore + Cloud Monitoring (+ BigQuery, 선택) |
 

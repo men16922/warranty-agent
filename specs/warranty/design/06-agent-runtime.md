@@ -8,7 +8,7 @@
 
 | 요건 | 충족 |
 |---|---|
-| Gemini 3.5 이상 (Gemini API 또는 Vertex AI) | **Gemini 3.5 Flash · Vertex AI** |
+| Gemini 3.5 이상 (Gemini API 또는 Vertex AI) | **Gemini 3.7 Flash · Vertex AI** |
 | Google Agent Framework 1개 이상 | **ADK** |
 | Google Cloud 인프라 1개 이상 | **Cloud Run** (+ Firestore · Cloud Monitoring · BigQuery) |
 
@@ -23,8 +23,19 @@ introspect했다. 증거: `docs/evidence/adk-api-probe-2026-08-19.log`.
   **권고: `InMemorySessionService`** (데모에 연속성 불필요 · REQ-805에 부합)
 
 ⛔ **아직 확인 안 된 것**: **실제 모델 호출**(프로젝트·인증 없음)과 Cloud Run 배포.
-그러므로 `gemini-3.5-flash`가 Vertex 경로에서 유효한 id인지는 **미확인**이다.
-⚠️ **"임포트가 된다"와 "호출이 된다"는 다르다** — REQ-601·602는 여전히 TODO다.
+
+### 모델 갱신 — `gemini-3.5-flash` → `gemini-3.7-flash` (2026-08-23)
+
+Gemini 3.7 Flash가 **2026-08-13에 나왔고 Vertex AI에서 쓸 수 있다**(1M 컨텍스트,
+코딩·에이전트 워크로드용). 대회 요건의 바닥은 *"3.5 이상"*이라 3.7은 그 위다 —
+**요건이 바뀐 게 아니라 우리가 고른 값이 바뀌었다.** 그래서 REQ-601의 문장과
+`docs/HACKATHON.md`의 대회 원문 인용은 **안 건드렸다.**
+
+⛔ **그런데 이것도 여전히 "호출해 본 것"이 아니다.** 확인된 것은 *"그런 이름의 모델이
+공개돼 있다"*까지고(2026-08-23 웹 확인), *"우리 프로젝트의 Vertex 경로에서 그 id가
+유효하다"*는 **미확인**이다. 둘은 다른 값이고, 후자는 T2-1이 소유한다.
+⚠️ **"이름이 실재한다"·"임포트가 된다"·"호출이 된다"는 셋 다 다르다** — 지금 우리가 가진
+것은 첫째와 둘째뿐이다. REQ-601·602는 여전히 `TODO`다.
 
 스텁 위에서 통과하는 테스트는 *"우리 코드가 이 인터페이스를 이렇게 부른다"*를 말할 뿐
 *"그 인터페이스가 존재한다"*를 말하지 않는다.
@@ -36,7 +47,7 @@ introspect했다. 증거: `docs/evidence/adk-api-probe-2026-08-19.log`.
 
 ```
    Agent "warranty"
-     model: gemini-3.5-flash (Vertex AI)
+     model: gemini-3.7-flash (Vertex AI)
      tools:
        ├─ provision(spec)          Day-1 — 리소스 생성 + ★ 계약 방출
        ├─ inspect(resource)        계약·최근 신호 조회               (부수효과 없음)

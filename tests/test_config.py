@@ -14,7 +14,7 @@ from warranty.config import Adapters, ConfigError, Settings, load_settings
 BASE = {
     "WR_PROJECT_ID": "warranty-hack",
     "WR_REGION": "us-central1",
-    "WR_MODEL": "gemini-3.5-flash",
+    "WR_MODEL": "gemini-3.7-flash",
     "WR_ADAPTERS": "live",
 }
 
