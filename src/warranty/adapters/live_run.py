@@ -58,9 +58,13 @@ def traffic_spec(revision: str) -> list[dict[str, Any]]:
     """
     if not revision:
         raise RunControlError("리비전 이름이 비었다 — 어디로 옮길지 모른다")
-    return [{"type_": "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION",
-             "revision": revision,
-             "percent": FULL_TRAFFIC}]
+    return [
+        {
+            "type_": "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION",
+            "revision": revision,
+            "percent": FULL_TRAFFIC,
+        }
+    ]
 
 
 def parse_traffic(statuses: Iterable[Any] | None) -> dict[str, int]:
