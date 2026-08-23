@@ -37,7 +37,11 @@ packages = ["src/warranty"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "."]
-addopts = "-q --strict-markers"
+# ⛔ `-m 'not live'`가 그 **집행**이다. 없으면 아래 마커 설명은 문장일 뿐이고, 라이브 테스트를
+#    하나 만드는 순간 `make check`가 그것을 돌리고 **과금한다** (T12-10 · REQ-801).
+#    ⚠️ `make live-check`는 명령줄로 `-m live`를 줘서 이것을 덮는다 — 그 덮임이 실제로
+#    일어나는지는 tests/test_gate_excludes_live.py가 **돌려서** 확인한다(문자열 대조 아님).
+addopts = "-q --strict-markers -m 'not live'"
 markers = [
     "live: 실물 클라우드가 필요한 테스트. ⚠️ 게이트에 포함되지 않는다 (REQ-701)",
 ]
