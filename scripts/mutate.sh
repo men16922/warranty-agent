@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-156|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-158|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -737,6 +737,16 @@ apply() {
             #    이미지와 도는 이미지가 다르고, 그 어긋남은 로그에 *"배포 성공"*으로 남는다.
       backup tools/deploy_preflight.py
       perl -0pi -e 's/^    if f"--image=\{image\}" in rendered:$/    if True:/m' tools/deploy_preflight.py ;;
+    M-157) # T2-1 ★ **실물에서 이미 한 번 터진 자리** — Vertex location에 Cloud Run 리전을 싣는다
+            # ⛔ 값은 그럴듯하고 빌드도 게이트도 조용하다. 갈라지는 곳은 **배포 후 첫 모델
+            #    호출**이고, 거기서 404다 (2026-08-23 실물 확인: us-central1에 Gemini 3.x 없음).
+      backup src/warranty/adapters/adk_agent.py
+      perl -0pi -e 's/^        "GOOGLE_CLOUD_LOCATION": settings\.vertex_location,$/        "GOOGLE_CLOUD_LOCATION": settings.region,/m' src/warranty/adapters/adk_agent.py ;;
+    M-158) # T2-1 — 어댑터가 location을 **자기가 적는다** (설정을 이긴다)
+            # ⛔ 오늘은 값이 같아서 아무 증상이 없다. 모델이 리전을 늘리는 날 아무도 이 줄을
+            #    못 찾는다 — T11-1(배포 값)·T11-4(데모 기준선)와 같은 계열의 세 번째 자리다.
+      backup src/warranty/adapters/adk_agent.py
+      perl -0pi -e 's/^        "GOOGLE_CLOUD_LOCATION": settings\.vertex_location,$/        "GOOGLE_CLOUD_LOCATION": "global",/m' src/warranty/adapters/adk_agent.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -769,5 +779,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

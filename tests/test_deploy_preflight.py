@@ -67,6 +67,7 @@ LIVE_IMPORTS = ("subprocess", "socket", "urllib", "http", "requests", "httpx", "
 SAMPLE = Settings(
     project_id="warranty-hack",
     region="us-central1",
+    vertex_location="global",
     model="gemini-3.7-flash",
     adapters=Adapters.LIVE,
     reconcile_deadline_days=3,

@@ -96,6 +96,26 @@ def build_spec(settings: Settings) -> AgentSpec:
     )
 
 
+def vertex_env(settings: Settings) -> dict[str, str]:
+    """ADK·google-genai가 **환경변수로** 읽는 Vertex 설정. 라이브러리를 안 부른다.
+
+    ⛔ **`settings.region`이 아니라 `settings.vertex_location`이다.** 실물이 그 둘을 갈랐다
+       (2026-08-23 · `docs/evidence/adk-live-call-2026-08-23.log`): Gemini 3.x는 Vertex에서
+       **`global`에만 있고** `us-central1`은 404다. 하나로 묶으면 Cloud Run 리전을 고르는
+       순간 모델이 사라지고, **그 사실은 배포 후 첫 모델 호출에서야 보인다** — 빌드도
+       게이트도 조용하다. T11-1(배포 값의 사본)·T11-3(선언과 설치)과 같은 계열이고,
+       다른 점은 **이것이 실물에서 이미 한 번 터졌다**는 것뿐이다.
+
+    ⚠️ 값을 여기서 적지 않는다. `"global"`을 여기 쓰면 그것이 설정을 이기고, 모델이
+       리전을 늘리는 날 아무도 이 줄을 못 찾는다.
+    """
+    return {
+        "GOOGLE_GENAI_USE_VERTEXAI": "1",
+        "GOOGLE_CLOUD_PROJECT": settings.project_id,
+        "GOOGLE_CLOUD_LOCATION": settings.vertex_location,
+    }
+
+
 def agent_kwargs(spec: AgentSpec, tools: Sequence[Callable[..., Any]]) -> dict[str, Any]:
     """`Agent(**...)`에 실릴 것 전부. **순수하다** — 라이브러리를 안 부른다.
 

@@ -37,6 +37,7 @@ from pathlib import Path
 
 import pytest
 
+from warranty import config
 from warranty.adapters import adk_agent
 from warranty.adapters.adk_agent import (
     AGENT_NAME,
@@ -69,6 +70,7 @@ DESIGN_NAME_RE = re.compile(r'^\s*Agent "([\w-]+)"', re.MULTILINE)
 BASE = {
     "WR_PROJECT_ID": "wr-test",
     "WR_REGION": "us-central1",
+    "WR_VERTEX_LOCATION": "global",
     "WR_MODEL": "test-model-1",
     "WR_ADAPTERS": "fake",
 }
@@ -286,4 +288,51 @@ def test_the_instruction_names_every_tool_the_agent_is_given() -> None:
     missing = [name for name in TOOL_NAMES if name not in INSTRUCTION]
     assert not missing, (
         f"지시가 이름을 안 대는 도구: {missing} — 붙어 있지만 모델은 그것이 있는 줄 모른다"
+    )
+
+
+# ── Vertex location — **Cloud Run 리전과 다른 값이다** (T2-1이 실물에서 증명했다) ──────
+
+
+def test_vertex_env_comes_from_vertex_location_not_region() -> None:
+    """⛔ **실물이 이 둘을 갈랐다.** `us-central1`에는 Gemini 3.x가 없다(404).
+
+    ⚠️ 값 비교로는 안 된다 — 오늘 둘이 우연히 같아도 통과한다. 묻는 것은 **어느 칸에서
+       왔는가**이고, 그래서 픽스처는 두 값을 **일부러 다르게** 준다.
+       (`test_tunables.py`의 `_unsourced_sinks`가 먼저 쓴 규칙이다.)
+    """
+    settings = config.Settings(
+        project_id="p",
+        region="us-central1",
+        vertex_location="global",
+        model="gemini-3.7-flash",
+        adapters=config.Adapters("fake"),
+        reconcile_deadline_days=3,
+        billing_table=None,
+    )
+    env = adk_agent.vertex_env(settings)
+    assert env["GOOGLE_CLOUD_LOCATION"] == "global", (
+        f"Vertex location이 {env['GOOGLE_CLOUD_LOCATION']!r}다 — "
+        "Cloud Run 리전을 실었다. Gemini 3.x는 그 리전에 없다(2026-08-23 실물 404)."
+    )
+    assert env["GOOGLE_CLOUD_LOCATION"] != settings.region, (
+        "Vertex location과 Cloud Run 리전이 같은 칸에서 왔다 — 다시 하나로 묶였다."
+    )
+    assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "1", "Vertex 경로가 아니면 프로젝트 인증이 안 실린다"
+    assert env["GOOGLE_CLOUD_PROJECT"] == "p"
+
+
+def test_vertex_location_is_not_written_in_the_adapter() -> None:
+    """⚠️ 어댑터가 `"global"`을 스스로 적으면 그것이 설정을 이긴다.
+
+    ⛔ 모델이 리전을 늘리는 날(그럴 것이다) 아무도 그 줄을 못 찾는다 — T11-1이 배포 값에서,
+       T11-4가 데모 기준선에서 같은 자리를 태웠다. **값이 아니라 출처를 묻는 세 번째 자리다.**
+    """
+    source = Path(adk_agent.__file__).read_text(encoding="utf-8")
+    body = source.split("def vertex_env")[1].split("\ndef ")[0]
+    code = "\n".join(
+        line for line in body.splitlines() if not line.lstrip().startswith(("#", '"""', "⛔", "⚠️"))
+    )
+    assert '"global"' not in code and "'global'" not in code, (
+        "`vertex_env`가 location 문자열을 자기가 적는다 — 값의 출처는 `Settings` 하나다."
     )

@@ -1,0 +1,44 @@
+# T2-1 실물 호출 증거 — ADK + Gemini 3.7 Flash (Vertex AI)
+# 일시: 2026-08-23 19:32 KST · 프로젝트: warranty-hack · 실행자: 사람이 지시, 대화형 세션
+# ⛔ 이 파일은 '호출이 됐다'의 증거다. '임포트가 된다'(2026-08-19 probe)와 다른 값이다.
+
+## 0. 환경
+  python      : 3.13.5
+  google-adk  : 2.7.1
+  google-genai: 2.19.0
+  gcloud      : Google Cloud SDK 571.0.0
+
+## 1. ⛔ 모델 가용성 — 리전이 하나가 아니다
+   design 10§1과 .env.example은 WR_REGION 하나를 'Cloud Run·Vertex 리전'으로 쓴다.
+   실물이 그것을 갈랐다:
+
+   OK    global       gemini-3.7-flash
+   OK    global       gemini-3.5-flash
+   OK    global       gemini-2.5-flash
+   404   us-central1  gemini-3.7-flash   (404 NOT_FOUND)
+   404   us-central1  gemini-3.5-flash   (404 NOT_FOUND)
+   OK    us-central1  gemini-2.5-flash
+
+   ⇒ Gemini 3.x는 Vertex에서 location=global 에만 있다. us-central1은 404다.
+     Cloud Run 리전(us-central1)과 Vertex location(global)은 **다른 값이어야 한다**.
+
+## 2. ADK 에이전트 왕복 (도구 포함)
+
+  [tool-call] inspect_resource({'resource': 'cloud_run_service/demo-target'})
+
+── 모델 응답 ──
+No, cloud_run_service/demo-target has not recovered after the last action. The current p95 latency is 900 ms compared to the baseline of 620 ms, failing the required 50% relative decrease.
+
+── 확인된 것 ──
+  model            : gemini-3.7-flash
+  vertex           : 1
+  project/location : warranty-hack/global
+  function_call 수 : 1
+  도구 실제 실행   : [{'tool': 'inspect_resource', 'resource': 'cloud_run_service/demo-target'}]
+
+  ⇒ 실물 호출 성공 · 도구 사용 확인
+
+## 3. 이 증거가 말하지 않는 것
+   - Cloud Run에서 도는가 (REQ-602 · T2-2) — 여기는 로컬 프로세스다.
+   - 이 판정이 원장에 남는가 (REQ-603·604) — 프로브는 원장을 안 지난다.
+   - 도구가 실물 GCP를 만지는가 — inspect_resource는 각본을 돌려준다.

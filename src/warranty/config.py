@@ -51,6 +51,11 @@ def load_env_file(path: Path = ENV_FILE) -> dict[str, str]:
 class Settings:
     project_id: str
     region: str
+    #: ⛔ **`region`과 다른 값이다.** 실물이 그것을 갈랐다 (2026-08-23,
+    #: `docs/evidence/adk-live-call-2026-08-23.log`): Gemini 3.x는 Vertex에서
+    #: **`global`에만 있고** `us-central1`은 404다. 같은 값으로 묶으면 Cloud Run 리전을
+    #: 고르는 순간 모델이 사라지고, 그 사실은 **배포 후 첫 호출에서** 보인다.
+    vertex_location: str
     model: str
     adapters: Adapters
     reconcile_deadline_days: int
@@ -113,6 +118,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     return Settings(
         project_id=project_id,
         region=_require(env, "WR_REGION"),
+        vertex_location=_require(env, "WR_VERTEX_LOCATION"),
         model=_require(env, "WR_MODEL"),
         adapters=Adapters(raw_adapters),
         reconcile_deadline_days=int(raw_days),
@@ -146,7 +152,7 @@ INFRA_LABELS: tuple[tuple[str, str], ...] = (("wr_project", "warranty"), ("wr_en
 #: 컨테이너가 받아 가야 하는 설정 변수. ⚠️ `load_settings`가 **기본값을 안 주므로**
 #: 이 목록이 빠지면 컨테이너는 부팅하다 `ConfigError`로 죽는다 — 조용한 실패가 아니라
 #: 시끄러운 실패이고, 그게 설계다(design 08§5).
-RUNTIME_ENV_KEYS = ("WR_PROJECT_ID", "WR_REGION", "WR_MODEL", "WR_ADAPTERS")
+RUNTIME_ENV_KEYS = ("WR_PROJECT_ID", "WR_REGION", "WR_VERTEX_LOCATION", "WR_MODEL", "WR_ADAPTERS")
 
 #: ⛔ **포트의 유일한 출처다** (T12-1). Cloud Run이 컨테이너에 주입하는 변수 이름이고,
 #:    `Dockerfile`도 `scripts/deploy.sh`도 이 숫자를 다시 적지 않는다. 다시 적는 순간
@@ -222,6 +228,8 @@ def _runtime_env_value(settings: Settings, key: str) -> str:
             return settings.project_id
         case "WR_REGION":
             return settings.region
+        case "WR_VERTEX_LOCATION":
+            return settings.vertex_location
         case "WR_MODEL":
             return settings.model
         case "WR_ADAPTERS":
