@@ -1,7 +1,11 @@
 # Completed Summary
 
-Short compressed record of completed milestones (objectives, deliverables, verification). Detailed history is in PROGRESS archives.
+완료한 마일스톤의 압축 기록(목적·산출·검증). 상세 이력은 `PROGRESS_LOG`와 그 아카이브에.
+⚠️ **숫자를 여기서 세지 않는다** — 게이트 통과 수의 권위는 `specs/warranty/tasks.md` 하단이다.
 
-| ID | Milestone | Result |
+| ID | 마일스톤 | 결과 |
 | --- | --- | --- |
-| M1 | <Milestone> | <One-line objective, deliverable, verification> |
+| M1 | **오프라인 축 완성** (2026-08-19~23) | 조치→검증→롤백·판정 3축·회복률 리포트·데모 결정론이 전부 fake 포트 위에서 배선·검증됐다. 요구사항 44종 중 **VERIFIED 34**. ⛔ 실물 클라우드 축(REQ-601·602)은 착수 전이다. |
+| M2 | **가드 하중 회수** (2026-08-21~22) | "테스트가 있다"와 "가드다"를 갈랐다 — 변이 22종 → **112종**, 살아 있던 변이 여덟을 찾아 하중을 채웠다. 그중 하나는 **모델이 닫은 미회복에서 롤백이 통째로 빠져도 초록**이었다(M-62). 절차: `scripts/mutate.sh` · 기록: `docs/evidence/mutations.md`. |
+| M3 | **추적성 3층** (2026-08-21~22) | G6이 spec→테스트만 묻던 것을 ④ 코드→spec 양방향 · ⑤ **문장 단위** 커버리지 · 변이 기록 **신선도**까지 넓혔다. ⑤를 켠 첫 실행이 REQ-501의 미검증 문장을 잡았다. |
+| M4 | **배포 재료** (2026-08-22) | `Dockerfile`·`deploy.sh`·`demo-target` — 값이 `config.py` 한 곳에서 온다. ⛔ **한 번도 실행된 적이 없다**(#3). 첫 배포는 포트 프로브에서 죽는다 — 서버는 T2-2. |
