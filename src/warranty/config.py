@@ -148,6 +148,35 @@ INFRA_LABELS: tuple[tuple[str, str], ...] = (("wr_project", "warranty"), ("wr_en
 #: 시끄러운 실패이고, 그게 설계다(design 08§5).
 RUNTIME_ENV_KEYS = ("WR_PROJECT_ID", "WR_REGION", "WR_MODEL", "WR_ADAPTERS")
 
+#: ⛔ **포트의 유일한 출처다** (T12-1). Cloud Run이 컨테이너에 주입하는 변수 이름이고,
+#:    `Dockerfile`도 `scripts/deploy.sh`도 이 숫자를 다시 적지 않는다. 다시 적는 순간
+#:    *이미지가 듣는 포트*와 *플랫폼이 프로브하는 포트*가 따로 썩고, 그 어긋남은
+#:    **첫 배포의 포트 프로브 실패**로만 보인다 — 게이트에서는 안 보인다.
+PORT_ENV_KEY = "PORT"
+
+#: ⚠️ `WR_*`와 달리 여기엔 기본값이 있다. 규칙을 어기는 게 아니라 **주인이 다르다**:
+#:    이 변수는 우리가 정의한 설정이 아니라 플랫폼이 주입하는 것이고, 이 값은 그 플랫폼이
+#:    문서로 약속한 기본값이다. 로컬에서 `PORT` 없이 띄우는 것은 설정 누락이 아니다.
+DEFAULT_PORT = 8080
+
+MAX_PORT = 65535
+
+
+def load_port(environ: Mapping[str, str] | None = None) -> int:
+    """이미지가 들을 포트. **없으면 기본값, 있으면 검증한다.**
+
+    ⚠️ 값이 있는데 숫자가 아닐 때 **조용히 기본값으로 접지 않는다.** 접으면 컨테이너는
+       뜨고 프로브는 실패하며, 로그에는 아무 이유도 안 남는다 — `PORT=$PORT` 같은
+       미치환 문자열이 정확히 그렇게 새어 들어온다.
+    """
+    env = os.environ if environ is None else environ
+    raw = env.get(PORT_ENV_KEY, "").strip()
+    if not raw:
+        return DEFAULT_PORT
+    if not raw.isdigit() or not 1 <= int(raw) <= MAX_PORT:
+        raise ConfigError(f"{PORT_ENV_KEY}가 1~{MAX_PORT}의 정수가 아니다: {raw!r}")
+    return int(raw)
+
 
 def image_uri(settings: Settings, tag: str) -> str:
     """Artifact Registry 이미지 주소. 리전·프로젝트는 **설정에서** 온다.

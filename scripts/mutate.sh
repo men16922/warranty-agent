@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-121|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-132|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -404,9 +404,13 @@ apply() {
            # ⚠️ 빌드는 성공하고 설치도 대개 성공한다. 실패는 **첫 요청**에서 난다.
       backup Dockerfile
       perl -0pi -e 's/^FROM python:3\.13-slim$/FROM python:3.12-slim/m' Dockerfile ;;
-    M-90) # T11-1 — `CMD`가 없는 모듈을 가리킨다 (컨테이너가 뜨자마자 죽는다 · M-46 계열)
+    M-90) # T11-1 — `CMD`가 **없는 모듈**을 가리킨다 (컨테이너가 뜨자마자 죽는다 · M-46 계열)
+            # ⚠️ T12-1이 이 변이의 전제를 지웠다: 원래 목적지는 `warranty.server`였고 그때는
+            #    **없는 모듈**이었다. 지금은 실재하고 `CMD`가 바로 그것을 가리킨다 ⇒ 패턴도
+            #    안 맞고, 맞았더라도 ⑥은 초록이다. 겨냥하는 것은 이름이 아니라 **부재**다.
+            # ⚠️ M-126과 다른 질문이다: 저기는 *있는데 틀린* 모듈(⑧), 여기는 *없는* 모듈(⑥).
       backup Dockerfile
-      perl -0pi -e 's/"warranty\.demo"\]/"warranty.server"]/' Dockerfile ;;
+      perl -0pi -e 's/"warranty\.server"\]/"warranty.ghost"]/' Dockerfile ;;
     M-91) # T11-1 — `make deploy`가 스크립트를 안 거치고 **직접** 배포한다 (두 번째 경로)
            # ⚠️ 스크립트는 그대로 있고 그대로 옳다. 아무도 안 부를 뿐이다.
       backup Makefile
@@ -554,6 +558,61 @@ apply() {
             #    스캐너는 스캐너로 검사할 수 없다 — 기대값이 박힌 표본만이 바닥이다(M-118).
       backup tests/test_sweep_log_integrity.py
       perl -0pi -e 's/^CASE_RE = re\.compile\(r"\^── /CASE_RE = re.compile(r"^-- /m' tests/test_sweep_log_integrity.py ;;
+    M-122) # T12-1 — 헬스 경로가 `200`을 안 낸다
+            # ⛔ **첫 배포의 생사가 이 한 줄이다.** 프로브가 실패하면 리비전은 트래픽을
+            #    한 번도 못 받고, 나머지 경로가 무엇을 내든 아무도 못 본다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/return Response\(OK, \{"status": "ok"/return Response(NOT_IMPLEMENTED, {"status": "ok"/' src/warranty/server.py ;;
+    M-123) # T12-1 — 라우터에서 경로 한 행이 **사라진다** (코드→설계 방향)
+            # ⛔ 그 경로는 조용히 `404`가 된다. 심사자가 보는 것은 *"아직 구현 안 됨"*이
+            #    아니라 **"그런 경로 없음"**이고, 둘은 같은 제출물이 아니다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^    Route\("POST", "\/agent:chat"\),\n//m' src/warranty/server.py ;;
+    M-124) # T12-1 ★ **가장 위험한 초록** — 배선 안 된 경로가 `200`을 낸다
+            # ⛔ 어댑터가 없는데 성공을 흉내 내면 *"돌아간다"*와 *"가짜로 돌아간다"*가
+            #    구별되지 않는다. design 08§5가 `WR_ADAPTERS` 기본값을 fake로 안 두는 이유다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^    return Response\(\n        NOT_IMPLEMENTED,/    return Response(\n        OK,/m' src/warranty/server.py ;;
+    M-125) # T12-1 — `load_port`가 **주입된 값을 무시한다** (늘 기본값)
+            # ⛔ Cloud Run이 준 포트를 안 들으면 컨테이너는 뜨고 프로브는 다른 문을 두드린다.
+            #    로그에는 아무 이유도 안 남는다 — *"안 떴다"*와 구별되지 않는다.
+      backup src/warranty/config.py
+      perl -0pi -e 's/^    raw = env\.get\(PORT_ENV_KEY, ""\)\.strip\(\)$/    raw = ""/m' src/warranty/config.py ;;
+    M-126) # T12-1 ★ **함정 자체** — `CMD`가 데모로 돌아간다
+            # ⛔ `test_deploy_artifacts` ⑥는 **초록이다**(`warranty.demo`는 실재한다).
+            #    있는 모듈을 가리키는 것과 서버를 가리키는 것은 다른 질문이고, ⑧만 후자를 본다.
+      backup Dockerfile
+      perl -0pi -e 's/"warranty\.server"/"warranty.demo"/' Dockerfile ;;
+    M-127) # T12-1 — **설계 표**에서 행 하나가 사라진다 (설계→코드 방향)
+            # ⛔ M-123의 반대편이다. 합의된 계약이 줄었는데 코드가 안 따라오면, 코드는
+            #    아무도 합의 안 한 경로를 열어 둔 채 초록이다.
+      backup specs/warranty/design/08-interfaces.md
+      perl -0pi -e 's/^\| `POST` \| `\/agent:chat`.*\n//m' specs/warranty/design/08-interfaces.md ;;
+    M-128) # T12-1 공허 통과 방지 — 설계 표 파서가 **한 행도 못 뽑는다**
+            # ⛔ 0개를 훑는 초록은 *"설계와 코드가 같다"*가 아니라 **"아무것도 안 맞댔다"**이다.
+            #    ②도 함께 울지만, *"설계가 지워졌다"*와 *"파서가 깨졌다"*를 가르는 것은 ①뿐이다.
+      backup tests/test_http_server.py
+      perl -0pi -e 's/DESIGN_ROW_RE = re\.compile\(r"\^\\\|/DESIGN_ROW_RE = re.compile(r"^!\\|/' tests/test_http_server.py ;;
+    M-129) # T12-1 — 미등록 경로를 `405`로 낸다 (design 08§4)
+            # ⛔ *"경로를 잘못 적었다"*와 *"동사를 잘못 골랐다"*가 같은 답이 된다.
+            #    클라이언트가 고칠 곳을 못 찾는다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/return Response\(NOT_FOUND, \{"error": "unknown_route"/return Response(METHOD_NOT_ALLOWED, {"error": "unknown_route"/' src/warranty/server.py ;;
+    M-130) # T12-1 — 응답에 `Content-Length`가 안 실린다
+            # ⛔ 판정이 옳아도 **바이트로 못 내면** 프로브는 실패한다. HTTP/1.1 클라이언트는
+            #    응답의 끝을 모르고 타임아웃으로 죽고, 그건 서버가 답을 안 한 것과 안 갈린다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^        self\.send_header\("Content-Length", str\(len\(payload\)\)\)\n//m' src/warranty/server.py ;;
+    M-131) # T12-1 — 요청 본문을 **안 읽는다**
+            # ⛔ keep-alive에서 다음 요청이 그 본문을 요청 줄로 읽는다. 부하에서 나는
+            #    실패가 아니라 **두 번째 클릭**에서 나고, 한 번만 눌러 보면 안 보인다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^            self\.rfile\.read\(int\(raw\)\)$/            pass/m' src/warranty/server.py ;;
+    M-132) # T12-1 — 산출물이 포트를 **다시 적는다**
+            # ⛔ 이미지가 듣는 포트와 프로브가 두드리는 포트가 따로 썩는다. `config.py`를
+            #    고쳐도 이 줄은 안 따라오고, 그 어긋남은 첫 배포에서만 보인다.
+      backup Dockerfile
+      perl -0pi -e 's/^WORKDIR \/app$/WORKDIR \/app\nENV PORT=8080/m' Dockerfile ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -586,5 +645,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

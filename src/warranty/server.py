@@ -1,0 +1,189 @@
+"""HTTP 서버 — 이미지가 **포트를 듣는다** (T12-1 · REQ-602의 오프라인 절반).
+
+Spec: specs/warranty/design/08-interfaces.md §3-4 (REQ-602)
+
+⛔ **이 파일이 없애는 것은 함정 하나다.** 직전까지 이 이미지의 `CMD`는 오프라인 데모였고,
+   데모는 끝나면 종료한다 — Cloud Run에 올리면 컨테이너가 포트를 한 번도 안 열고
+   **포트 프로브에서 죽는다.** T11-1이 그 함정을 예고해 뒀고, 여기가 그 자리다.
+
+⚠️ **표준 라이브러리만 쓴다.** 게이트에 웹 프레임워크가 없고(REQ-801), 넣으면 게이트가
+   오프라인이라는 전제와 fake 어댑터의 전제가 함께 깨진다. `http.server`로 충분한 이유는
+   이 서비스가 받는 트래픽이 **심사자 한 명과 프로브**이기 때문이다 — 그 이상을 가정하면
+   REQ-805(유휴 과금 0)와 어긋나는 물건을 짓게 된다.
+
+⛔ **선언된 경로 중 실제로 답하는 것은 헬스뿐이고, 나머지는 `501`을 낸다.**
+   그게 게으름이 아니라 이 저장소의 정책이다: 실물 어댑터가 아직 없고(REQ-601·602는 TODO),
+   설정은 `fake`를 **기본값으로 두지 않는다**(design 08§5) — 배포가 조용히 가짜로 도는 것을
+   막기 위해서다. 여기서 fake를 물려 `200`을 내면 그 금지를 우회하는 것이고,
+   그 순간 이 서비스는 *"돌아간다"*와 *"가짜로 돌아간다"*를 구별할 수 없게 된다.
+   ⇒ 답할 수 없는 경로는 **시끄럽게** 답할 수 없다고 말한다(docs/PRINCIPLES.md #3).
+
+⚠️ **경로 표는 설계가 소유한다.** 여기 적힌 `ROUTES`는 design 08§3 표의 사본이고,
+   사본인 이상 따로 썩는다 — 게이트가 둘을 맞댄다(tests/test_http_server.py ②).
+
+⚠️ **부팅에서 `load_settings`를 안 부른다.** 설정 검증은 그 설정을 쓰는 어댑터와 함께
+   와야 한다(T2-2). 지금 부르면 *"설정이 옳다"*가 *"핸들러가 그 설정으로 돈다"*로 읽히고,
+   이 파일은 그것을 하나도 안 한다.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from warranty.config import SERVICE_NAME, load_port
+
+OK = 200
+NOT_FOUND = 404
+METHOD_NOT_ALLOWED = 405
+NOT_IMPLEMENTED = 501
+
+#: 플랫폼이 프로브하는 경로. ⛔ **이것만은 지금 진짜로 답해야 한다** — 나머지가 `501`인
+#: 것은 정책이지만, 이것이 `501`이면 리비전은 트래픽을 한 번도 못 받는다.
+HEALTH_PATH = "/healthz"
+
+#: `{id}` 같은 자리표시자.
+PARAM_RE = re.compile(r"\{[a-z_]+\}")
+
+#: 자리표시자가 먹는 문자. ⚠️ `[^/]+`로 넓히면 `/ledger/x:approve`가 `/ledger/{entry_id}`에
+#: 걸린다 — 이 API에서 콜론은 **동사 표지**지 식별자의 일부가 아니다(design 08§3).
+PARAM_CHARS = r"[^/:]+"
+
+
+@dataclass(frozen=True, slots=True)
+class Route:
+    """design 08§3 표의 한 행."""
+
+    method: str
+    template: str
+
+
+#: design 08§3의 HTTP 계약. ⚠️ **순서가 아니라 집합이 의미다** — 게이트가 설계 표와
+#: 집합으로 맞댄다. 여기서 한 행을 지우면 그 경로는 조용히 `404`가 되고, 심사자가 보는
+#: 것은 *"아직 구현 안 됨"*이 아니라 *"그런 경로 없음"*이다.
+ROUTES: tuple[Route, ...] = (
+    Route("POST", "/resources:provision"),
+    Route("GET", "/contracts/{id}"),
+    Route("POST", "/actions/{action_id}:remediate"),
+    Route("POST", "/ledger/{entry_id}:approve"),
+    Route("GET", "/ledger/{entry_id}"),
+    Route("GET", "/report/daily"),
+    Route("POST", "/agent:chat"),
+    Route("GET", HEALTH_PATH),
+)
+
+
+def _compile(template: str) -> re.Pattern[str]:
+    """경로 틀 → 정규식. 자리표시자만 넓히고 **나머지는 전부 문자 그대로** 묶는다."""
+    return re.compile(PARAM_CHARS.join(re.escape(chunk) for chunk in PARAM_RE.split(template)))
+
+
+_PATTERNS: dict[Route, re.Pattern[str]] = {route: _compile(route.template) for route in ROUTES}
+
+
+@dataclass(frozen=True, slots=True)
+class Response:
+    """한 요청의 결과. **본문은 JSON으로 실을 수 있는 값만** 담는다."""
+
+    status: int
+    body: Mapping[str, object]
+
+    def payload(self) -> bytes:
+        """⚠️ 정렬해서 낸다 — 같은 판정이 프로세스마다 다른 바이트를 내면 안 된다(REQ-802)."""
+        return json.dumps(dict(self.body), ensure_ascii=False, sort_keys=True).encode("utf-8")
+
+
+def resolve(method: str, target: str) -> Response:
+    """요청 하나에 대한 응답. **소켓을 모른다** — 그래서 단위로 태울 수 있다.
+
+    ⚠️ 질의 문자열을 여기서 잘라 낸다. design 08§3의 `/report/daily?date=`에서 경로인
+       것은 앞부분이고, 뒷부분은 아직 아무도 안 읽는다(그 핸들러가 없다).
+    """
+    path = target.split("?", 1)[0]
+    matched = [route for route in ROUTES if _PATTERNS[route].fullmatch(path)]
+    if not matched:
+        # design 08§4 — 미등록은 `404`다.
+        return Response(NOT_FOUND, {"error": "unknown_route", "path": path})
+    if not any(route.method == method for route in matched):
+        return Response(
+            METHOD_NOT_ALLOWED,
+            {
+                "error": "method_not_allowed",
+                "path": path,
+                "allowed": sorted({route.method for route in matched}),
+            },
+        )
+    if path == HEALTH_PATH:
+        return Response(OK, {"status": "ok", "service": SERVICE_NAME})
+    return Response(
+        NOT_IMPLEMENTED,
+        {
+            "error": "not_implemented",
+            "route": f"{method} {path}",
+            # ⛔ 이 한 줄이 `501`을 정직하게 만든다. 빼면 심사자는 이 응답을 **버그**로 읽는다.
+            "detail": (
+                "경로는 선언됐고 어댑터가 아직 없다 — 실물 어댑터 없이 fake로 200을 내면 "
+                "배포가 조용히 가짜로 돈다 (REQ-601·602)"
+            ),
+        },
+    )
+
+
+class WarrantyHandler(BaseHTTPRequestHandler):
+    """`resolve`를 HTTP에 붙이는 **얇은 껍데기**. 판정은 하나도 여기서 안 한다.
+
+    ⚠️ 얇게 두는 이유는 취향이 아니다 — 소켓을 쥔 코드는 단위로 태우기 어렵고,
+       판정이 그 안에 있으면 *"응답이 옳은가"*를 물으려면 매번 포트를 열어야 한다.
+    """
+
+    protocol_version = "HTTP/1.1"
+    server_version = "warranty/1"
+
+    #: ⚠️ 메서드 이름은 취향이 아니라 stdlib의 디스패치 규약이다(`do_<METHOD>`).
+    def do_GET(self) -> None:
+        self._respond("GET")
+
+    def do_POST(self) -> None:
+        self._respond("POST")
+
+    def _respond(self, method: str) -> None:
+        self._drain_body()
+        response = resolve(method, self.path)
+        payload = response.payload()
+        self.send_response(response.status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        # ⚠️ `Content-Length`를 안 주면 HTTP/1.1 keep-alive에서 클라이언트가 **응답의 끝을
+        #    모른다** — 프로브가 타임아웃으로 죽고, 그건 서버가 답을 안 한 것처럼 보인다.
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _drain_body(self) -> None:
+        """본문을 읽어 버린다. ⚠️ 안 읽으면 keep-alive에서 **다음 요청이 이 본문을
+        요청 줄로 읽는다** — 그러면 두 번째 요청부터 조용히 `400`이 된다.
+        """
+        raw = self.headers.get("Content-Length", "")
+        if raw.isdigit() and int(raw) > 0:
+            self.rfile.read(int(raw))
+
+
+def serve(port: int) -> ThreadingHTTPServer:
+    """포트를 **실제로 연다**. ⛔ 게이트는 이것을 안 부른다(REQ-801 — 오프라인)."""
+    return ThreadingHTTPServer(("", port), WarrantyHandler)
+
+
+def main() -> int:
+    port = load_port()
+    httpd = serve(port)
+    # ⚠️ 뜬 것을 말하고 시작한다 — 프로브가 실패했을 때 *"안 떴다"*와 *"떴는데 다른 포트"*를
+    #    로그만으로 가를 수 있어야 한다.
+    print(f"listening on :{port}", flush=True)
+    httpd.serve_forever()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
