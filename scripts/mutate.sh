@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-148|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-140|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -654,45 +654,6 @@ apply() {
             #    원장은 조용한 0을 적고, 예산은 그 호출이 없었던 것처럼 남는다.
       backup src/warranty/adapters/model_judge.py
       perl -0pi -e 's/^        return ModelReply\(verdict, rationale, raw\.usage\)$/        return ModelReply(verdict, rationale, TokenUsage(raw.usage.model, 0, 0))/m' src/warranty/adapters/model_judge.py ;;
-    M-141) # T12-3 — 명세가 선언하는 도구가 **설계와 다르다**
-            # ⛔ 설계는 넷으로 고정한다고 적었고 지시문도 넷을 말한다. 명세만 셋이 되면
-            #    모델은 있는 줄 아는 도구를 못 부르고, 그 실패는 *"모델이 이상하다"*로 읽힌다.
-      backup src/warranty/adapters/adk_agent.py
-      perl -0pi -e 's/^TOOL_NAMES: tuple\[str, \.\.\.\] = \("provision", "inspect", /TOOL_NAMES: tuple[str, ...] = ("provision", /m' src/warranty/adapters/adk_agent.py ;;
-    M-142) # T12-3 공허 통과 방지 — 설계 도구 표 파서가 **한 행도 못 뽑는다**
-            # ⛔ 0개를 훑는 초록은 *"설계와 명세가 같다"*가 아니라 **"아무것도 안 맞댔다"**이다.
-      backup tests/test_adk_agent.py
-      perl -0pi -e 's/DESIGN_TOOL_RE = re\.compile\(r"\^/DESIGN_TOOL_RE = re.compile(r"^!/' tests/test_adk_agent.py ;;
-    M-143) # T12-3 ★ 모델 id가 **코드에 박힌다**
-            # ⛔ `WR_MODEL`을 바꿔 배포해도 에이전트는 옛 모델을 부른다. 그 어긋남은 로그가
-            #    아니라 **청구서**에서 보이고, 그때는 이미 다 쓴 뒤다.
-      backup src/warranty/adapters/adk_agent.py
-      perl -0pi -e 's/^        model=settings\.model,$/        model="gemini-3.7-flash",/m' src/warranty/adapters/adk_agent.py ;;
-    M-144) # T12-3 — 명세와 **다른 함수를 붙여도** 통과한다
-            # ⛔ ADK의 `tools`는 평범한 `Callable`을 받는다(probe ①) — 라이브러리는 아무 말도
-            #    안 한다. 모델은 지시에 적힌 이름을 부르고 그 도구는 없다.
-      backup src/warranty/adapters/adk_agent.py
-      perl -0pi -e 's/^    if given != spec\.tools:$/    if False:/m' src/warranty/adapters/adk_agent.py ;;
-    M-145) # T12-3 ★ `Runner`에 **세션 서비스가 안 실린다**
-            # ⛔ probe ②: 기본값이 없는 키워드 인자다. 빠지면 `TypeError`이고 그 예외는
-            #    게이트에도 빌드에도 안 난다 — **첫 실물 호출**에서만 난다.
-      backup src/warranty/adapters/adk_agent.py
-      perl -0pi -e 's/, "session_service": session_service\}/}/' src/warranty/adapters/adk_agent.py ;;
-    M-146) # T12-3 ★ 클라우드 스택을 **최상위에서** 임포트한다
-            # ⛔ `google-adk`는 cloud extra라 게이트 venv에 없다(REQ-801). 최상위에서 부르면
-            #    게이트는 **수집 단계에서 통째로** 죽는다 — 이 한 줄이 오프라인 전제를 깬다.
-      backup src/warranty/adapters/adk_agent.py
-      perl -0pi -e 's/^from warranty\.config import Settings$/import google.adk\n\nfrom warranty.config import Settings/m' src/warranty/adapters/adk_agent.py ;;
-    M-147) # T12-3 — 지시가 도구 하나를 **이름으로 안 부른다**
-            # ⛔ 지시에 없는 도구는 모델이 부를 줄 모른다. 붙어는 있으므로 배선 검사는 전부
-            #    초록이고, 그 도구는 **조용히 영영 안 불린다.**
-      backup src/warranty/adapters/adk_agent.py
-      perl -0pi -e 's/^- inspect\b/- lookup/m' src/warranty/adapters/adk_agent.py ;;
-    M-148) # T12-3 공허 통과 방지 — 지연 임포트가 **아예 없어진다**
-            # ⛔ 최상위가 깨끗한 이유가 *지연 임포트라서*가 아니라 **배선이 없어서**인 상태다.
-            #    M-146의 반대편이다: 그 검사만 있으면 이 상태는 가장 깨끗한 초록으로 보인다.
-      backup src/warranty/adapters/adk_agent.py
-      perl -0pi -e 's/^        import google\.adk as adk.*\n        from google\.adk import sessions$/        adk = sessions = None/m' src/warranty/adapters/adk_agent.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -725,5 +686,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
