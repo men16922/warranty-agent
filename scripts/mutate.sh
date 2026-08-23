@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-175|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-183|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -834,6 +834,53 @@ apply() {
             # ⛔ 합이 100이 아닌 것을 아무도 못 본다. 배분이 깨져도 "돌아갔다"가 참이 된다.
       backup src/warranty/adapters/live_run.py
       perl -0pi -e 's/^        revision = str\(getattr\(item, "revision", ""\) or ""\)$/        revision = str(getattr(item, "revision", "") or "")\n        if not revision:\n            continue/m' src/warranty/adapters/live_run.py ;;
+    M-176) # T12-6 — **값의 출처만** 바뀐다 (`.env.example`의 `WR_MODEL`)
+            # ⛔ 배포되는 값이 바뀌었는데 사본 여섯이 안 따라온다. 게이트는 초록이고,
+            #    그 어긋남은 **실물 호출의 404**로 온다 — T2-1이 Vertex location에서 다친 모양이다.
+      backup .env.example
+      perl -0pi -e 's/^WR_MODEL=gemini-3\.7-flash$/WR_MODEL=gemini-3.6-flash/m' .env.example ;;
+    M-177) # T12-6 — **설계만** 바뀐다 (design 06§3 도구 상자의 `model:` 줄)
+            # ⛔ 반대 방향이다. 설계는 사람이 먼저 고치는 자리고, 배포 값이 안 따라오면
+            #    문서가 *"우리는 X를 쓴다"*고 말하는데 나가는 것은 Y다.
+      backup specs/warranty/design/06-agent-runtime.md
+      perl -0pi -e 's/^     model: gemini-3\.7-flash \(Vertex AI\)$/     model: gemini-3.6-flash (Vertex AI)/m' specs/warranty/design/06-agent-runtime.md ;;
+    M-178) # T12-6 — **테스트 픽스처 하나만** 바뀐다 (`test_config.py`의 `WR_MODEL`)
+            # ⛔ 이 사본은 아무 단언도 안 받는다 — 바꿔도 이 가드 말고는 아무도 안 운다.
+            #    그래서 조용히 썩고, 다음 사람은 그것을 **지금 값으로 읽는다.**
+      backup tests/test_config.py
+      perl -0pi -e 's/^    "WR_MODEL": "gemini-3\.7-flash",$/    "WR_MODEL": "gemini-3.6-flash",/m' tests/test_config.py ;;
+    M-179) # T12-6 — 갱신 기록의 **오른쪽이 낡는다** (`→ gemini-3.7-flash`)
+            # ⛔ ②는 갱신 기록 줄을 안 본다(안 그러면 은퇴한 이름이 위반으로 잡힌다).
+            #    그 면제를 그대로 두면 **기록의 오른쪽이 낡아도 조용하다** — ③만 그것을 본다.
+      backup specs/warranty/design/06-agent-runtime.md
+      perl -0pi -e 's/→ `gemini-3\.7-flash`/→ `gemini-3.6-flash`/' specs/warranty/design/06-agent-runtime.md ;;
+    M-180) # T12-6 ★ **일곱 곳을 함께 낮춘다** (3.7 → 2.5 · 대회 요건 바닥 아래)
+            # ⛔ 일치 검사는 **둘이 함께 틀리는 것을 못 잡는다**(M-97과 같은 계열). 선언이 전부
+            #    같으니 ②는 초록이고, 그때 *"3.5 이상이어야 한다"*고 말하는 자리는 ④ 하나다.
+            #    ⚠️ 이건 대회 **필수 요건 위반**이고, 실패는 심사에서야 보인다.
+      backup .env.example
+      backup specs/warranty/design/06-agent-runtime.md
+      backup tests/test_config.py
+      backup tests/test_adk_agent.py
+      backup tests/test_deploy_artifacts.py
+      backup tests/test_deploy_preflight.py
+      backup tests/test_no_always_billed_compute.py
+      perl -0pi -e 's/gemini-3\.7-flash/gemini-2.5-flash/g' .env.example specs/warranty/design/06-agent-runtime.md tests/test_config.py tests/test_adk_agent.py tests/test_deploy_artifacts.py tests/test_deploy_preflight.py tests/test_no_always_billed_compute.py ;;
+    M-181) # T12-6 공허 통과 방지 — 스캐너가 **id를 하나도 못 뽑는다**
+            # ⛔ ②·③·④가 함께 조용해진다. 표본(①)만 그것을 잡는다 — 스캐너를 스캐너로
+            #    검사할 수는 없고, **기대값이 박힌 표본**이 유일한 바닥이다(M-118·M-121).
+      backup tests/test_model_id_declarations.py
+      perl -0pi -e 's/^MODEL_ID_RE = re\.compile\(r"gemini-/MODEL_ID_RE = re.compile(r"gemeni-/m' tests/test_model_id_declarations.py ;;
+    M-182) # T12-6 — 요건의 **바닥이 따로 썩는다** (`(3, 5)` → `(2, 0)`)
+            # ⛔ 상수로 박은 값은 요구사항 원문과 **따로** 썩는다. 낮아진 바닥은 아무것도
+            #    막지 않으면서 *"막고 있다"*고 말한다 — 그것이 가드의 가장 조용한 죽음이다.
+      backup tests/test_model_id_declarations.py
+      perl -0pi -e 's/^MODEL_FLOOR = \(3, 5\)$/MODEL_FLOOR = (2, 0)/m' tests/test_model_id_declarations.py ;;
+    M-183) # T12-6 — 스캔 뿌리에서 **`tests/`가 빠진다** (사본 다섯이 검사 밖으로)
+            # ⛔ 남은 둘이 서로 같아서 ②는 **초록이다.** 범위가 조용히 줄어드는 것은
+            #    *"어긋난 게 없다"*와 같은 얼굴을 하고 온다 — 바닥만 그것을 본다.
+      backup tests/test_model_id_declarations.py
+      perl -0pi -e 's/^    ROOT \/ "tests",\n//m' tests/test_model_id_declarations.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -866,5 +913,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
