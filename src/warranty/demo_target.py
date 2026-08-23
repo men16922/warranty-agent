@@ -28,6 +28,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from warranty import server
+
 #: 지연을 **실제로 쓰는** 자리 (초 단위). ⚠️ 이 모듈은 구현을 갖지 않는다 — 주입받는다.
 Pause = Callable[[float], None]
 
@@ -36,7 +38,11 @@ Pause = Callable[[float], None]
 SERVICE_NAME = "demo-target"
 
 #: 헬스 프로브 경로. ⛔ **두 리비전 다 여기서는 빠르다** — 아래 `serve`의 상자를 볼 것.
-HEALTH_PATH = "/healthz"
+#: ⛔ **`/healthz`가 아니다** — Cloud Run이 그 경로를 가로챈다(2026-08-23 실물 확인).
+#: 이 앱도 Cloud Run에 올라간다(T2-3). 여기서 `/healthz`를 쓰면 **두 리비전 다 프로브에
+#: 답을 못 하고**, 그러면 트래픽 전환이 안 일어나 데모의 절정이 사라진다.
+#: ⚠️ 값을 여기서 다시 적지 않는다 — 출처는 `warranty.server`다.
+HEALTH_PATH = server.HEALTH_PATH
 #: 신호를 만드는 경로. 계약의 `health_signal`이 재는 것이 **이 경로의 지연**이다.
 WORK_PATH = "/work"
 

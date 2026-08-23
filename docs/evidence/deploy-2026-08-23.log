@@ -1,0 +1,43 @@
+# T2-2 실물 배포 증거 — Cloud Run (REQ-602)
+# 2026-08-23 · 프로젝트 warranty-hack · 리전 us-central1
+
+## 1. 배포
+  service      : warranty-api
+  revision     : warranty-api-00001-5qz (트래픽 100%)
+  URL          : https://warranty-api-povpqj6m5a-uc.a.run.app
+  image        : us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:5b47ee8
+  build        : b07e40bf · 52s · SUCCESS · gs://warranty-hack_cloudbuild/...
+
+## 2. ⛔ 첫 시도는 push에서 죽었다 — 빌드는 성공했다
+  Created [.../projects/claude-study-501117/.../builds/fe8417e7-...]
+  denied: artifactregistry.repositories.uploadArtifacts denied
+          on projects/warranty-hack/.../repositories/warranty
+  ⇒ deploy.sh가 run deploy에는 --project를 렌더해 넘기고 builds submit에는 안 넘겼다.
+     사본이 파일이 아니라 gcloud config(저장소 밖)였다. M-165·M-166이 그 자리를 지킨다.
+
+## 3. ★ 컨테이너가 실제로 떴다
+
+  2026-08-23 11:26:20 listening on :8080
+  2026-08-23 12:01:42 listening on :8080   (scale-to-zero 후 두 번째 콜드 스타트)
+
+  ⇒ T11-1이 예고하고 T12-1이 고친 포트 함정이 **실물에서** 제거됐음이 확인됐다.
+
+## 4. ⛔ /healthz는 Cloud Run이 가로챈다 — 이 배포가 가르친 것
+  GET /healthz   -> HTTP 404  <!DOCTYPE html><html lang=en>  <meta charset=utf-8>  <met
+  GET /healthz2  -> HTTP 404  {"error": "unknown_route", "path": "/healthz2"}
+  ⇒ 한 글자 차이. 앞의 것은 컨테이너 로그에 **한 줄도 안 찍힌다** — 도달조차 안 한다.
+  ⚠️ 로컬 스모크에서는 200이었다(server-local-smoke-2026-08-23.log).
+     오프라인 게이트가 원리상 볼 수 없는 종류다 — 플랫폼의 성질이지 우리 코드의 성질이 아니다.
+  ⇒ HEALTH_PATH를 /livez로 옮겼고 M-167~M-169가 그 자리를 지킨다.
+
+## 5. 선언된 경로가 우리 코드로 답한다 (인증 없이 · 공개 전환 후)
+  GET   /healthz2      -> HTTP 404  {"error": "unknown_route", "path": "/healthz2"}
+tr: Illegal byte sequence
+  POST  /agent:chat    -> HTTP 501  {"detail": "경로는 선언됐고 어댑터가 아직 없다 — 실물 어댑터 없이 fake로 200을 내면 배포
+
+## 6. 이 증거가 말하지 않는 것
+  - 조치→검증→롤백 왕복이 실물에서 도는가 (T2-4) — 지금 실물 어댑터는 없고 501이다.
+  - demo-target 두 리비전이 실제로 다른 이야기를 하는가 (T2-3).
+  - /agent:chat이 실물 Gemini를 부르는가 — 로컬 프로토타입까지만 증명됐다.
+  ⚠️ 서비스는 지금 **공개**다(allUsers invoker). 모든 경로가 501이라 노출은 낮지만,
+     /agent:chat을 실물로 물리는 순간 앱 레벨 인증이 선행이어야 한다.

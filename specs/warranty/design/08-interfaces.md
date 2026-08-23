@@ -45,7 +45,7 @@ Firestore·Cloud Monitoring·Cloud Run·BigQuery를 쓴다. **경계가 없으�
 | `GET` | `/ledger/{entry_id}` | 항목 1건 (근거 포함) | 604 |
 | `GET` | `/report/daily?date=` | **회복률 리포트** | 508 |
 | `POST` | `/agent:chat` | ADK 에이전트 | 601, 603 |
-| `GET` | `/healthz` | | |
+| `GET` | `/livez` | 플랫폼 프로브. ⛔ **`/healthz`가 아니다** — Cloud Run이 가로챈다 (2026-08-23 실물) | |
 
 ### 3.1 `remediate` 응답 — ★ 이 한 덩어리가 논지다
 

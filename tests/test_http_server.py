@@ -39,7 +39,7 @@ from pathlib import Path
 
 import pytest
 
-from warranty import server
+from warranty import demo_target, server
 from warranty.config import (
     DEFAULT_PORT,
     MAX_PORT,
@@ -334,3 +334,61 @@ def test_the_handler_reads_the_request_body_before_answering() -> None:
         f"핸들러가 요청 본문을 {len(exchange.leftover)}바이트 남겼다: {exchange.leftover[:40]!r} — "
         "keep-alive에서 다음 요청이 이것을 요청 줄로 읽는다"
     )
+
+
+# ── 플랫폼 예약 경로 — **실물이 가르친 것** (2026-08-23 T2-2) ──────────────────
+#
+# ⛔ 로컬 스모크에서 `/healthz`는 **200이었다.** Cloud Run에 올리자 404였고, 그 404는
+#    우리 것이 아니라 **Google 프론트엔드**의 것이었다 — 컨테이너 로그에 한 줄도 안 찍혔다:
+#
+#        GET /healthz   -> 404  <!DOCTYPE html>              (플랫폼이 삼킨다)
+#        GET /healthz2  -> 404  {"error": "unknown_route"}   (우리가 답한다)
+#
+#    한 글자 차이고, 앞의 것은 우리 프로세스에 **도달조차 안 한다.**
+# ⚠️ 이 목록은 **오프라인 게이트가 스스로 알아낼 수 없다.** 실물이 가르쳐야 늘어난다.
+#    그래서 여기 적힌 것은 관찰 기록이고, 늘리는 사람은 증거 파일을 함께 적어야 한다.
+
+#: 플랫폼이 가로채는 것으로 **실물에서 확인된** 경로.
+RESERVED_BY_PLATFORM = {
+    "/healthz": "docs/evidence/deploy-2026-08-23.log (Cloud Run · 404 HTML · 컨테이너 미도달)",
+}
+
+
+def test_health_path_is_not_reserved_by_the_platform() -> None:
+    """⛔ **선언이 옳아도 플랫폼이 가로채면 그 경로는 없는 것이다.**
+
+    ⚠️ red일 때 고칠 것은 이 목록이 아니라 **경로다.** 목록에서 지우면 다음 배포에서
+       똑같이 당하고, 그때는 증상이 *"헬스가 404다"*가 아니라 *"리비전이 트래픽을 못 받는다"*로
+       온다 — 훨씬 늦게, 훨씬 안 보이게.
+    """
+    assert RESERVED_BY_PLATFORM, "예약 경로 목록이 비었다 — 이 검사가 공허해진다"
+    reason = RESERVED_BY_PLATFORM.get(HEALTH_PATH)
+    assert reason is None, (
+        f"헬스 경로가 플랫폼 예약어다: {HEALTH_PATH!r} — {reason}. "
+        "로컬에서는 200이지만 실물에서는 우리 프로세스에 도달조차 안 한다."
+    )
+
+
+def test_no_declared_route_is_reserved_by_the_platform() -> None:
+    """⚠️ 헬스만의 문제가 아니다 — **선언된 경로 전부**가 같은 위험을 진다."""
+    hit = [
+        f"{route.method} {route.template} ({RESERVED_BY_PLATFORM[route.template]})"
+        for route in ROUTES
+        if route.template in RESERVED_BY_PLATFORM
+    ]
+    assert not hit, f"선언된 경로가 플랫폼 예약어와 겹친다: {hit}"
+
+
+def test_the_demo_target_health_path_comes_from_the_server() -> None:
+    """⚠️ `demo-target`도 Cloud Run에 올라간다(T2-3) — **같은 지뢰를 두 번 밟지 않는다.**
+
+    ⛔ 값이 같은가가 아니라 **어디서 왔는가**를 묻는다. 사본이면 한쪽만 고치는 날이 오고,
+       그때 데모의 두 리비전은 프로브에 답을 못 해 **트래픽 전환이 일어나지 않는다** —
+       데모의 절정이 통째로 사라진다. (T11-1·T11-4·T2-1과 같은 계열의 네 번째 자리다.)
+    """
+    source = Path(demo_target.__file__).read_text(encoding="utf-8")
+    code = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("#"))
+    assert 'HEALTH_PATH = "' not in code, (
+        "`demo_target`이 헬스 경로를 자기가 적는다 — 출처는 `warranty.server` 하나다."
+    )
+    assert demo_target.HEALTH_PATH == HEALTH_PATH
