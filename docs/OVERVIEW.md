@@ -1,7 +1,9 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = 콘솔에서 크레딧이 붙은 결제 계정을 확인하고 전용 GCP 프로젝트를
-> 만드는 것.** 그것 하나가 T2 전체를 잠그고 있다 — 계획은 `specs/warranty/tasks.md` **T0-3**.
+> ▶ **NEXT SESSION: 첫 행동 = `bash scripts/deploy.sh --yes`** (사람이 친다 — 과금한다).
+> **T0-3은 2026-08-23에 열렸다**: 프로젝트 `warranty-hack` · 결제 연결 · API 활성 ·
+> Artifact Registry 생성 · 배포 계획과 preflight까지 초록. 남은 것은 **실행 하나**다.
+> ⭐ **실물 모델 호출도 됐다**(T2-1) — Gemini 3.7 Flash · Vertex · 도구 호출 포함.
 > ⛔ **08-24까지 Cloud Run에서 도는 것이 없으면 접는다**(포기 비용 0).
 > 열리면 T0-3 → **T2-1**(ADK 실물 호출 — 임포트만 확인됐다) → T2-2(배포) → T3(계약 방출).
 > 배포 재료(`Dockerfile`·`deploy.sh`·`demo-target`)는 **있다 — 한 번도 실행된 적이 없다.**
@@ -196,7 +198,8 @@ flowchart LR
 가드      G1~G4 · G6~G9 변이 확인 · G5만 미착수 → tasks.md「가드 현황」
 변이      선언한 것 전부 red 확인 · 복구 후 초록 · 잔여 0 → docs/evidence/mutations.md
 루프      조치→검증→롤백 **전부 fake 위에서 배선·검증됨**. 남은 건 어댑터뿐
-ADK       google-adk 2.7.1 인터페이스 실재 확인. ⛔ **모델 호출은 아직**
+ADK       ⭐ **실물 호출 확인**(2026-08-23) — Gemini 3.7 Flash · Vertex · 도구 호출 포함
+GCP       프로젝트 `warranty-hack` 생성·결제 연결·API 활성. ⛔ **Cloud Run 배포는 아직**
 README    재현 절차가 게이트를 지난다(T11-5). ⛔ 그전엔 `make demo`가 절차에 **없었다**
 서버      이미지가 포트를 연다(T12-1 · stdlib). 헬스만 답하고 나머지는 `501`.
           ⛔ **소켓은 안 열어 봤다** — 확인된 건 옳은 바이트지 Cloud Run의 프로브가 아니다

@@ -29,9 +29,14 @@
 
 - [x] **T0-1** 레포·게이트·설정 계층 · `Implements: REQ-801, REQ-802` · `Design: 09§1, 08§5`
 - [x] **T0-2** ★ **G6 추적성 가드** + 변이 하네스 · `Design: 09§3.1, 09§4`
-- [ ] **T0-3** 전용 GCP 프로젝트 + 크레딧 결제 계정 연결 · `Implements: REQ-805` · `Design: 10§1`
-      ⚠️ **막혀 있다**: 활성 계정이 `yeongsigchoe7@gmail.com`이고 Cloud Billing API 미활성이라
-      크레딧이 어느 결제 계정에 붙었는지 **읽을 수 없다**. 콘솔 확인 필요.
+- [x] **T0-3** 전용 GCP 프로젝트 + 크레딧 결제 계정 연결 · `Implements: REQ-805` · `Design: 10§1`
+      ✅ **2026-08-23 열렸다.** 프로젝트 `warranty-hack`(450305106907) · 결제 `010556-A2B7AE-292490`
+      연결 · API 7종 활성 · Artifact Registry `warranty`(us-central1) 생성.
+      ⛔ **문서가 틀렸었다** — *"콘솔 확인 필요"*라던 블로커는 `gcloud billing accounts list`의
+      **`--billing-project` 플래그 하나**였다. 쿼터 프로젝트에 Cloud Billing API가 안 켜져
+      있어서 난 오류를 *"콘솔에서만 된다"*로 읽었고, 그 오독이 나흘을 잠갔다.
+      ⚠️ **크레딧이 이 결제 계정에 붙었는지는 미확인이다** — 계정이 셋인데 나머지 둘은
+      쿼터 프로젝트가 없어 조회가 안 됐다. design 10§1이 경고한 그 자리다.
 - [ ] **T0-4** *(선택)* BQ 결제 내보내기 + 화해/차이 · `Implements: REQ-506, REQ-509` · `Design: 05§4`
       ⚠️ 하루 지연. **크리티컬 패스 아님** — REQ-506·509는 선택이다.
 - [x] [auto] **T0-5** ★ **spec 참조 정합성 가드**(G6④) — `Spec:` 도크스트링이 가리키는 설계
@@ -91,6 +96,15 @@
 ## T2 — ★ 배포 선행 (08-20~21) — **중단 기준**
 
 - [~] **T2-1** ADK **실물 설치** + 최소 에이전트 로컬 응답 · `Implements: REQ-601` · `Design: 06§2`
+      ⭐ **2026-08-23 실물 호출 성공** — ADK 2.7.1 + Gemini 3.7 Flash + Vertex, 도구 호출 포함,
+      계약 기준으로 `not recovered` 판정. 증거 `docs/evidence/adk-live-call-2026-08-23.log`.
+      ⛔ **그 과정에서 설계가 깨졌다**: `WR_REGION` 한 값이 Cloud Run 리전과 Vertex location
+      **둘**이었는데, Gemini 3.x는 Vertex에서 `global`에만 있다(`us-central1`은 404,
+      단 `gemini-2.5-flash`는 거기 있다 ⇒ *"리전이 틀렸다"*가 아니라 **"모델마다 다르다"**).
+      설계대로 갔으면 배포는 성공하고 **첫 모델 호출에서 404**였다. `WR_VERTEX_LOCATION`으로
+      분리 · **M-157·M-158 red 확인**.
+      ⛔ **REQ-601을 아직 승격 안 했다** — 라이브 테스트가 게이트에서 안 도는 것을 집행하는
+      자리가 없다(마커 설명은 그렇다고 **말만** 한다). 그것이 선행이다(T12-5/G5와 같은 자리).
       ✅ **라이브러리와 인터페이스는 실재한다**(`google-adk 2.7.1` introspect,
       증거 `evidence/adk-api-probe-2026-08-19.log`): `tools`가 평범한 `Callable`을 받고,
       ⚠️ `Runner`는 `session_service`가 **필수**다(`min-instances=0`이라 유휴 후 첫 요청은
