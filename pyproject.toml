@@ -17,6 +17,8 @@ cloud = [
     # ⛔ **트래픽 전환·되읽기의 실물 절반이다**(REQ-301·302 · adapters/live_run.py).
     #    이 저장소가 GCP 전용인 이유가 여기 있다 — 배분을 한 번에 바꾸고 **다시 읽어** 증명한다.
     "google-cloud-run>=0.10",
+    # Cloud Run 지연을 같은 필터·aligner·reducer로 다시 읽는다(REQ-201·202).
+    "google-cloud-monitoring>=2.0",
     "google-cloud-firestore>=2.16",
     "google-cloud-bigquery>=3.20",
     "google-genai>=1.0",

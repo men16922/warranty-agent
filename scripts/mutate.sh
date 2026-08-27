@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-187|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-213|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -474,7 +474,7 @@ apply() {
             # ⛔ ②는 아무 말도 안 한다 — 아직 아무도 임포트하지 않으니까. 처음 임포트하는 날
             #    선언은 멀쩡한데 *"선언 안 된 임포트"*로 잡힌다. ③이 선언 쪽에서 그것을 본다.
       backup pyproject.toml
-      perl -0pi -e 's/^    "google-cloud-firestore>=2\.16",$/    "google-cloud-monitoring>=2.0",\n    "google-cloud-firestore>=2.16",/m' pyproject.toml ;;
+      perl -0pi -e 's/^    "google-cloud-firestore>=2\.16",$/    "google-cloud-secret-manager>=2.0",\n    "google-cloud-firestore>=2.16",/m' pyproject.toml ;;
     M-105) # T11-3 공허 통과 방지 — stdlib 판정을 깨서 **아무것도 서드파티로 안 잡게** 한다
             # ⛔ ②는 0건을 잡고 초록이 된다. 그 초록은 *"선언이 다 있다"*가 아니라
             #    **"아무것도 안 봤다"**이다. T11-2가 못 태우고 적어 둔 자리가 여기다.
@@ -567,7 +567,7 @@ apply() {
             # ⛔ 그 경로는 조용히 `404`가 된다. 심사자가 보는 것은 *"아직 구현 안 됨"*이
             #    아니라 **"그런 경로 없음"**이고, 둘은 같은 제출물이 아니다.
       backup src/warranty/server.py
-      perl -0pi -e 's/^    Route\("POST", "\/agent:chat"\),\n//m' src/warranty/server.py ;;
+      perl -0pi -e 's/^    Route\("POST", AGENT_PATH\),\n//m' src/warranty/server.py ;;
     M-124) # T12-1 ★ **가장 위험한 초록** — 배선 안 된 경로가 `200`을 낸다
             # ⛔ 어댑터가 없는데 성공을 흉내 내면 *"돌아간다"*와 *"가짜로 돌아간다"*가
             #    구별되지 않는다. design 08§5가 `WR_ADAPTERS` 기본값을 fake로 안 두는 이유다.
@@ -904,6 +904,112 @@ apply() {
             #    표본이 죽으면 ②는 **영원히 초록**이다 — M-03·M-25·M-45·M-118과 같은 계열.
       backup tests/test_gate_excludes_live.py
       perl -0pi -e 's/\(RAN \/ "\{LIVE_MARKER\}"\)\.write_text\("ran", encoding="utf-8"\)/pass/' tests/test_gate_excludes_live.py ;;
+    M-188) # T13-1 — 필터가 계약의 서비스 이름 대신 **고정된 이름**을 쓴다
+            # ⛔ 다른 계약도 demo-target을 읽고, 조치한 리소스와 측정한 리소스가 갈라진다.
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/_quoted\(spec\.resource_filter\)/_quoted("demo-target")/' src/warranty/adapters/live_signal.py ;;
+    M-189) # T13-1 — 실물에서 확인한 p95 aligner가 **평균**으로 바뀐다
+            # ⛔ 판정 입력의 의미가 p95에서 평균으로 바뀌지만 필터와 응답 모양은 멀쩡하다.
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/^        "per_series_aligner": ALIGN_PERCENTILE_95,$/        "per_series_aligner": "ALIGN_MEAN",/m' src/warranty/adapters/live_signal.py ;;
+    M-190) # T13-1 — 인스턴스 횡단 p95 reducer가 **평균**으로 바뀐다
+            # ⛔ 느린 인스턴스가 평균에 묻히고, 에이전트는 회복했다고 잘못 판정할 수 있다.
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/^        "cross_series_reducer": REDUCE_PERCENTILE_95,$/        "cross_series_reducer": "REDUCE_MEAN",/m' src/warranty/adapters/live_signal.py ;;
+    M-191) # T13-1 — 실물에서 확인한 60초 alignment를 **120초**로 바꾼다
+            # ⛔ 08-23 실험과 다른 요청이 되며 세 구간의 경계가 합쳐질 수 있다.
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/^ALIGNMENT_SECONDS = 60$/ALIGNMENT_SECONDS = 120/m' src/warranty/adapters/live_signal.py ;;
+    M-192) # T13-1 ★ `aggregation`을 요청 안에서 잃는다
+            # ⛔ 첫 실물 시도가 죽은 자리다. SDK 호출 모양은 사전이지만 집계는 전달되지 않는다.
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/^        "aggregation": aggregation_args\(spec\),$/        "aggregations": aggregation_args(spec),/m' src/warranty/adapters/live_signal.py ;;
+    M-193) # T13-1 — 응답 순서를 믿고 **가장 오래된 포인트**를 고른다
+            # ⛔ 기준선과 재측정이 모두 성공하지만 에이전트가 과거 구간으로 현재를 판정한다.
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/candidate\[:2\] > latest\[:2\]/candidate[:2] < latest[:2]/' src/warranty/adapters/live_signal.py ;;
+    M-194) # T13-1 — 빈 창을 **0이라는 관측값 하나**로 바꾼다
+            # ⛔ 아직 안 온 지표가 unverifiable이 아니라 실제 0ms로 판정된다(REQ-205).
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/^        return Measurement\(value=None, points=0\)$/        return Measurement(value=Decimal(0), points=1)/m' src/warranty/adapters/live_signal.py ;;
+    M-195) # T13-1 — 요청 창이 계약의 window_s 대신 **60초 사본**을 쓴다
+            # ⛔ 같은 SignalSpec을 읽어도 어댑터가 계약이 정한 창을 무시한다(REQ-202).
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/timedelta\(seconds=spec\.window_s\)/timedelta(seconds=ALIGNMENT_SECONDS)/' src/warranty/adapters/live_signal.py ;;
+    M-196) # T13-1 · G5 — Monitoring 클라이언트 생성 입구의 tripwire를 지운다
+            # ⛔ 게이트가 새 어댑터를 불러도 생성 직전 경로가 관측되지 않는다(REQ-801).
+      backup src/warranty/adapters/live_signal.py
+      perl -0pi -e 's/^        live_guard\.note\("live_signal\.LiveSignalSource\._metrics"\)\n//m' src/warranty/adapters/live_signal.py ;;
+    M-197) # T13-1 — 이미지에서 `google-cloud-monitoring` 선언을 지운다
+            # ⛔ 로컬 SDK가 설치된 환경에서는 돌지만 새 배포 이미지는 첫 신호 읽기에서 죽는다.
+      backup pyproject.toml
+      perl -0pi -e 's/^    "google-cloud-monitoring>=2\.0",\n//m' pyproject.toml ;;
+    M-198) # T13-2 ★ 조치 후 구간의 부하를 **0회**로 만든다
+            # ⛔ p95 요청은 성공해도 빈 창이고, 세 구간이 구별되지 않는다.
+      backup src/warranty/demo.py
+      perl -0pi -e 's/^    "after_action": 40,$/    "after_action": 0,/m' src/warranty/demo.py ;;
+    M-199) # T13-2 — 설계의 부하 값만 40 → 41로 바꾼다
+            # ⛔ 코드와 설계가 따로 썩으면 촬영 각본과 출력이 다른 횟수를 말한다.
+      backup specs/warranty/design/11-demo.md
+      perl -0pi -e 's/\{"baseline": 40, "after_action": 40, "after_rollback": 40\}/{"baseline": 41, "after_action": 40, "after_rollback": 40}/' specs/warranty/design/11-demo.md ;;
+    M-200) # T13-2 — 데모 출력에서 부하 계획을 지운다
+            # ⛔ 값은 코드에 남지만 실물 배선과 촬영자가 소비할 표면에서 사라진다.
+      backup src/warranty/demo.py
+      perl -0pi -e 's/^            "load_requests_by_phase": dict\(LOAD_REQUESTS_BY_PHASE\),\n//m' src/warranty/demo.py ;;
+    M-201) # T13-2 공허 통과 방지 — 설계와 코드를 **함께 빈 계획**으로 만든다
+            # ⛔ 일치만 물으면 둘은 완벽히 같아서 초록이다. 0행을 거부하는 바닥이 필요하다.
+      backup src/warranty/demo.py
+      backup specs/warranty/design/11-demo.md
+      perl -0pi -e 's/LOAD_REQUESTS_BY_PHASE = \{\n    "baseline": 40,\n    "after_action": 40,\n    "after_rollback": 40,\n\}/LOAD_REQUESTS_BY_PHASE: dict[str, int] = {}/' src/warranty/demo.py
+      perl -0pi -e 's/\{"baseline": 40, "after_action": 40, "after_rollback": 40\}/{}/' specs/warranty/design/11-demo.md ;;
+    M-202) # T13-4 — 제출 링크가 **다른 Mermaid**(조치의 일생)를 가리킨다
+            # ⛔ 파일은 살아 있어 일반 링크 검사는 초록이지만, 제출할 아키텍처가 바뀐다.
+      backup README.md
+      perl -0pi -e 's|docs/OVERVIEW\.md#4-아키텍처|docs/OVERVIEW.md#5-조치-하나의-일생|' README.md ;;
+    M-203) # T13-4 — 권위 블록의 렌더 언어를 Mermaid에서 text로 바꾼다
+            # ⛔ 도형의 소스 문장은 남지만 제출 화면에서는 다이어그램으로 렌더되지 않는다.
+      backup docs/OVERVIEW.md
+      perl -0pi -e 's/(^## 4\. 아키텍처\n\n)```mermaid/$1```text/m' docs/OVERVIEW.md ;;
+    M-204) # T13-4 ★ 권위 아키텍처를 README에 **그대로 복제**한다
+            # ⛔ 지금은 같아 보여도 두 사본은 다음 수정부터 따로 썩는다. 출처는 하나여야 한다.
+      backup README.md
+      sed -n '/^## 4\. 아키텍처$/,/^## 5\./p' docs/OVERVIEW.md | sed '$d' >> README.md ;;
+    M-205) # T13-4 공허 통과 방지 — 사본 검사에서 README를 뺀다
+            # ⛔ 가장 가까운 복제 장소를 안 보고도 "사본 없음"이 초록이 되는 스캐너 축소다.
+      backup tests/test_architecture_diagram.py
+      perl -0pi -e 's/^        README,\n//m' tests/test_architecture_diagram.py ;;
+    M-206) # D15 — 32바이트보다 짧은 서버 비밀을 설정된 것으로 받아들인다
+            # ⛔ 약한 토큰도 인증을 켠 것처럼 보이고 공개 URL의 무인 과금 경계가 약해진다.
+      backup src/warranty/auth.py
+      perl -0pi -e 's/^    if len\(expected\) < MIN_TOKEN_BYTES:$/    if False:/m' src/warranty/auth.py ;;
+    M-207) # D15 — Authorization 헤더가 없어도 인증됐다고 판정한다
+            # ⛔ 공개 `/agent:chat`이 토큰 없이 Gemini를 부를 수 있는 가장 직접적인 회귀다.
+      backup src/warranty/auth.py
+      perl -0pi -e 's/return AuthVerdict\.MISSING/return AuthVerdict.AUTHORIZED/' src/warranty/auth.py ;;
+    M-208) # D15 — 상수시간 비교를 평범한 동등 비교로 바꾼다
+            # ⛔ 결과값만 태우면 둘은 같은 답을 내므로 비교 함수 자체를 감시하는 테스트가 필요하다.
+      backup src/warranty/auth.py
+      perl -0pi -e 's/if not compare_digest\(credential\.encode\("utf-8"\), expected\):/if credential.encode("utf-8") != expected:/' src/warranty/auth.py ;;
+    M-209) # D15 — 서버의 `/agent:chat` 인증 게이트를 통째로 건너뛴다
+            # ⛔ 순수 인증 함수가 멀쩡해도 실제 HTTP 경로가 부르지 않으면 보호는 장식이다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^    if path == AGENT_PATH:$/    if False:/m' src/warranty/server.py ;;
+    M-210) # D15 — 잘못된 토큰도 인증 게이트를 통과시킨다
+            # ⛔ 비밀 미설정 503은 남아 있어 일부 테스트는 초록이므로 invalid 분기를 따로 태운다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/^        if verdict is not AuthVerdict\.AUTHORIZED:$/        if False:/m' src/warranty/server.py ;;
+    M-211) # D15 — Cloud Run invoker를 비공개로 되돌린다
+            # ⛔ 앱 인증은 살아도 심사위원이 Hosted URL과 `/livez`를 열 수 없다.
+      backup src/warranty/config.py
+      perl -0pi -e 's/"--allow-unauthenticated"/"--no-allow-unauthenticated"/' src/warranty/config.py ;;
+    M-212) # D15 — 배포 계획에서 Secret Manager 바인딩을 지운다
+            # ⛔ 서버는 fail-close하지만 실물 `/agent:chat`은 영원히 503이라 데모가 성립하지 않는다.
+      backup src/warranty/config.py
+      perl -0pi -e 's/^        f"--set-secrets=\{auth_secret\}",\n//m' src/warranty/config.py ;;
+    M-213) # D15 — 실제 핸들러가 Authorization 헤더를 순수 판정에 전달하지 않는다
+            # ⛔ `resolve` 단위 테스트는 초록인데 소켓 경로만 항상 401이 되는 배선 단절이다.
+      backup src/warranty/server.py
+      perl -0pi -e 's/authorization=self\.headers\.get\("Authorization"\),/authorization=None,/' src/warranty/server.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -936,5 +1042,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

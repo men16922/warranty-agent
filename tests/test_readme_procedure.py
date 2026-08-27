@@ -172,7 +172,11 @@ def test_procedure_names_bootstrap_gate_and_run() -> None:
 
 def test_repo_relative_links_resolve() -> None:
     """④ 제출물의 진입점이 **없는 문서를 가리키면** 재현은 첫 클릭에서 끝난다."""
-    dangling = [token for token in _repo_links(_read(README)) if not (ROOT / token).exists()]
+    dangling = [
+        token
+        for token in _repo_links(_read(README))
+        if not (ROOT / token.partition("#")[0]).exists()
+    ]
     assert not dangling, (
         f"README가 없는 경로를 가리킨다: {dangling}. "
         "G6④가 코드의 `Spec:`에 대해 하는 일을 README에 대해 하는 자리다."

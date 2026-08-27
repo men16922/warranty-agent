@@ -36,8 +36,12 @@ import pytest
 
 from warranty import config
 from warranty.config import (
+    AGENT_AUTH_ENV_KEY,
+    AGENT_AUTH_SECRET_NAME,
+    AGENT_AUTH_SECRET_VERSION,
     MAX_INSTANCES,
     MIN_INSTANCES,
+    RUNTIME_ENV_KEYS,
     SERVICE_NAME,
     Adapters,
     ConfigError,
@@ -185,6 +189,21 @@ def test_the_renderer_actually_emits_service_region_and_min_instances(
     )
     assert uri.endswith(f"/{SERVICE_NAME}:{SAMPLE_TAG}"), f"이미지 주소가 태그를 안 싣는다: {uri}"
     assert f"--image={uri}" in rendered, f"렌더된 인자와 이미지 주소가 갈라졌다: {rendered}"
+
+
+def test_public_hosted_url_and_app_secret_are_deployed_as_one_boundary(
+    rendered: tuple[str, ...],
+) -> None:
+    """D15 — 공개 invoker와 앱 비밀 중 하나만 있으면 Hosted URL 또는 과금 경계가 깨진다."""
+    assert "--allow-unauthenticated" in rendered
+    assert "--no-allow-unauthenticated" not in rendered
+    expected = (
+        f"--set-secrets={AGENT_AUTH_ENV_KEY}={AGENT_AUTH_SECRET_NAME}:{AGENT_AUTH_SECRET_VERSION}"
+    )
+    assert expected in rendered, f"앱 인증 비밀이 Secret Manager에서 안 온다: {rendered}"
+    env_arg = next(arg for arg in rendered if arg.startswith("--set-env-vars="))
+    assert AGENT_AUTH_ENV_KEY not in RUNTIME_ENV_KEYS
+    assert AGENT_AUTH_ENV_KEY not in env_arg, "비밀값을 일반 환경변수 argv에 실으면 로그에 남는다"
 
 
 def test_an_empty_tag_is_refused_rather_than_silently_becoming_latest() -> None:

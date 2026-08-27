@@ -58,6 +58,7 @@ FIRST_PARTY = ("warranty", "tools")
 IMPORT_TO_DIST: dict[str, str] = {
     "google.adk": "google-adk",
     "google.cloud.bigquery": "google-cloud-bigquery",
+    "google.cloud.monitoring_v3": "google-cloud-monitoring",
     "google.cloud.run_v2": "google-cloud-run",
     "google.cloud.firestore": "google-cloud-firestore",
     "google.genai": "google-genai",
@@ -78,6 +79,11 @@ CONTROL_THIRD_PARTY: tuple[tuple[str, str, str | None], ...] = (
     ("from google.adk import agents", "google.adk", "google-adk"),
     # ⚠️ 배포판을 가르는 이름이 **뒤에** 있는 형태. `google.cloud`까지만 보면 못 푼다.
     ("from google.cloud import firestore", "google.cloud.firestore", "google-cloud-firestore"),
+    (
+        "from google.cloud import monitoring_v3",
+        "google.cloud.monitoring_v3",
+        "google-cloud-monitoring",
+    ),
 )
 
 #: 서드파티가 **아닌** 표본. 하나라도 서드파티로 잡히면 ②는 거짓 red를 낸다.

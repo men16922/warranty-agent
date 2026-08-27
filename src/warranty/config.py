@@ -154,6 +154,12 @@ INFRA_LABELS: tuple[tuple[str, str], ...] = (("wr_project", "warranty"), ("wr_en
 #: 시끄러운 실패이고, 그게 설계다(design 08§5).
 RUNTIME_ENV_KEYS = ("WR_PROJECT_ID", "WR_REGION", "WR_VERTEX_LOCATION", "WR_MODEL", "WR_ADAPTERS")
 
+#: D15 앱 인증. 값은 렌더러가 받지 않는다 — Secret Manager가 런타임에만 주입한다.
+#: ``latest``가 의도적인 이유는 토큰 회전이 새 이미지를 요구하면 안 되기 때문이다.
+AGENT_AUTH_ENV_KEY = "WR_AGENT_AUTH_TOKEN"
+AGENT_AUTH_SECRET_NAME = "warranty-agent-auth"
+AGENT_AUTH_SECRET_VERSION = "latest"
+
 #: ⛔ **포트의 유일한 출처다** (T12-1). Cloud Run이 컨테이너에 주입하는 변수 이름이고,
 #:    `Dockerfile`도 `scripts/deploy.sh`도 이 숫자를 다시 적지 않는다. 다시 적는 순간
 #:    *이미지가 듣는 포트*와 *플랫폼이 프로브하는 포트*가 따로 썩고, 그 어긋남은
@@ -233,6 +239,7 @@ def deploy_argv(settings: Settings, tag: str) -> tuple[str, ...]:
     """
     labels = ",".join(f"{key}={value}" for key, value in INFRA_LABELS)
     env_vars = ",".join(f"{key}={_runtime_env_value(settings, key)}" for key in RUNTIME_ENV_KEYS)
+    auth_secret = f"{AGENT_AUTH_ENV_KEY}={AGENT_AUTH_SECRET_NAME}:{AGENT_AUTH_SECRET_VERSION}"
     return (
         "run",
         "deploy",
@@ -244,7 +251,9 @@ def deploy_argv(settings: Settings, tag: str) -> tuple[str, ...]:
         f"--max-instances={MAX_INSTANCES}",
         f"--labels={labels}",
         f"--set-env-vars={env_vars}",
-        "--no-allow-unauthenticated",
+        f"--set-secrets={auth_secret}",
+        # D15 — Hosted URL은 공개하고, 과금 경로는 앱 bearer 인증으로 막는다.
+        "--allow-unauthenticated",
     )
 
 

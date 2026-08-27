@@ -28,3 +28,6 @@ scripts/overnight/DONE
 scripts/overnight/CLAIM
 docs/test/history/*-overnight-review-checklist.md
 .venv-live/
+
+# MCP 도구가 만드는 로컬 상태 (재생성 가능)
+.serena/

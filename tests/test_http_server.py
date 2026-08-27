@@ -34,6 +34,7 @@ from __future__ import annotations
 import io
 import json
 import re
+from collections.abc import Mapping
 from http.client import HTTPMessage
 from pathlib import Path
 
@@ -49,12 +50,15 @@ from warranty.config import (
     load_port,
 )
 from warranty.server import (
+    AGENT_PATH,
     HEALTH_PATH,
     METHOD_NOT_ALLOWED,
     NOT_FOUND,
     NOT_IMPLEMENTED,
     OK,
     ROUTES,
+    SERVICE_UNAVAILABLE,
+    UNAUTHORIZED,
     WarrantyHandler,
     resolve,
 )
@@ -112,7 +116,13 @@ class Exchange:
         self.leftover = leftover
 
 
-def _drive(method: str, target: str, *, body: bytes = b"") -> Exchange:
+def _drive(
+    method: str,
+    target: str,
+    *,
+    body: bytes = b"",
+    headers: Mapping[str, str] | None = None,
+) -> Exchange:
     """실제 `WarrantyHandler`에 요청 하나를 먹이고 **낸 바이트를 그대로** 돌려준다.
 
     ⚠️ `__init__`을 건너뛰는 이유는 그것이 소켓을 잡기 때문이다. 여기서 채우는 다섯 값이
@@ -127,10 +137,12 @@ def _drive(method: str, target: str, *, body: bytes = b"") -> Exchange:
     handler.rfile = source
     sink = io.BytesIO()
     handler.wfile = sink
-    headers = HTTPMessage()
+    request_headers = HTTPMessage()
     if body:
-        headers["Content-Length"] = str(len(body))
-    handler.headers = headers
+        request_headers["Content-Length"] = str(len(body))
+    for name, value in (headers or {}).items():
+        request_headers[name] = value
+    handler.headers = request_headers
 
     if method == "GET":
         handler.do_GET()
@@ -226,6 +238,62 @@ def test_an_unwired_route_says_so_instead_of_faking_success(method: str, target:
     )
     body = json.loads(response.payload().decode("utf-8"))
     assert body["detail"], f"`501`에 이유가 없다: {body} — 이유 없는 501은 버그로 읽힌다"
+
+
+# ── D15 앱 인증 — 공개 Hosted URL과 과금 가능한 경로를 가른다 ───────────────
+
+AUTH_TOKEN = "t" * 32
+
+
+def test_agent_chat_fails_closed_when_auth_is_not_configured() -> None:
+    response = resolve("POST", AGENT_PATH, authorization=f"Bearer {AUTH_TOKEN}")
+    assert response.status == SERVICE_UNAVAILABLE
+    assert response.body["error"] == "auth_unavailable"
+    assert resolve("GET", HEALTH_PATH).status == OK, "인증 비밀이 없어도 프로브는 살아야 한다"
+
+
+def test_agent_chat_hides_why_authentication_failed() -> None:
+    missing = resolve("POST", AGENT_PATH, agent_auth_token=AUTH_TOKEN)
+    wrong = resolve(
+        "POST",
+        AGENT_PATH,
+        authorization="Bearer definitely-wrong",
+        agent_auth_token=AUTH_TOKEN,
+    )
+    assert (missing.status, missing.body, missing.headers) == (
+        UNAUTHORIZED,
+        {"error": "unauthorized"},
+        {"WWW-Authenticate": "Bearer"},
+    )
+    assert (wrong.status, wrong.body, wrong.headers) == (
+        missing.status,
+        missing.body,
+        missing.headers,
+    )
+    payload = wrong.payload().decode("utf-8")
+    assert AUTH_TOKEN not in payload and "definitely-wrong" not in payload
+
+
+def test_valid_authentication_does_not_fake_an_unwired_agent() -> None:
+    response = resolve(
+        "POST",
+        AGENT_PATH,
+        authorization=f"Bearer {AUTH_TOKEN}",
+        agent_auth_token=AUTH_TOKEN,
+    )
+    assert response.status == NOT_IMPLEMENTED
+    assert response.body["error"] == "not_implemented"
+
+
+def test_the_http_handler_passes_the_header_and_runtime_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("WR_AGENT_AUTH_TOKEN", AUTH_TOKEN)
+    denied = _drive("POST", AGENT_PATH)
+    allowed = _drive("POST", AGENT_PATH, headers={"Authorization": f"Bearer {AUTH_TOKEN}"})
+    assert denied.status == UNAUTHORIZED
+    assert denied.headers["WWW-Authenticate"] == "Bearer"
+    assert allowed.status == NOT_IMPLEMENTED
 
 
 # ── ⑤ 오류 모델 (design 08§4) ─────────────────────────────────────────────────

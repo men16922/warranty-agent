@@ -1,34 +1,21 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = `SignalSource` 실물 어댑터**(Cloud Monitoring).
-> API는 2026-08-23에 **실물로 introspect했다** — `docs/evidence/live-signal-2026-08-23.log`가
-> 필터·aligner·reducer·요청 모양을 전부 담는다. **추측하지 말고 그 파일을 읽어라.**
-> ⛔ `RunControl`은 이미 있다(`adapters/live_run.py`).
-> 배포·모델 호출·두 리비전 왕복은 **2026-08-23에 전부 실물에서 확인됐다.** 남은 것은
-> 그 왕복을 **에이전트가** 하는 것이다 — 지금 `/livez` 외 7경로가 501이다.
+> ▶ **NEXT SESSION: 첫 행동 = Secret Manager 비밀·IAM을 준비해 재배포하고 D15 인증 행렬을 실물 검증한다.**
+> ✅ D15 로컬 경계까지 끝났다 — bearer 인증·공개 invoker+비밀 바인딩·M-206~M-213,
+> 전체 213종 red를 확인했다(`make check` 330 passed).
+> ⛔ **비밀 생성·IAM·재배포·에이전트 배선은 아직 안 했다.** 현재 실물은 이전 리비전이다.
 > ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) ·
 > `https://demo-target-450305106907.us-central1.run.app` (리비전 2개).
-> ⭐ 실물 왕복: 620ms → 전환 → **900ms 회복 실패** → 롤백 → **배분 되읽기** → 620ms.
-> ⛔ **08-24까지 Cloud Run에서 도는 것이 없으면 접는다**(포기 비용 0).
-> 열리면 T0-3 → **T2-1**(ADK 실물 호출 — 임포트만 확인됐다) → T2-2(배포) → T3(계약 방출).
-> 배포 재료(`Dockerfile`·`deploy.sh`·`demo-target`)는 **있다 — 한 번도 실행된 적이 없다.**
-> ⚠️ **포트 프로브 함정은 없앴다**(T12-1) — `CMD`가 서버를 가리키고 헬스가 `200`을 낸다.
-> ⛔ 그래도 **소켓을 한 번도 안 열어 봤다.** 나머지 경로는 `501`이다(어댑터 배선은 T2-2).
-> ⚠️ 오프라인 `[auto]` 백로그는 **T12로 다시 채워졌다**(크리티컬 패스의 오프라인 절반 여덟).
-> ⛔ **T12의 어떤 항목도 제출 자격을 만들지 못한다** — 줄이는 것은 *콘솔을 연 다음의* 시간이다.
 > ⚠️ 남은 `[auto]`와 `.env`의 부트스트랩 `WR_PROJECT_ID`는
 > [`tasks.md`](../specs/warranty/tasks.md)가 권위다 — **여기서 세지 않는다.**
 
-> **인프라를 만든 에이전트가, 그것을 어떻게 고쳐야 하는지도 함께 적어 둔다.**
-> 그리고 조치한 뒤 **실제로 나아졌는지 다시 재고**, 안 나아졌으면 **원자적으로 되돌린다.**
->
+> **인프라를 만든 에이전트가, 그것을 어떻게 고쳐야 하는지도 함께 적어 둔다.** 그리고 조치한 뒤
+> **실제로 나아졌는지 다시 재고**, 안 나아졌으면 **원자적으로 되돌린다.**
 > Google All Things Agentic Hackathon · Fortified Enterprise Fleet 트랙
 > 작성 2026-08-19 · 상태: **설계 완료 · 구현 진행 중**
 
-사람이 읽는 진입점이다. 요구사항의 권위는
-[`specs/warranty/requirements.md`](../specs/warranty/requirements.md),
-결정 근거의 권위는 [`design.md`](../specs/warranty/design.md).
-**이 문서는 그림과 서사를 소유한다.**
+사람이 읽는 진입점이다. 요구사항 권위는 [`requirements.md`](../specs/warranty/requirements.md),
+결정 근거는 [`design.md`](../specs/warranty/design.md). **이 문서는 그림과 서사를 소유한다.**
 
 ---
 
@@ -71,7 +58,6 @@ Remediation 에이전트는 조치를 실행하고 **성공을 보고한다.**
 ```mermaid
 flowchart TB
     NL["Request<br/>(natural language or API)"] --> RUN
-
     subgraph RUN["Cloud Run · warranty-api  (scale-to-zero)"]
         AGENT["ADK Agent · Gemini 3.7 Flash"]
         PROV["provision<br/>creates resource"]
@@ -81,7 +67,6 @@ flowchart TB
         VERIFY["★ verify<br/>re-measure the same signal"]
         RB["★ rollback<br/>traffic → previous revision"]
         LED["accountability ledger<br/>executed · improved · rolled_back"]
-
         AGENT -->|Day-1| PROV --> CONTRACT
         AGENT -->|Day-2| GATE
         CONTRACT -.->|"tells the gate what is verifiable"| GATE
@@ -91,12 +76,10 @@ flowchart TB
         VERIFY -->|recovered| LED
         VERIFY -->|not recovered| RB --> LED
     end
-
     CONTRACT --> FS[("Firestore")]
     LED --> FS
     VERIFY <-->|read signal| CM[("Cloud Monitoring")]
     RB <-->|traffic split + verify| CR[("Cloud Run Admin")]
-
     style CONTRACT fill:#ddd6fe,stroke:#6d28d9,color:#000
     style GATE fill:#fde68a,stroke:#b45309,color:#000
     style VERIFY fill:#bfdbfe,stroke:#1d4ed8,color:#000
@@ -112,7 +95,6 @@ sequenceDiagram
     participant M as Cloud Monitoring
     participant R as Cloud Run
     participant L as Ledger
-
     A->>G: remediate(service, action)
     Note over G: reversible ✓ · verifiable ✓ · headroom ✓ → AUTO
     A->>M: baseline = read(contract.health_signal)
@@ -141,7 +123,6 @@ flowchart TD
     RV -->|no| MAN["MANUAL"]
     RV2 -->|yes| AUTO["AUTO"]
     RV2 -->|no| APP2["APPROVE"]
-
     style AUTO fill:#bbf7d0,stroke:#15803d,color:#000
     style DENY fill:#fecaca,stroke:#b91c1c,color:#000
     style APP1 fill:#fde68a,stroke:#b45309,color:#000
@@ -205,29 +186,33 @@ flowchart LR
 루프      조치→검증→롤백 **전부 fake 위에서 배선·검증됨**. 남은 건 어댑터뿐
 ADK       ⭐ **실물 호출 확인**(2026-08-23) — Gemini 3.7 Flash · Vertex · 도구 호출 포함
 GCP       ⭐ **Cloud Run에서 돈다** — warranty-api + demo-target(리비전 2개) · 실물 왕복 확인
-어댑터    ⛔ **아직 없다** — `/livez` 외 7경로가 501이다. T2-4의 남은 절반이 그것이다
-README    재현 절차가 게이트를 지난다(T11-5). ⛔ 그전엔 `make demo`가 절차에 **없었다**
-서버      이미지가 포트를 연다(T12-1 · stdlib). 헬스만 답하고 나머지는 `501`.
-          ⛔ **소켓은 안 열어 봤다** — 확인된 건 옳은 바이트지 Cloud Run의 프로브가 아니다
+어댑터    `RunControl` + `SignalSource` 코드 있음. ⛔ 미배포·미배선
+README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
+서버      `/livez` 공개 · `/agent:chat` bearer 경계는 로컬 완료. ⛔ 실물은 아직 이전 리비전
 ```
 
 ⚠️ **여기에 숫자를 세어 적지 않는다**(T0-6의 교훈) — 실제로 썩어 있었다: 이 상자가 말하던
 `120 passed`·`VERIFIED 18`·`M-01~M-32`·`커밋 6개`는 **넷 다 틀렸다.** ⇒ 세는 자리는 하나다.
 
-**다음**: ⛔ **T2 — Cloud Run 배포.** [`tasks.md`](../specs/warranty/tasks.md)가 권위.
-남은 TODO는 대부분 실물 GCP를 요구하고, 오프라인 `[auto]`를 다 해도
-**중단 기준의 판정 대상(T2-2)은 움직이지 않는다.**
+**다음**: **T2-4 — 비밀·IAM·재배포로 D15를 실증한 뒤 에이전트 실물 왕복을 배선한다.**
+[`tasks.md`](../specs/warranty/tasks.md)가 권위다.
 
 ### 막혀 있는 것
 
 | | 왜 | 잠그는 것 |
 |---|---|---|
-| **전용 GCP 프로젝트** | 크레딧이 붙은 결제 계정을 못 읽음 (Billing API 미활성) | 배포 전체 |
+| **D15 실물 검증** | 로컬 경계 완료 · 비밀 생성/IAM/재배포 미수행 | 실물 에이전트 배선 |
 | BQ 결제 내보내기 *(선택)* | 콘솔 수동 · 하루 지연 | REQ-506·509만 |
 
-### ⛔ 중단 기준
+### ✅ 중단 기준 — **통과**
 
-**08-24까지 Cloud Run에서 도는 것이 없으면 접는다.** 포기 비용 0.
+*"08-24까지 Cloud Run에서 도는 것이 없으면 접는다"* — **08-23에 배포됐다.**
+증거 `docs/evidence/deploy-2026-08-23.log`.
+
+### ⛔ 대신 새 시한이 박혔다
+
+크레딧(Free Trial) **만료 2026-09-06**. 제출 09-01 · **teardown 09-02** 뒤 여유가 **4일뿐**이다.
+⇒ T8-6(teardown 캘린더 등록)이 *"나중에 할 일"*에서 **날짜가 박힌 일**이 됐다.
 
 ## 11. 무엇을 하지 않는가
 
@@ -238,10 +223,8 @@ README    재현 절차가 게이트를 지난다(T11-5). ⛔ 그전엔 `make de
 
 ## 12. 알려진 한계 — 숨기지 않는다
 
-- **인과가 아니라 상관이다.** 조치 후 회복이 조치 때문이라는 증명은 아니다.
-  롤백 후 재측정이 **약한 자연 실험**을 제공하지만 인과는 세우지 못한다.
-- **계약은 프로비저닝을 거친 리소스만 갖는다.** 손으로 만든 리소스는 자동 대상이 아니다 —
-  **버그가 아니라 정책**이다.
+- **인과가 아니라 상관이다.** 롤백 후 재측정은 **약한 자연 실험**이지만 인과는 세우지 못한다.
+- **계약은 프로비저닝을 거친 리소스만 갖는다.** 손으로 만든 리소스는 자동 대상이 아니다.
 - **회복률은 "우리 기준으로" 회복률이다.** 계약의 판정 기준이 틀리면 검증도 틀린다.
 - **공유 리소스의 비용 귀속은 못 푼다.** 한 조치 = 한 리소스인 경우에만 라벨 귀속을 쓴다.
 

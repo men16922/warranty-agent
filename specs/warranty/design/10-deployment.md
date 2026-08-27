@@ -41,6 +41,7 @@
      roles/aiplatform.user           Vertex 모델
      roles/monitoring.viewer         신호 읽기
      roles/run.developer             리비전·트래픽 조작 (조치 대상에만)
+     roles/secretmanager.secretAccessor  warranty-agent-auth 하나에만
 ```
 
 ⚠️ **`run.developer`를 프로젝트 전역으로 주지 않는다** — 조치 대상 서비스에만 바인딩한다.
@@ -48,6 +49,16 @@
 
 ⚠️ 광범위 권한을 쓸 거면 **왜 필요한지를 주석으로 남긴다.** 만족 불가능한 규칙("전면 금지")은
 우회를 습관으로 만든다.
+
+### 3.1 공개 invoker + 앱 인증 (D15)
+
+`warranty-api`는 `--allow-unauthenticated`로 Hosted URL을 공개한다. 이것은 `/agent:chat`을
+무방비로 연다는 뜻이 아니다. 배포 렌더러가
+`--set-secrets=WR_AGENT_AUTH_TOKEN=warranty-agent-auth:latest`를 함께 내고, 앱이 bearer token을
+검사한다. 배포 로그에는 **Secret 이름과 버전만** 보이고 값은 보이지 않는다.
+
+⛔ `--no-allow-unauthenticated`로 바꾸면 심사위원 Hosted URL이 닫힌다. 반대로 secret 바인딩을
+빼면 `/agent:chat`은 `503`으로 fail-close한다. 둘 중 하나만 있는 배포는 D15를 충족하지 않는다.
 
 ## 4. 라벨
 

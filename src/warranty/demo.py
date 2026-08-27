@@ -98,6 +98,15 @@ SIGNAL_JITTER_MS = Decimal("5")
 AFTER_ROLLBACK_MS = BASELINE_MS - SIGNAL_JITTER_MS
 SIGNAL_POINTS = 30
 
+#: Cloud Monitoring p95를 구간별로 보이게 하는 **실물 부하 계획**.
+#: ⛔ `SIGNAL_POINTS`와 다르다 — 그것은 읽힌 포인트 수이고, 이것은 보내야 할 HTTP 요청 수다.
+#: 오프라인 데모는 이 값을 출력할 뿐 실제 요청을 보내지 않는다(REQ-801).
+LOAD_REQUESTS_BY_PHASE = {
+    "baseline": 40,
+    "after_action": 40,
+    "after_rollback": 40,
+}
+
 TITLE = "warranty — make demo (offline · deterministic)"
 
 #: 이 데모가 **증명하지 않는 것.** 출력에 함께 싣는다 — 빼면 fake 위의 초록이
@@ -254,6 +263,7 @@ def run_demo() -> DemoRun:
             "degrading_revision": SLOW_REVISION,
             "traffic_before": dict(run.read_traffic(resource)),
             "baseline_p95_ms": str(BASELINE_MS),
+            "load_requests_by_phase": dict(LOAD_REQUESTS_BY_PHASE),
             "note": "실물에서는 이 리비전이 진짜로 느리다. 여기서는 신호가 각본이다.",
         },
     )

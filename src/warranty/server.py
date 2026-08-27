@@ -29,17 +29,21 @@ Spec: specs/warranty/design/08-interfaces.md §3-4 (REQ-602)
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from warranty.auth import AUTH_ENV_KEY, AUTH_SCHEME, AuthVerdict, authenticate
 from warranty.config import SERVICE_NAME, load_port
 
 OK = 200
+UNAUTHORIZED = 401
 NOT_FOUND = 404
 METHOD_NOT_ALLOWED = 405
 NOT_IMPLEMENTED = 501
+SERVICE_UNAVAILABLE = 503
 
 #: 플랫폼이 프로브하는 경로. ⛔ **이것만은 지금 진짜로 답해야 한다** — 나머지가 `501`인
 #: 것은 정책이지만, 이것이 `501`이면 리비전은 트래픽을 한 번도 못 받는다.
@@ -56,6 +60,7 @@ NOT_IMPLEMENTED = 501
 #: ⚠️ 지금은 무해했다: `min-instances=0`이라 시작 프로브가 TCP였고 리비전은 떴다.
 #:    그러나 헬스 경로를 **쓰는 순간**(deploy-check · T2-4) 그것은 영원히 404다.
 HEALTH_PATH = "/livez"
+AGENT_PATH = "/agent:chat"
 
 #: `{id}` 같은 자리표시자.
 PARAM_RE = re.compile(r"\{[a-z_]+\}")
@@ -83,7 +88,7 @@ ROUTES: tuple[Route, ...] = (
     Route("POST", "/ledger/{entry_id}:approve"),
     Route("GET", "/ledger/{entry_id}"),
     Route("GET", "/report/daily"),
-    Route("POST", "/agent:chat"),
+    Route("POST", AGENT_PATH),
     Route("GET", HEALTH_PATH),
 )
 
@@ -102,13 +107,20 @@ class Response:
 
     status: int
     body: Mapping[str, object]
+    headers: Mapping[str, str] = field(default_factory=dict)
 
     def payload(self) -> bytes:
         """⚠️ 정렬해서 낸다 — 같은 판정이 프로세스마다 다른 바이트를 내면 안 된다(REQ-802)."""
         return json.dumps(dict(self.body), ensure_ascii=False, sort_keys=True).encode("utf-8")
 
 
-def resolve(method: str, target: str) -> Response:
+def resolve(
+    method: str,
+    target: str,
+    *,
+    authorization: str | None = None,
+    agent_auth_token: str | None = None,
+) -> Response:
     """요청 하나에 대한 응답. **소켓을 모른다** — 그래서 단위로 태울 수 있다.
 
     ⚠️ 질의 문자열을 여기서 잘라 낸다. design 08§3의 `/report/daily?date=`에서 경로인
@@ -130,6 +142,22 @@ def resolve(method: str, target: str) -> Response:
         )
     if path == HEALTH_PATH:
         return Response(OK, {"status": "ok", "service": SERVICE_NAME})
+    if path == AGENT_PATH:
+        verdict = authenticate(authorization, agent_auth_token)
+        if verdict is AuthVerdict.NOT_CONFIGURED:
+            return Response(
+                SERVICE_UNAVAILABLE,
+                {
+                    "error": "auth_unavailable",
+                    "detail": "agent authentication is not configured",
+                },
+            )
+        if verdict is not AuthVerdict.AUTHORIZED:
+            return Response(
+                UNAUTHORIZED,
+                {"error": "unauthorized"},
+                {"WWW-Authenticate": AUTH_SCHEME},
+            )
     return Response(
         NOT_IMPLEMENTED,
         {
@@ -163,10 +191,17 @@ class WarrantyHandler(BaseHTTPRequestHandler):
 
     def _respond(self, method: str) -> None:
         self._drain_body()
-        response = resolve(method, self.path)
+        response = resolve(
+            method,
+            self.path,
+            authorization=self.headers.get("Authorization"),
+            agent_auth_token=os.environ.get(AUTH_ENV_KEY),
+        )
         payload = response.payload()
         self.send_response(response.status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        for name, value in response.headers.items():
+            self.send_header(name, value)
         # ⚠️ `Content-Length`를 안 주면 HTTP/1.1 keep-alive에서 클라이언트가 **응답의 끝을
         #    모른다** — 프로브가 타임아웃으로 죽고, 그건 서버가 답을 안 한 것처럼 보인다.
         self.send_header("Content-Length", str(len(payload)))

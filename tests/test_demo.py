@@ -18,6 +18,7 @@ Spec: specs/warranty/design/11-demo.md (REQ-803)
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from datetime import datetime
@@ -35,6 +36,7 @@ DESIGN = ROOT / "specs" / "warranty" / "design" / "11-demo.md"
 #: design 11§2의 단계 블록을 여는 표제. ⚠️ 표제가 바뀌면 파서가 **못 찾고 예외를 낸다** —
 #: 조용히 0단계를 읽고 아래 검사를 공허하게 통과시키는 것보다 낫다.
 DESIGN_SECTION = "## 2. `make demo`"
+LOAD_PLAN_SECTION = "### 1.1 p95를 보이게 만드는 부하"
 
 #: 번호 매긴 단계 줄. 번호가 **순서의 권위**다.
 DESIGN_STEP_RE = re.compile(r"^\s*[①②③④⑤⑥⑦⑧⑨]\s*(.+)$", re.MULTILINE)
@@ -60,6 +62,21 @@ def _design_step_lines() -> list[str]:
     if match is None:
         raise AssertionError("design 11§2에 단계 블록(```)이 없다")
     return DESIGN_STEP_RE.findall(match.group(1))
+
+
+def _design_load_plan() -> dict[str, int]:
+    """design 11§1.1의 JSON이 부하 계획의 권위다. 0행이면 조용히 통과하지 않고 실패한다."""
+    text = DESIGN.read_text(encoding="utf-8")
+    start = text.find(LOAD_PLAN_SECTION)
+    if start < 0:
+        raise AssertionError(f"design 11의 부하 절을 못 찾았다: {LOAD_PLAN_SECTION!r}")
+    match = re.search(r"```json\n(.*?)```", text[start:], re.DOTALL)
+    if match is None:
+        raise AssertionError("design 11§1.1에 부하 JSON이 없다")
+    parsed = json.loads(match.group(1))
+    if not isinstance(parsed, dict) or not parsed:
+        raise AssertionError(f"부하 계획이 비었거나 객체가 아니다: {parsed!r}")
+    return {str(phase): int(requests) for phase, requests in parsed.items()}
 
 
 @pytest.fixture(scope="module")
@@ -136,6 +153,24 @@ def test_req_803_the_five_steps_are_the_ones_the_design_names(run: demo.DemoRun)
         if name.lower() not in line.lower()
     ]
     assert not misplaced, f"데모의 단계가 design 11§2의 순서와 어긋난다: {misplaced}"
+
+
+def test_req_803_the_live_load_plan_matches_the_design() -> None:
+    """실물 각본의 부하 값이 설계와 따로 썩지 않는다 (REQ-803)."""
+    assert _design_load_plan() == demo.LOAD_REQUESTS_BY_PHASE
+
+
+def test_req_803_every_signal_phase_has_nonzero_load() -> None:
+    """★ 요청 0회인 p95 구간은 측정이 아니라 빈 창이다 (REQ-803)."""
+    empty = {
+        phase: requests for phase, requests in demo.LOAD_REQUESTS_BY_PHASE.items() if requests <= 0
+    }
+    assert not empty, f"부하가 없는 신호 구간이 있다: {empty} — p95는 트래픽이 있어야 의미가 있다"
+
+
+def test_req_803_the_demo_exposes_the_load_plan(run: demo.DemoRun) -> None:
+    """오프라인 데모 출력이 나중의 실물 배선이 소비할 부하 값을 노출한다."""
+    assert _step(run, "inject")["load_requests_by_phase"] == _design_load_plan()
 
 
 # ── ② 절정: 검증 실패 → 자동 롤백 ─────────────────────────────────────────

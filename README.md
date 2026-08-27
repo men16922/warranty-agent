@@ -56,6 +56,7 @@ Most tools count `executed` and call it success.
 | | |
 |---|---|
 | **What this is, in full** | [`docs/OVERVIEW.md`](docs/OVERVIEW.md) ← diagrams, data flow, status |
+| **Architecture diagram** | [System architecture](docs/OVERVIEW.md#4-아키텍처) ← canonical submission artifact |
 | **What must be true** | [`specs/warranty/requirements.md`](specs/warranty/requirements.md) ← highest authority |
 | **Why this shape** | [`specs/warranty/design.md`](specs/warranty/design.md) |
 | **What to build next** | [`specs/warranty/tasks.md`](specs/warranty/tasks.md) |
