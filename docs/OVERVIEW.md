@@ -188,6 +188,7 @@ ADK       ⭐ **실물 호출 확인**(2026-08-23) — Gemini 3.7 Flash · Verte
 GCP       ⭐ **Cloud Run에서 돈다** — warranty-api + demo-target(리비전 2개) · 실물 왕복 확인
 어댑터    `RunControl`·`SignalSource`·Firestore(계약·원장) 코드 있음. ⛔ 미배선 · 실행자/예산은 아직 없음
 README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
+응답      design 08§3.1 덩어리를 내는 렌더러 있음(`wire.py`). ⛔ 경로가 501이라 아직 안 보인다
 서버      ⭐ **D15 실물 확인**(2026-08-27) — `/livez` 200 공개 · 401×3 · 유효 토큰만 501 · rev 00002-c6q
 ```
 
