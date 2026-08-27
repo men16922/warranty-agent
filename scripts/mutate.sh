@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-223|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-232|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -1050,6 +1050,42 @@ apply() {
             # ⛔ 원장의 규칙이 저장소마다 한 벌씩 생긴다. "승인은 한 번"이 한쪽에서만 참인 날이 온다.
       backup src/warranty/adapters/live_store.py
       perl -0pi -e 's/lambda current: apply_approval\(current, approval\)/lambda current: replace(current, approval=approval)/' src/warranty/adapters/live_store.py ;;
+    M-224) # T5-1 — 판정의 근거(`rule`)를 응답에서 지운다 (REQ-604)
+            # ⛔ 판정은 남지만 **왜 그렇게 판정했는지**가 사라진다. 4분 안에는 신탁으로 보인다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^            "rule": decision\.rule,\n//m' src/warranty/wire.py ;;
+    M-225) # T5-1 — 모델의 판정 근거(`rationale`)를 응답에서 지운다 (REQ-204·604)
+            # ⛔ `decided_by: model`만 남는다 — 모델이 판정했다는 사실은 있고 문장은 없다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^            "rationale": verification\.rationale,\n//m' src/warranty/wire.py ;;
+    M-226) # T5-1 — 되읽은 트래픽 배분을 응답에서 지운다 (REQ-302·604)
+            # ⛔ `performed: true`만 남는다. 그것은 **주장**이고, 사라진 것이 측정이다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^            "verified_traffic": None\n            if rollback\.verified_traffic is None\n            else dict\(rollback\.verified_traffic\),\n//m' src/warranty/wire.py ;;
+    M-227) # T5-1 ★ `improved`를 `executed`의 사본으로 만든다 (REQ-502)
+            # ⛔ 이 프로젝트가 반대하는 바로 그 문장 — *"실행했으니 나아졌다"*가 응답이 된다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^        "improved": entry\.improved,$/        "improved": entry.executed,/m' src/warranty/wire.py ;;
+    M-228) # T5-1 — 돈을 문자열이 아니라 수치로 낸다 (REQ-503·505)
+            # ⛔ JSON의 수치는 double이다. 화면에 뜨는 값이 청구서와 달라지고 자릿수가 사라진다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^    return str\(value\)$/    return float(value)/m' src/warranty/wire.py ;;
+    M-229) # T5-1 — 실측이 있으면 `assumed` 칸에 실측을 낸다 (REQ-505 · I-1)
+            # ⛔ 원장은 안 바뀌는데 **응답만** 추정을 덮는다. 사람이 보는 쪽이 거짓말한다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^        "assumed": _cost\(entry\.assumed\),$/        "assumed": _cost(entry.assumed if entry.measured is None else entry.measured),/m' src/warranty/wire.py ;;
+    M-230) # T5-1 — 빈 창의 값을 `0`으로 낸다 (REQ-205)
+            # ⛔ *"못 읽었다"*가 *"0ms"*가 된다 — 가장 좋은 값처럼 보이는 실패다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^        "value": None if measured\.value is None else _money\(measured\.value\),$/        "value": _money(measured.value or Decimal(0)),/m' src/warranty/wire.py ;;
+    M-231) # T5-1 — 측정에서 관측 포인트 수를 뺀다 (REQ-205)
+            # ⛔ 값 하나만 남으면 그것이 30개 점의 p95인지 한 점인지 구분이 안 된다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^        "points": measured\.points,\n//m' src/warranty/wire.py ;;
+    M-232) # T5-1 — 필수 칸 검사를 끈다 (REQ-604)
+            # ⛔ 칸이 빠져도 응답은 성공한다. 빠진 칸은 심사자에게 *"없는 기능"*으로 보인다.
+      backup src/warranty/wire.py
+      perl -0pi -e 's/^    missing = \[key for key in REQUIRED_KEYS if key not in body\]$/    missing = []/m' src/warranty/wire.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -1082,5 +1118,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213 M-214 M-215 M-216 M-217 M-218 M-219 M-220 M-221 M-222 M-223; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213 M-214 M-215 M-216 M-217 M-218 M-219 M-220 M-221 M-222 M-223 M-224 M-225 M-226 M-227 M-228 M-229 M-230 M-231 M-232; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT
