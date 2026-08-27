@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-213|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-223|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -86,7 +86,7 @@ apply() {
       printf '\n\ndef test_mentions_but_does_not_verify() -> None:\n    """이 테스트는 REQ-101을 언급만 한다. 커버리지가 되면 안 된다."""\n    assert True\n' >> tests/test_domain_ledger.py ;;
     M-06) # G2 — 화해가 assumed를 덮게 한다 (REQ-505)
       backup src/warranty/domain/entry.py
-      perl -0pi -e 's/            measured=measured,/            measured=measured,\n            assumed=measured,/' src/warranty/domain/entry.py ;;
+      perl -0pi -e 's/^        measured=measured,$/        measured=measured,\n        assumed=measured,/m' src/warranty/domain/entry.py ;;
     M-07) # G3 — method↔verifiability 매핑을 깬다 (REQ-504)
       backup src/warranty/domain/attribution.py
       perl -0pi -e 's/Method\.TOKEN_METER: Verifiability\.ASSUMED_ONLY,/Method.TOKEN_METER: Verifiability.RECONCILABLE,/' src/warranty/domain/attribution.py ;;
@@ -312,12 +312,12 @@ apply() {
     M-70) # REQ-506 — 화해가 **멱등이 아니다** (두 번째 청구 행이 첫 번째를 덮는다)
            # ⚠️ `assumed`는 그대로라 G2는 초록이다. 바뀌는 것은 **재실행이 같은 값을 내는가**뿐.
       backup src/warranty/domain/entry.py
-      perl -0pi -e 's/^        if current\.reconcile_state is ReconcileState\.RECONCILED:\n            return current.*\n//m' src/warranty/domain/entry.py ;;
+      perl -0pi -e 's/^    if current\.reconcile_state is ReconcileState\.RECONCILED:\n        return current.*\n//m' src/warranty/domain/entry.py ;;
     M-71) # REQ-506 — **실측의 근거를 안 묻는다** (추정치가 실측 칸에 들어온다)
            # ⚠️ 값은 들어오고 delta도 파생된다. 사라지는 것은 *"이 숫자를 청구서가 말했는가"*뿐이고,
            #    그 뒤로 `assumed`와 `measured`는 같은 계산의 두 벌이 된다 (REQ-503의 구분이 죽는다).
       backup src/warranty/domain/entry.py
-      perl -0pi -e 's/^        if measured\.basis is not Basis\.BILLING_EXPORT:\n            raise LedgerError\(f"measured의 근거가 청구서가 아니다: \{measured\.basis\}"\)\n//m' src/warranty/domain/entry.py ;;
+      perl -0pi -e 's/^    if measured\.basis is not Basis\.BILLING_EXPORT:\n        raise LedgerError\(f"measured의 근거가 청구서가 아니다: \{measured\.basis\}"\)\n//m' src/warranty/domain/entry.py ;;
     M-72) # REQ-509 — 추정이 0인데 **배율을 0으로 낸다** (정의되지 않음이 값이 된다)
            # ⚠️ 예외도 안 나고 차액도 맞다. 거부된 항목(assumed=0)의 배율이 *"0배"*로 읽힐 뿐이다.
       backup src/warranty/domain/cost.py
@@ -325,22 +325,22 @@ apply() {
     M-73) # REQ-509 — 화해가 **차액을 안 남긴다** (실측만 채우고 파생값은 비운다)
            # ⚠️ `measured`는 들어와 있어 화해된 것처럼 보인다. 사라지는 것은 이 프로젝트의 산출물이다.
       backup src/warranty/domain/entry.py
-      perl -0pi -e 's/^            delta=delta_of\(current\.assumed, measured\),\n//m' src/warranty/domain/entry.py ;;
+      perl -0pi -e 's/^        delta=delta_of\(current\.assumed, measured\),\n//m' src/warranty/domain/entry.py ;;
     M-74) # REQ-506 — **기한을 안 본다** (아직 도착할 수 있는 청구서를 두고 포기한다)
            # ⚠️ 상태·사유는 그대로 `unreconciled`+사유다. 사라지는 것은 *"기한 내"* 하나뿐이고,
            #    그 행의 비용은 청구서가 나중에 와도 **영원히 추정으로 남는다.**
       backup src/warranty/domain/entry.py
-      perl -0pi -e 's/^        if at - current\.started_at < timedelta\(days=deadline_days\):\n            raise LedgerError\(\n(.*\n)*?            \)\n//m' src/warranty/domain/entry.py ;;
+      perl -0pi -e 's/^    if at - current\.started_at < timedelta\(days=deadline_days\):\n        raise LedgerError\(\n(.*\n)*?        \)\n//m' src/warranty/domain/entry.py ;;
     M-75) # REQ-506 — 포기는 하는데 **사유를 안 적는다** (결격이 한 칸으로 뭉친다)
       backup src/warranty/domain/entry.py
-      perl -0pi -e 's/^            unreconciled_reason=reason,\n//m' src/warranty/domain/entry.py ;;
+      perl -0pi -e 's/^        unreconciled_reason=reason,\n//m' src/warranty/domain/entry.py ;;
     M-76) # REQ-506 — **이미 화해된 행도 뒤집는다** (실측이 추정으로 돌아간다)
            # ⚠️ `measured`는 남아 있어 값으로는 멀쩡해 보인다. 바뀌는 것은 상태와 사유뿐이다.
       backup src/warranty/domain/entry.py
-      perl -0pi -e 's/^        if current\.reconcile_state is not ReconcileState\.PENDING:\n            return current.*\n//m' src/warranty/domain/entry.py ;;
+      perl -0pi -e 's/^    if current\.reconcile_state is not ReconcileState\.PENDING:\n        return current.*\n//m' src/warranty/domain/entry.py ;;
     M-77) # REQ-506 — **사유 없이도 포기를 받는다** (조용한 `unreconciled`)
       backup src/warranty/domain/entry.py
-      perl -0pi -e 's/^        if not reason\.strip\(\):\n            raise LedgerError\(f"unreconciled에 사유가 없다: \{entry_id\}"\)\n//m' src/warranty/domain/entry.py ;;
+      perl -0pi -e 's/^    if not reason\.strip\(\):\n        raise LedgerError\(f"unreconciled에 사유가 없다: \{current\.entry_id\}"\)\n//m' src/warranty/domain/entry.py ;;
     M-78) # G6⑤ — 문장 단위 검사를 **통째로 지운다** (귀속이 요구사항 단위로 되돌아간다)
            # ⚠️ 나머지 넷(①~④)은 그대로 초록이다. 사라지는 것은 *"약속한 문장마다"*뿐이고,
            #    그 뒤로 셋을 약속하고 하나만 겨냥한 요구사항이 다시 통과한다 (REQ-506의 모양).
@@ -1010,6 +1010,46 @@ apply() {
             # ⛔ `resolve` 단위 테스트는 초록인데 소켓 경로만 항상 401이 되는 배선 단절이다.
       backup src/warranty/server.py
       perl -0pi -e 's/authorization=self\.headers\.get\("Authorization"\),/authorization=None,/' src/warranty/server.py ;;
+    M-214) # T14-1 — 돈을 문자열이 아니라 double로 싣는다
+            # ⛔ 저장은 성공한다. 값이 청구서와 안 맞는 것은 되읽는 날에 보이고, 그때 이유는 안 적혀 있다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/^        return str\(value\)$/        return float(value)/m' src/warranty/adapters/live_store.py ;;
+    M-215) # T14-1 — 돈 자리에 온 수치를 그대로 받아들인다
+            # ⛔ double로 저장된 돈은 이미 값이 바뀐 뒤다. 받아 주면 그 손실이 도메인 안까지 들어온다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/^        if not isinstance\(raw, str\):\n            raise StoreError\(f"Decimal은 문자열로만 복원한다 — \{type\(raw\)\.__name__\}이 왔다"\)\n//m' src/warranty/adapters/live_store.py ;;
+    M-216) # T14-1 — 문서에 없는 필드를 기본값으로 채운다
+            # ⛔ 옛 배포가 쓴 행이 새 필드에 대해 조용히 기본값을 갖고 돌아온다. 마이그레이션이 침묵한다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/^    if missing := expected - given:$/    if False:/m' src/warranty/adapters/live_store.py ;;
+    M-217) # T14-1 — 우리가 모르는 필드를 조용히 버린다
+            # ⛔ 그 문서를 쓴 코드와 읽는 코드가 다른 것을 말하고 있다는 유일한 신호가 사라진다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/^    if extra := given - expected:$/    if False:/m' src/warranty/adapters/live_store.py ;;
+    M-218) # T14-1 — 열거형에 없는 값을 문자열 그대로 복원한다
+            # ⛔ `StrEnum`은 문자열과 같으므로 왕복 테스트는 초록이다. 모르는 상태만 조용히 통과한다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/^            return kind\(raw\)$/            return raw/m' src/warranty/adapters/live_store.py ;;
+    M-219) # T14-1 — 계약 질의에서 `state` 조건을 뺀다 (REQ-105)
+            # ⛔ `retired`된 계약이 한 번은 메모리에 올라온다. 그것을 거르는 줄이 사라지는 날 조용해진다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/^        \(STATE_FIELD, "==", ContractState\.ACTIVE\.value\),\n//m' src/warranty/adapters/live_store.py ;;
+    M-220) # T14-1 — 살아 있는 계약이 둘일 때 첫 번째를 고른다 (REQ-102)
+            # ⛔ *"어느 기준으로 회복을 판정했는가"*의 답이 실행할 때마다 달라진다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/^    if len\(documents\) > 1:$/    if False:/m' src/warranty/adapters/live_store.py ;;
+    M-221) # T14-1 — 수 자리에 온 `True`를 받아들인다
+            # ⛔ 파이썬에서 `True`는 `1`이다. `isinstance`만 물으면 `points=True`인 측정이 통과한다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/ or \(kind is not bool and isinstance\(raw, bool\)\)//' src/warranty/adapters/live_store.py ;;
+    M-222) # T14-1 · G5 — Firestore 클라이언트 생성 입구의 tripwire를 지운다
+            # ⛔ 게이트가 실물 저장소를 만들어도 아무도 모른다. REQ-801은 문장으로만 남는다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/^        live_guard\.note\("live_store\.LiveContractStore\._db"\)\n//m' src/warranty/adapters/live_store.py ;;
+    M-223) # T14-1 ★ 어댑터가 도메인 전이를 안 지나고 필드를 직접 고친다
+            # ⛔ 원장의 규칙이 저장소마다 한 벌씩 생긴다. "승인은 한 번"이 한쪽에서만 참인 날이 온다.
+      backup src/warranty/adapters/live_store.py
+      perl -0pi -e 's/lambda current: apply_approval\(current, approval\)/lambda current: replace(current, approval=approval)/' src/warranty/adapters/live_store.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -1042,5 +1082,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213 M-214 M-215 M-216 M-217 M-218 M-219 M-220 M-221 M-222 M-223; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

@@ -19,7 +19,12 @@ cloud = [
     "google-cloud-run>=0.10",
     # Cloud Run 지연을 같은 필터·aligner·reducer로 다시 읽는다(REQ-201·202).
     "google-cloud-monitoring>=2.0",
+    # 계약·원장의 실물 저장소(REQ-102·501 · adapters/live_store.py).
     "google-cloud-firestore>=2.16",
+    # ⚠️ **전이 의존이 아니라 직접 임포트다.** `create()`가 이미 있는 문서에 대해 내는
+    #    `AlreadyExists`를 이름으로 잡는다 — 1회=1행을 Firestore가 집행하게 하는 자리다
+    #    (REQ-501). 선언 없이 쓰면 firestore가 그것을 안 끌고 오는 날 조용히 깨진다.
+    "google-api-core>=2.19",
     "google-cloud-bigquery>=3.20",
     "google-genai>=1.0",
 ]

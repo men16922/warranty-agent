@@ -31,7 +31,9 @@
   - [x] D15 실물: 비밀·`secretAccessor` IAM·재배포 뒤 `/livez` 200 공개, 무헤더/틀린 토큰/틀린 스킴
     전부 401, 유효 토큰만 501을 실물에서 확인했다 — `docs/evidence/d15-auth-matrix-2026-08-27.log`.
   - 이미 확인: 사람이 한 실물 왕복과 Monitoring p95 `674.2 → 988.6 → 674.2 ms`.
-  - 남음: `RunControl` + `SignalSource` + Firestore를 ADK 도구 경로에 배선하고 실물 증거를 남긴다.
+  - [x] 계약·원장의 Firestore 어댑터(T14-1): 문서 매핑·질의·전이가 오프라인에서 검증됐다.
+  - 남음: `RunControl`·`SignalSource`·Firestore를 ADK 도구 경로에 배선하고 실물 증거를 남긴다.
+    ⛔ 아직 없는 것: 실물 `ActionExecutor`·`BudgetStore`와 이들을 조립하는 합성 지점.
 - [~] **T2-1** ADK + Gemini 실물 호출은 성공했다. 라이브 테스트와 에이전트 왕복으로
   수용 기준을 닫은 뒤 REQ 상태를 재판정한다. `Implements: REQ-601` · `Design: 06§2–3`
 
@@ -84,6 +86,7 @@
 | T12-1~10 | 서버·모델 판정·ADK 배선·배포 검사·live 격리 | REQ-303, REQ-601, REQ-602, REQ-604, REQ-801, REQ-802 |
 | T13-1~5 | Monitoring 어댑터·40/40/40 부하·다이어그램 회수 | REQ-201, REQ-202, REQ-803, REQ-901 |
 | T13-6 | 문서 예산 회수: log≤120 · open plan≤200 | REQ-802 |
+| T14-1 | Firestore 문서 매핑·원장 전이 단일화·census 이름 한정 | REQ-102, REQ-501, REQ-503, REQ-505, REQ-801 |
 
 ## 가드 현황
 
@@ -99,7 +102,7 @@
 | G8 `improved` 유도 | T1-5 | M-13 |
 | G9 검증불가는 AUTO 아님 | T1-6 | M-14 |
 
-**게이트**: `make check` → **330 passed** (2026-08-27 로컬 macOS·py3.13)
+**게이트**: `make check` → **356 passed** (2026-08-27 로컬 macOS·py3.13)
 
 숫자는 여기 한 곳에만 둔다. 변이 문서의 기준선 숫자는 해당 증거가 어느 스위트를 봤는지
 나타내는 별도 사실이며, T0-8이 둘의 불일치를 집행한다.

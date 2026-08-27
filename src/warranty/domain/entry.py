@@ -146,6 +146,93 @@ class LedgerEntry:
         return self.rollback is not None and not self.rollback.performed
 
 
+# ── 전이 — **저장소가 아니라 여기가 불변식의 자리다** ────────────────────────────
+#
+# ⛔ 저장소가 둘이 되는 순간(인메모리 · Firestore) 이 규칙들이 **두 벌**이 된다.
+#    두 벌이 되면 한쪽만 고쳐지는 날이 오고, 그날 원장은 **저장소에 따라 다른 것을
+#    허용한다** — `assumed` 불변도, "승인은 한 번"도 그렇게 조용히 무너진다.
+#    그래서 저장소는 **읽고 쓰는 일만** 하고, 무엇이 허용되는지는 아래 함수들이 안다
+#    (design/08-interfaces.md §2 · docs/PRINCIPLES.md #10).
+#
+# ⚠️ "없는 항목이다"는 여기 없다 — 그것은 불변식이 아니라 **조회 실패**이고,
+#    무엇을 조회했는지는 저장소만 안다.
+
+
+def apply_reconcile(current: LedgerEntry, measured: CostFact) -> LedgerEntry:
+    """`measured`를 채우고 `delta`를 파생한다. **`assumed`는 건드리지 않는다** (I-1)."""
+    if measured.basis is not Basis.BILLING_EXPORT:
+        raise LedgerError(f"measured의 근거가 청구서가 아니다: {measured.basis}")
+    if current.reconcile_state is ReconcileState.RECONCILED:
+        return current  # REQ-403 멱등 — reconciled_at도 갱신하지 않는다
+    return replace(
+        current,
+        measured=measured,
+        delta=delta_of(current.assumed, measured),
+        reconcile_state=ReconcileState.RECONCILED,
+    )
+
+
+def apply_give_up_reconcile(
+    current: LedgerEntry, *, at: datetime, deadline_days: int, reason: str
+) -> LedgerEntry:
+    """기한이 지나도록 청구 행을 못 맞춘 항목을 **사유와 함께** `unreconciled`로 닫는다.
+
+    Spec: specs/warranty/design/05-accountability-ledger.md §4 (REQ-506)
+
+    ⚠️ **기한이 지났는지를 여기서 묻는다.** 호출자가 판단하게 두면 *"기한 내"*는
+    약속이 아니라 관례가 되고, 아직 도착할 수 있는 청구서를 기다리다 말고
+    `unreconciled`로 닫아 버린 행이 생긴다 — 그 행의 비용은 영원히 추정으로 남는다.
+    ⚠️ **사유가 없으면 안 받는다** (`Attribution(none)`과 같은 규칙). 사유 없는
+    `unreconciled`는 *"라벨이 안 붙어 있었다"*와 *"내보내기가 아직 안 왔다"*를
+    같은 칸에 넣고, 그 둘은 고치는 방법이 다르다.
+    ⚠️ 이미 화해된 행은 **안 뒤집는다** — 청구서가 말한 값이 기한보다 세다.
+    """
+    if not reason.strip():
+        raise LedgerError(f"unreconciled에 사유가 없다: {current.entry_id}")
+    if current.reconcile_state is not ReconcileState.PENDING:
+        return current  # 멱등 — 이미 화해됐거나 이미 포기한 행이다 (REQ-506)
+    if at - current.started_at < timedelta(days=deadline_days):
+        raise LedgerError(
+            f"기한이 아직 안 지났다: {current.entry_id} "
+            f"({current.started_at.isoformat()} + {deadline_days}일 > {at.isoformat()})"
+        )
+    return replace(
+        current,
+        reconcile_state=ReconcileState.UNRECONCILED,
+        unreconciled_reason=reason,
+    )
+
+
+def apply_approval(current: LedgerEntry, approval: Approval) -> LedgerEntry:
+    """승인을 **기록한다.** 만질 수 있는 것은 `approval`뿐이다 (REQ-404).
+
+    ⚠️ 승인은 `awaiting_approval`인 항목에만, **한 번만** 붙는다. 상태를 안 보면
+    이미 거부된(`denied`) 항목이나 이미 실행된 항목에 승인이 사후에 붙고,
+    원장은 *"승인받고 실행했다"*로 읽힌다 — 순서가 반대였는데도.
+    """
+    if current.status is not Status.AWAITING_APPROVAL:
+        raise LedgerError(f"승인 대기 중이 아닌 항목이다: {current.entry_id} ({current.status})")
+    if current.approval is not None:
+        raise LedgerError(f"이미 승인된 항목이다: {current.entry_id}")
+    return replace(current, approval=approval)
+
+
+def apply_completion(
+    current: LedgerEntry,
+    *,
+    status: Status,
+    verification: Verification | None = None,
+    rollback: Rollback | None = None,
+) -> LedgerEntry:
+    """조치의 결과를 채운다.
+
+    ⚠️ 만질 수 있는 것은 `status`·`verification`·`rollback`뿐이다.
+    `assumed`·`decision`은 손대지 못한다 — 범용 쓰기가 있으면 불변식이 관례가 되고,
+    관례는 언젠가 깨진다 (design/08-interfaces.md §2).
+    """
+    return replace(current, status=status, verification=verification, rollback=rollback)
+
+
 class InMemoryLedger:
     """원장 저장소.
 
@@ -167,75 +254,19 @@ class InMemoryLedger:
         return self._rows.get(entry_id)
 
     def reconcile(self, entry_id: str, measured: CostFact) -> LedgerEntry:
-        """`measured`를 채우고 `delta`를 파생한다. **`assumed`는 건드리지 않는다** (I-1)."""
-        current = self._rows.get(entry_id)
-        if current is None:
-            raise LedgerError(f"없는 항목이다: {entry_id}")
-        if measured.basis is not Basis.BILLING_EXPORT:
-            raise LedgerError(f"measured의 근거가 청구서가 아니다: {measured.basis}")
-        if current.reconcile_state is ReconcileState.RECONCILED:
-            return current  # REQ-403 멱등 — reconciled_at도 갱신하지 않는다
-        updated = replace(
-            current,
-            measured=measured,
-            delta=delta_of(current.assumed, measured),
-            reconcile_state=ReconcileState.RECONCILED,
-        )
-        self._rows[entry_id] = updated
-        return updated
+        return self._store(apply_reconcile(self._require(entry_id), measured))
 
     def give_up_reconcile(
         self, entry_id: str, *, at: datetime, deadline_days: int, reason: str
     ) -> LedgerEntry:
-        """기한이 지나도록 청구 행을 못 맞춘 항목을 **사유와 함께** `unreconciled`로 닫는다.
-
-        Spec: specs/warranty/design/05-accountability-ledger.md §4 (REQ-506)
-
-        ⚠️ **기한이 지났는지를 여기서 묻는다.** 호출자가 판단하게 두면 *"기한 내"*는
-        약속이 아니라 관례가 되고, 아직 도착할 수 있는 청구서를 기다리다 말고
-        `unreconciled`로 닫아 버린 행이 생긴다 — 그 행의 비용은 영원히 추정으로 남는다.
-        ⚠️ **사유가 없으면 안 받는다** (`Attribution(none)`과 같은 규칙). 사유 없는
-        `unreconciled`는 *"라벨이 안 붙어 있었다"*와 *"내보내기가 아직 안 왔다"*를
-        같은 칸에 넣고, 그 둘은 고치는 방법이 다르다.
-        ⚠️ 이미 화해된 행은 **안 뒤집는다** — 청구서가 말한 값이 기한보다 세다.
-        """
-        current = self._rows.get(entry_id)
-        if current is None:
-            raise LedgerError(f"없는 항목이다: {entry_id}")
-        if not reason.strip():
-            raise LedgerError(f"unreconciled에 사유가 없다: {entry_id}")
-        if current.reconcile_state is not ReconcileState.PENDING:
-            return current  # 멱등 — 이미 화해됐거나 이미 포기한 행이다 (REQ-506)
-        if at - current.started_at < timedelta(days=deadline_days):
-            raise LedgerError(
-                f"기한이 아직 안 지났다: {entry_id} "
-                f"({current.started_at.isoformat()} + {deadline_days}일 > {at.isoformat()})"
+        return self._store(
+            apply_give_up_reconcile(
+                self._require(entry_id), at=at, deadline_days=deadline_days, reason=reason
             )
-        updated = replace(
-            current,
-            reconcile_state=ReconcileState.UNRECONCILED,
-            unreconciled_reason=reason,
         )
-        self._rows[entry_id] = updated
-        return updated
 
     def approve(self, entry_id: str, approval: Approval) -> LedgerEntry:
-        """승인을 **기록한다.** 만질 수 있는 것은 `approval`뿐이다 (REQ-404).
-
-        ⚠️ 승인은 `awaiting_approval`인 항목에만, **한 번만** 붙는다. 상태를 안 보면
-        이미 거부된(`denied`) 항목이나 이미 실행된 항목에 승인이 사후에 붙고,
-        원장은 *"승인받고 실행했다"*로 읽힌다 — 순서가 반대였는데도.
-        """
-        current = self._rows.get(entry_id)
-        if current is None:
-            raise LedgerError(f"없는 항목이다: {entry_id}")
-        if current.status is not Status.AWAITING_APPROVAL:
-            raise LedgerError(f"승인 대기 중이 아닌 항목이다: {entry_id} ({current.status})")
-        if current.approval is not None:
-            raise LedgerError(f"이미 승인된 항목이다: {entry_id}")
-        updated = replace(current, approval=approval)
-        self._rows[entry_id] = updated
-        return updated
+        return self._store(apply_approval(self._require(entry_id), approval))
 
     def complete(
         self,
@@ -245,18 +276,25 @@ class InMemoryLedger:
         verification: Verification | None = None,
         rollback: Rollback | None = None,
     ) -> LedgerEntry:
-        """조치의 결과를 채운다.
+        return self._store(
+            apply_completion(
+                self._require(entry_id),
+                status=status,
+                verification=verification,
+                rollback=rollback,
+            )
+        )
 
-        ⚠️ 만질 수 있는 것은 `status`·`verification`·`rollback`뿐이다.
-        `assumed`·`decision`은 손대지 못한다 — 범용 쓰기가 있으면 불변식이 관례가 되고,
-        관례는 언젠가 깨진다 (design/08-interfaces.md §2).
-        """
+    def _require(self, entry_id: str) -> LedgerEntry:
+        """⚠️ 조회 실패는 불변식이 아니라 **저장소의 사실**이라 여기 남는다."""
         current = self._rows.get(entry_id)
         if current is None:
             raise LedgerError(f"없는 항목이다: {entry_id}")
-        updated = replace(current, status=status, verification=verification, rollback=rollback)
-        self._rows[entry_id] = updated
-        return updated
+        return current
+
+    def _store(self, entry: LedgerEntry) -> LedgerEntry:
+        self._rows[entry.entry_id] = entry
+        return entry
 
     def all_entries(self) -> tuple[LedgerEntry, ...]:
         return tuple(self._rows.values())

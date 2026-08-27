@@ -132,11 +132,21 @@ def census(source: str, where: str) -> tuple[LiveSite, ...]:
        클라우드 이름을 한 글자도 안 적기 때문이다.
     """
     tree = ast.parse(source)
-    funcs: dict[str, FuncDef] = {
-        node.name: node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
-    }
+    funcs: dict[str, FuncDef] = {}
+
+    def collect(body: list[ast.stmt], prefix: str) -> None:
+        """⛔ **이름을 클래스까지 붙여 센다.** 단순 이름으로 담으면 같은 이름의 메서드가
+        서로를 덮는다 — `LiveContractStore._db`와 `LiveLedger._db`가 있는 모듈에서
+        앞의 tripwire를 지워도 census는 **뒤의 것을 보고 초록**이다. 실제로 그랬다
+        (2026-08-27 · M-222가 처음엔 안 죽었다)."""
+        for node in body:
+            if isinstance(node, ast.ClassDef):
+                collect(node.body, f"{prefix}{node.name}.")
+            elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                funcs[f"{prefix}{node.name}"] = node
+                collect(node.body, f"{prefix}{node.name}.")
+
+    collect(tree.body, "")
     why: dict[str, str] = {}
     for name, func in funcs.items():
         imported = _deferred_cloud_import(func)
@@ -146,10 +156,14 @@ def census(source: str, where: str) -> tuple[LiveSite, ...]:
     growing = True
     while growing:
         growing = False
+        # ⚠️ 호출은 단순 이름으로 보인다(`self._db()` → `_db`). 어느 클래스의 것인지
+        #    모르므로 **하나라도 생성 경로면 도달한 것으로 센다** — 가드가 틀리는
+        #    방향은 넓은 쪽이어야 한다.
+        reachable = {name.rsplit(".", 1)[-1] for name in why}
         for name, func in funcs.items():
             if name in why:
                 continue
-            reached = sorted(_called_names(func) & set(why))
+            reached = sorted(_called_names(func) & reachable)
             if reached:
                 why[name] = f"생성 경로를 부른다: {reached[0]}"
                 growing = True

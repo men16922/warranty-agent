@@ -186,7 +186,7 @@ flowchart LR
 루프      조치→검증→롤백 **전부 fake 위에서 배선·검증됨**. 남은 건 어댑터뿐
 ADK       ⭐ **실물 호출 확인**(2026-08-23) — Gemini 3.7 Flash · Vertex · 도구 호출 포함
 GCP       ⭐ **Cloud Run에서 돈다** — warranty-api + demo-target(리비전 2개) · 실물 왕복 확인
-어댑터    `RunControl` + `SignalSource` 코드 있음. ⛔ 미배포·미배선
+어댑터    `RunControl`·`SignalSource`·Firestore(계약·원장) 코드 있음. ⛔ 미배선 · 실행자/예산은 아직 없음
 README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
 서버      ⭐ **D15 실물 확인**(2026-08-27) — `/livez` 200 공개 · 401×3 · 유효 토큰만 501 · rev 00002-c6q
 ```
