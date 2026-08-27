@@ -16,8 +16,8 @@
 ## 일정과 현재 초점
 
 - 제출: **2026-09-01 09:00 KST** · teardown: **09-02** · Free Trial 만료: **09-06**.
-- **다음**: T2-4 — Secret Manager 비밀·IAM을 준비해 재배포하고 D15 인증 행렬을 실물 검증한다.
-- 현재 실물: `warranty-api` + `demo-target`(리비전 2개). D15 코드는 로컬 완료, 실물은 이전 리비전.
+- **다음**: T2-4 — `RunControl`·`SignalSource`·Firestore를 ADK 도구 경로에 배선해 실물 왕복을 원장까지 잇는다.
+- 현재 실물: `warranty-api` 리비전 `00002-c6q`(이미지 `a7c660d` · D15 포함) + `demo-target`(리비전 2개).
 - 오프라인 기준선: 이 파일 하단의 `make check` 한 곳만 권위로 둔다.
 
 ## 열린 작업 — 우선순위순
@@ -28,7 +28,8 @@
   롤백 후 재측정→원장 기록까지 수행한다. `Implements: REQ-201, REQ-202, REQ-301,
   REQ-302, REQ-303, REQ-304, REQ-501, REQ-502, REQ-601, REQ-604, REQ-901` · `Design: 10§7, 11`
   - [x] D15 로컬 경계: 공개 invoker + Secret Manager bearer, 503/401/유효→501 계약과 변이 검증.
-  - [ ] D15 실물: 비밀 생성·`secretAccessor` IAM·재배포 뒤 `/livez` 공개와 인증 행렬을 확인한다.
+  - [x] D15 실물: 비밀·`secretAccessor` IAM·재배포 뒤 `/livez` 200 공개, 무헤더/틀린 토큰/틀린 스킴
+    전부 401, 유효 토큰만 501을 실물에서 확인했다 — `docs/evidence/d15-auth-matrix-2026-08-27.log`.
   - 이미 확인: 사람이 한 실물 왕복과 Monitoring p95 `674.2 → 988.6 → 674.2 ms`.
   - 남음: `RunControl` + `SignalSource` + Firestore를 ADK 도구 경로에 배선하고 실물 증거를 남긴다.
 - [~] **T2-1** ADK + Gemini 실물 호출은 성공했다. 라이브 테스트와 에이전트 왕복으로

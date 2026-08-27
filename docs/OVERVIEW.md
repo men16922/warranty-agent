@@ -1,9 +1,9 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = Secret Manager 비밀·IAM을 준비해 재배포하고 D15 인증 행렬을 실물 검증한다.**
+> ▶ **NEXT SESSION: 첫 행동 = `RunControl`·`SignalSource`·Firestore를 ADK 도구 경로에 배선해 `/agent:chat`이 실물 왕복을 돌게 한다.**
 > ✅ D15 로컬 경계까지 끝났다 — bearer 인증·공개 invoker+비밀 바인딩·M-206~M-213,
 > 전체 213종 red를 확인했다(`make check` 330 passed).
-> ⛔ **비밀 생성·IAM·재배포·에이전트 배선은 아직 안 했다.** 현재 실물은 이전 리비전이다.
+> ⛔ **에이전트 도구 배선은 아직 안 했다.** 유효 토큰으로도 `/agent:chat`은 정책상 `501`이다.
 > ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) ·
 > `https://demo-target-450305106907.us-central1.run.app` (리비전 2개).
 > ⚠️ 남은 `[auto]`와 `.env`의 부트스트랩 `WR_PROJECT_ID`는
@@ -188,7 +188,7 @@ ADK       ⭐ **실물 호출 확인**(2026-08-23) — Gemini 3.7 Flash · Verte
 GCP       ⭐ **Cloud Run에서 돈다** — warranty-api + demo-target(리비전 2개) · 실물 왕복 확인
 어댑터    `RunControl` + `SignalSource` 코드 있음. ⛔ 미배포·미배선
 README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
-서버      `/livez` 공개 · `/agent:chat` bearer 경계는 로컬 완료. ⛔ 실물은 아직 이전 리비전
+서버      ⭐ **D15 실물 확인**(2026-08-27) — `/livez` 200 공개 · 401×3 · 유효 토큰만 501 · rev 00002-c6q
 ```
 
 ⚠️ **여기에 숫자를 세어 적지 않는다**(T0-6의 교훈) — 실제로 썩어 있었다: 이 상자가 말하던
@@ -201,7 +201,7 @@ README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난�
 
 | | 왜 | 잠그는 것 |
 |---|---|---|
-| **D15 실물 검증** | 로컬 경계 완료 · 비밀 생성/IAM/재배포 미수행 | 실물 에이전트 배선 |
+| **에이전트 도구 배선** | `RunControl`·`SignalSource`·Firestore가 ADK 도구 경로에 없다 | `/agent:chat` 실물 왕복 |
 | BQ 결제 내보내기 *(선택)* | 콘솔 수동 · 하루 지연 | REQ-506·509만 |
 
 ### ✅ 중단 기준 — **통과**
