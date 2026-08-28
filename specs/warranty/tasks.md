@@ -45,7 +45,10 @@
   리비전 `00003-z9m`이 트래픽 100%이고 프로덕션 `/agent:chat`이 유효 토큰에 **200**을 낸다
   (무헤더·틀린 토큰은 401 유지). 그 요청 하나가 Firestore 원장에 model_call 두 행을 남겼다 —
   `docs/evidence/live-agent-chat-2026-08-28.log`.
-  ⛔ `POST /actions/{action_id}:remediate` 직접 경로는 아직 501이다.
+  ⛔ `POST /actions/{action_id}:remediate`는 아직 501이고, **미구현이 아니라 결정 대기다.**
+  렌더러와 실물 경로는 이미 있다. 남은 것은 *"공개 URL에 과금·변경 엔드포인트를 노출할
+  것인가"*이고, 지금 설계(08§3.A)는 인증을 `/agent:chat` 하나에만 둔다. 열려면 그 경계를
+  같이 넓혀야 한다 — 코드 한 줄이 아니라 **설계 변경**이라 여기서 혼자 정하지 않는다.
   `Implements: REQ-604` · `Design: 08§3.1`
 - [x] **T8-1** demo-target `/work`에 부하 1140건을 넣어 120초 창을 채웠고, 프로덕션 `inspect`가
   p95 `674.17 ms` · 관측점 1을 냈다(08-28에는 점 0 · `null`이었다).

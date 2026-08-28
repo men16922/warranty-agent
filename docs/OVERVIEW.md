@@ -1,12 +1,17 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = 부하를 켠 채로 4분 영상을 녹화한다(T8-3).**
-> ✅ 커밋 `dbb6f74`가 리비전 `warranty-api-00003-z9m`으로 배포됐고, **인증된 `/agent:chat`이
-> 프로덕션에서 200을 냈다** — 그 한 요청이 Firestore 원장에 model_call 두 행을 남겼다.
+> ▶ **NEXT SESSION: 첫 행동 = `make deploy`로 Day-1을 실물에 올린 뒤, 부하를 켠 채로
+> 4분 영상을 녹화한다(T8-3).**
+> ⛔ **배포된 리비전 `00003-z9m`은 `dbb6f74`다 — Day-1(T3-1)이 안 들어 있다.** 로컬에서는
+> 프로비저닝이 실물 서비스와 계약을 냈지만, 공개 URL의 에이전트는 아직 `not_implemented`를
+> 답한다. 영상에서 Day-1 비트를 보이려면 **재배포가 먼저다.**
+> ✅ 인증된 `/agent:chat`은 프로덕션에서 `200`이고, 그 한 요청이 원장에 model_call 두 행을 남겼다.
 > ⚠️ **신호는 트래픽이 흐르는 동안에만 존재한다.** 부하 없이는 점 0·`null`,
 > 부하 아래에서는 p95 `674.17 ms`다 — scale-to-zero의 대가이고 REQ-805를 지키는 값이다.
 > ⇒ **촬영은 부하를 켜 둔 채로 한다.**
-> ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) · `https://demo-target-450305106907.us-central1.run.app` (리비전 2개).
+> ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) ·
+> `https://demo-target-povpqj6m5a-uc.a.run.app` (리비전 2개) ·
+> `https://day1-warranty-demo-povpqj6m5a-uc.a.run.app` (T3-1이 만든 것 · IAM 비어 있음).
 > ⚠️ 남은 `[auto]`와 `.env`의 부트스트랩 `WR_PROJECT_ID`는
 > [`tasks.md`](../specs/warranty/tasks.md)가 권위다 — **여기서 세지 않는다.**
 
@@ -198,6 +203,7 @@ GCP       ⭐ Firestore Native 계약·원장·예산 + Monitoring p95 + Cloud R
 README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
 응답      실물 ADK 최종 응답에 판정·검증·롤백 근거 노출. 직접 `/actions/*` 경로는 아직 501
 서버      ⭐ 배포 `00003-z9m`(이미지 `dbb6f74`)이 트래픽 100%. 인증된 `/agent:chat` 프로덕션 200
+미배포    ⛔ Day-1(T3-1)은 로컬 실물까지만이다 — 공개 URL의 `provision`은 아직 스텁이다
 ```
 
 ⚠️ **여기에 숫자를 세어 적지 않는다**(T0-6의 교훈) — 실제로 썩어 있었다: 이 상자가 말하던
