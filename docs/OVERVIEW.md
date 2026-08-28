@@ -2,13 +2,11 @@
 
 > ▶ **NEXT SESSION: 첫 행동 = `make deploy`로 Day-1을 실물에 올린 뒤, 부하를 켠 채로
 > 4분 영상을 녹화한다(T8-3).**
-> ⛔ **배포된 리비전 `00003-z9m`은 `dbb6f74`다 — Day-1(T3-1)이 안 들어 있다.** 로컬에서는
-> 프로비저닝이 실물 서비스와 계약을 냈지만, 공개 URL의 에이전트는 아직 `not_implemented`를
-> 답한다. 영상에서 Day-1 비트를 보이려면 **재배포가 먼저다.**
-> ✅ 인증된 `/agent:chat`은 프로덕션에서 `200`이고, 그 한 요청이 원장에 model_call 두 행을 남겼다.
-> ⚠️ **신호는 트래픽이 흐르는 동안에만 존재한다.** 부하 없이는 점 0·`null`,
-> 부하 아래에서는 p95 `674.17 ms`다 — scale-to-zero의 대가이고 REQ-805를 지키는 값이다.
-> ⇒ **촬영은 부하를 켜 둔 채로 한다.**
+> ⛔ **배포된 `00003-z9m`에는 Day-1(T3-1)이 없다.** 로컬 실물은 계약까지 냈지만 공개 URL의
+> `provision`은 아직 스텁이다 — 영상의 Day-1 비트를 보이려면 **재배포가 먼저다.**
+> ✅ 인증된 `/agent:chat`은 프로덕션 `200`이고, 그 한 요청이 원장에 model_call 두 행을 남겼다.
+> ⚠️ **신호는 트래픽이 흐르는 동안에만 존재한다**(부하 없이는 점 0·`null`, 아래에서는 p95
+> `674.17 ms`) — scale-to-zero의 대가다. ⇒ **촬영은 부하를 켠 채로 한다.**
 > ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) ·
 > `https://demo-target-povpqj6m5a-uc.a.run.app` (리비전 2개) ·
 > `https://day1-warranty-demo-povpqj6m5a-uc.a.run.app` (T3-1이 만든 것 · IAM 비어 있음).
@@ -140,21 +138,15 @@ flowchart TD
 
 ## 7. 헤드라인 숫자
 
-⛔ **이 칸들은 예시다 — 측정치가 아니다.** 실제 수는 원장이 소유하고, `make report`가 센다.
-지금 원장에 있는 조치는 **둘**이다. 논지는 크기가 아니라 **모양**이다.
-
 ```
-executed          ██     실행했다
-improved          ██     ★ 나아졌다 — executed와 다른 칸이다
-rolled back       ██     되돌렸다
-escalated         ██
-unverifiable      ██     ★ 정직성 칸 — 확인할 수 없었다
-model decided     ██     애매해서 모델이 판정한 건수
-wasted            $··    ★ 회복 실패 조치가 쓴 비용
+executed · improved · rolled_back · escalated · unverifiable · model_decided · wasted
 ```
 
 대부분의 도구는 **`executed`만 세고 그것을 성공이라 부른다.** 이 표에 `improved`가 따로
-있다는 것 하나가 논지다 — 그 칸이 `executed`보다 작을 수 있다는 것을 인정하는 도구가 드물다.
+있다는 것 하나가 논지다 — 그 칸이 `executed`보다 작을 수 있다고 인정하는 도구는 드물다.
+
+⛔ **여기에 수를 적지 않는다.** 실제 값은 원장이 소유하고 `make report`가 센다. 예전에 이
+자리에 `executed 41 · improved 23`이 있었는데 **어디서도 측정되지 않은 수**였다(T8-2).
 
 ## 8. 기술 스택 (대회 필수 요건)
 
@@ -191,8 +183,7 @@ flowchart LR
 ```
 게이트    `make check` — 통과 수는 tasks.md 하단 한 곳에만 적는다
 요구사항  44종 — 상태 분포는 `make trace`가 센다 (사람이 세어 적지 않는다)
-추적성    ⭐ TODO 7 → 3 · VERIFIED 41. 남은 셋은 진짜 미구현이다(T3-1·선택 범위 둘)
-제출 요건  ⭐ REQ-602·901·902가 겨냥·변이를 얻었다 — **못 묻는 절반은 안 주장한다**
+추적성    ⭐ 남은 TODO는 선택 범위(WIF·테넌트 SA) 둘뿐이다. 못 묻는 절반은 안 주장한다
 가드      G1~G9 변이 확인 → tasks.md「가드 현황」
 변이      선언한 것 전부 red 확인 · 복구 후 초록 · 잔여 0 → docs/evidence/mutations.md
 Day-1     ⭐ 프로비저닝이 계약을 함께 냈다 — 실물 서비스 + Firestore 계약 + Day-2 인계
