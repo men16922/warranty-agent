@@ -1,9 +1,10 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = 변경분을 명시적으로 커밋한 뒤 `warranty-api`를 배포하고 인증된 `/agent:chat` 실물 호출을 확인한다.**
-> ✅ ADK·Gemini→Monitoring→Cloud Run→Firestore 실물 왕복 완료 — AUTO·미회복·원자적 롤백,
-> M-01~M-246 전부 red와 `make check` 392 passed를 확인했다.
-> ⛔ **현재 배포 리비전은 이전 코드다.** 로컬 실물 배선은 끝났지만 공개 URL은 아직 유효 토큰에 501이다.
+> ▶ **NEXT SESSION: 첫 행동 = demo-target에 부하를 실어 p95 표본을 만든 뒤 4분 영상을 녹화한다(T8-3).**
+> ✅ 커밋 `dbb6f74`가 리비전 `warranty-api-00003-z9m`으로 배포됐고, **인증된 `/agent:chat`이
+> 프로덕션에서 200을 냈다** — 그 한 요청이 Firestore 원장에 model_call 두 행을 남겼다.
+> ⛔ **신호가 비어 있다.** demo-target에 트래픽이 없어 p95 창의 표본이 0이다 —
+> 에이전트는 "건강하다"가 아니라 **"지금은 읽을 수 없다"**를 답했고 그게 계약대로다(REQ-205).
 > ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) · `https://demo-target-450305106907.us-central1.run.app` (리비전 2개).
 > ⚠️ 남은 `[auto]`와 `.env`의 부트스트랩 `WR_PROJECT_ID`는
 > [`tasks.md`](../specs/warranty/tasks.md)가 권위다 — **여기서 세지 않는다.**
@@ -188,20 +189,21 @@ GCP       ⭐ Firestore Native 계약·원장·예산 + Monitoring p95 + Cloud R
 어댑터    `RunControl`·`SignalSource`·Firestore·실행자·예산을 `runtime.py` 한 곳에서 합성
 README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
 응답      실물 ADK 최종 응답에 판정·검증·롤백 근거 노출. 직접 `/actions/*` 경로는 아직 501
-서버      현재 배포 `00002-c6q`는 D15만 포함. 새 `/agent:chat` 배선은 다음 커밋·배포 대상
+서버      ⭐ 배포 `00003-z9m`(이미지 `dbb6f74`)이 트래픽 100%. 인증된 `/agent:chat` 프로덕션 200
 ```
 
 ⚠️ **여기에 숫자를 세어 적지 않는다**(T0-6의 교훈) — 실제로 썩어 있었다: 이 상자가 말하던
 `120 passed`·`VERIFIED 18`·`M-01~M-32`·`커밋 6개`는 **넷 다 틀렸다.** ⇒ 세는 자리는 하나다.
 
-**다음**: **ADK usage 계량 → 명시적 커밋 → 재배포 → 인증된 `/agent:chat` 프로덕션 왕복.**
+**다음**: **demo-target 부하로 신호 만들기 → 4분 영상 → 제출(09-01) → teardown(09-02).**
 [`tasks.md`](../specs/warranty/tasks.md)가 권위다.
 
 ### 막혀 있는 것
 
 | | 왜 | 잠그는 것 |
 |---|---|---|
-| **새 리비전 배포** | 배포 태그가 커밋 SHA라 미커밋 코드를 올릴 수 없다 | 프로덕션 `/agent:chat` 왕복 |
+| **읽을 수 있는 신호** | demo-target에 트래픽이 없어 p95 표본이 0이다 | 영상에서 보일 회복 서사(T8-3) |
+| REQ-602 상태 | `Verifies: REQ-602`를 단 테스트가 없어 게이트가 `TODO`를 강제한다 | 대회 필수 요건의 상태 칸 |
 | BQ 결제 내보내기 *(선택)* | 콘솔 수동 · 하루 지연 | REQ-506·509만 |
 
 ### ✅ 중단 기준 — **통과**

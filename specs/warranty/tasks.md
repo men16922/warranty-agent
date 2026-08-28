@@ -16,8 +16,8 @@
 ## 일정과 현재 초점
 
 - 제출: **2026-09-01 09:00 KST** · teardown: **09-02** · Free Trial 만료: **09-06**.
-- **다음**: 변경분을 명시적으로 커밋한 뒤 `warranty-api`를 배포해 인증된 `/agent:chat` 실물 호출을 확인한다.
-- 현재 실물: `warranty-api` 리비전 `00002-c6q`(이미지 `a7c660d` · D15 포함) + `demo-target`(리비전 2개).
+- **다음**: demo-target에 부하를 실어 p95 표본을 만든 뒤 4분 영상을 녹화한다(T8-3).
+- 현재 실물: `warranty-api` 리비전 `00003-z9m`(이미지 `dbb6f74` · `/agent:chat` 실물) + `demo-target`(리비전 2개).
 - 오프라인 기준선: 이 파일 하단의 `make check` 한 곳만 권위로 둔다.
 
 ## 열린 작업 — 우선순위순
@@ -42,8 +42,16 @@
 ### P1 — 제출 가능한 데모
 
 - [~] **T5-1** 응답 렌더러와 인증된 `/agent:chat` 콜백 경로는 끝났다(`wire.py` · M-224~M-243).
-  ⛔ `POST /actions/{action_id}:remediate` 직접 경로와 새 Cloud Run 리비전 배포는 남았다.
+  리비전 `00003-z9m`이 트래픽 100%이고 프로덕션 `/agent:chat`이 유효 토큰에 **200**을 낸다
+  (무헤더·틀린 토큰은 401 유지). 그 요청 하나가 Firestore 원장에 model_call 두 행을 남겼다 —
+  `docs/evidence/live-agent-chat-2026-08-28.log`.
+  ⛔ `POST /actions/{action_id}:remediate` 직접 경로는 아직 501이다.
   `Implements: REQ-604` · `Design: 08§3.1`
+- [ ] **T8-1** demo-target에 부하를 실어 p95 표본을 만든다 — 표본이 0이면 에이전트는 회복 서사가
+  아니라 `unverifiable`을 답하고, 그건 영상에서 보여줄 그림이 아니다. `Design: 11§1`
+- [ ] **T5-3** REQ-602(대회 필수)에 `Verifies:`를 단 테스트를 붙여 상태 칸을 실물과 맞춘다.
+  지금은 겨냥한 테스트가 0이라 게이트가 `TODO`를 강제한다 — 실물은 도는데 상태는 아니라고 말한다.
+  `Implements: REQ-602` · `Design: 10§5`
 - [x] **T6-1** 느린 리비전 `00002-lss`로 p95를 실제 악화시키고 롤백했다. `Design: 11§1`
 - [ ] **T8-2** README 재현 절차를 사람 기준으로 최종 확인한다. `Implements: REQ-901`
 - [ ] **T8-3** 4분 영어 영상을 녹화한다. `Implements: REQ-901` · `Design: 11§3`

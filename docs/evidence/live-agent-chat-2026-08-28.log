@@ -1,0 +1,45 @@
+# 인증된 /agent:chat 프로덕션 왕복 — 2026-08-28
+#
+# 목적: 배포가 끝났다는 것과 서비스가 산다는 것을 가른다(design 10§5 뒤쪽 절반 · T2-4).
+# 커밋 dbb6f74 · 리비전 warranty-api-00003-z9m · 이미지 태그 = 커밋 SHA(REQ-302).
+
+## 0. 배포
+빌드      e5fb704c-b154-4154-a16f-e8c3f12c2986  SUCCESS  1M3S
+이미지    us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:dbb6f74
+다이제스트 sha256:4e0c9fc6bbb94c8d7c15b02f867611e2496b04675a497e1b8e88eb33fd41f7c8
+리비전    warranty-api-00003-z9m — 트래픽 100%
+URL       https://warranty-api-povpqj6m5a-uc.a.run.app
+          https://warranty-api-450305106907.us-central1.run.app  (둘 다 200)
+전체 로그  docs/evidence/deploy-2026-08-28.log
+
+## 1. 인증 경계 — 실물 (D15가 501에서 200으로 바뀐 자리)
+GET  /livez                       → 200   (공개 invoker)
+POST /agent:chat  헤더 없음        → 401
+POST /agent:chat  Bearer nope     → 401
+POST /agent:chat  유효 토큰        → 200   ← 이전 배포에서는 501이었다
+
+## 2. 유효 토큰 왕복 (읽기 전용 inspect — 조치를 실행하지 않는다)
+요청  {"message":"Inspect the demo-target service in us-central1 and report its
+       current health signal. Do not execute any remediation."}
+응답  HTTP 200 · 11.26s (콜드 스타트 + ADK 런타임 구성 포함)
+
+{"message": "Here are the inspection details for the `demo-target` service in `us-central1`:
+* **Resource:** `demo-target`
+* **Active Contract:** `demo-target-warranty-v1`
+* **Rollback Revision:** `demo-target-00001-swl`
+* **Health Signal:**
+  * **Points:** `0`
+  * **Value:** `null` (No active signal points recorded / signal currently unavailable)
+No remediation actions were executed.", "session_id": "request-1"}
+
+## 3. ⛔ 경계 — 숨기지 않는다
+신호 점 0 · 값 null. demo-target에 지금 트래픽이 없어서 p95 창에 표본이 없다.
+⇒ 이 응답은 "건강하다"가 아니라 **"지금은 읽을 수 없다"**를 말한 것이고, 그게 계약대로다
+  (REQ-205 · verifiable 축). 영상용 시연은 트래픽을 먼저 실어야 신호가 생긴다.
+
+## 4. 모델 호출 계량 — 프로덕션에서 (REQ-603)
+이 요청 하나가 Firestore `ledger`에 model_call 두 행을 남겼다:
+  01m1404chqg53ay9ncv735fn7x | model:adk:request-1:1 | executed
+  01m1404cntmanek0e5ecqr4vt0 | model:adk:request-1:2 | executed
+⇒ 호출 1건 = 원장 1행이 로컬이 아니라 배포된 리비전에서 성립한다.
+  (앞의 …3j0v2y…/…3j0w3n… 두 행은 08-28 로컬 실물 확인 것이다.)
