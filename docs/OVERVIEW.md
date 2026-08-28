@@ -135,17 +135,21 @@ flowchart TD
 
 ## 7. 헤드라인 숫자
 
+⛔ **이 칸들은 예시다 — 측정치가 아니다.** 실제 수는 원장이 소유하고, `make report`가 센다.
+지금 원장에 있는 조치는 **둘**이다. 논지는 크기가 아니라 **모양**이다.
+
 ```
-executed          41
-improved          23   ←  56%      ★ 어떤 운영 에이전트도 안 내는 숫자
-rolled back       12
-escalated          6
-unverifiable       3   ←  정직성 칸
-model decided      5   ←  애매해서 모델이 판정한 건수
-wasted            $0.84 ←  회복 실패 조치가 쓴 비용
+executed          ██     실행했다
+improved          ██     ★ 나아졌다 — executed와 다른 칸이다
+rolled back       ██     되돌렸다
+escalated         ██
+unverifiable      ██     ★ 정직성 칸 — 확인할 수 없었다
+model decided     ██     애매해서 모델이 판정한 건수
+wasted            $··    ★ 회복 실패 조치가 쓴 비용
 ```
 
-대부분의 도구는 **`executed`만 세고 그것을 성공이라 부른다.**
+대부분의 도구는 **`executed`만 세고 그것을 성공이라 부른다.** 이 표에 `improved`가 따로
+있다는 것 하나가 논지다 — 그 칸이 `executed`보다 작을 수 있다는 것을 인정하는 도구가 드물다.
 
 ## 8. 기술 스택 (대회 필수 요건)
 

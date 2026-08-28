@@ -52,8 +52,13 @@ Cloud Monitoring의 p95는 요청이 있어야 구간을 구별한다. 2026-08-2
 | 1:30–2:30 | ★ **핵심** | 장애 주입 → 조치 → **재측정 실패** → **자동 롤백** → 트래픽 배분 100% 확인 → 신호 회복 |
 | 2:30–3:00 | ★ **모델의 판단** | 애매한 케이스의 `rationale` 문장을 보여준다 |
 | 3:00–3:30 | ★ **정책** | 계약 없는 리소스 → `MANUAL`. *"If we can't verify it, we don't automate it."* |
-| 3:30–3:50 | **리포트** | **executed 41 · improved 23 (56%) · rolled back 12 · unverifiable 3** |
+| 3:30–3:50 | **리포트** | 그 실행이 **실제로 낸** `executed` · `improved` · `rolled_back` · `unverifiable`을 그대로 보여준다 |
 | 3:50–4:00 | **증거 + 한계** | GCP 콘솔. 그리고 *"we prove correlation, not causation"* 한 줄 |
+
+⛔ **리포트 칸에 숫자를 미리 적지 않는다.** 예전에 이 줄은 `executed 41 · improved 23 (56%)`
+였다 — 어디서도 측정되지 않은 수였고, 그 수가 README 헤드라인까지 번졌다. 원장에 있는 조치는
+**둘**이다. 값이 아니라 **모양**이 논지다: `executed`와 `improved`가 **다른 칸**이라는 것.
+숫자를 크게 만들고 싶으면 원장을 채우는 실행을 먼저 하고, 그다음 그 수를 읽는다(T0-6의 교훈).
 
 ⚠️ **마지막 10초의 한계 고백이 값이다.** Production Readiness는 완벽함이 아니라
 **무엇이 안 되는지 아는가**이다.

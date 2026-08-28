@@ -39,17 +39,34 @@ And one policy most tools never state:
 
 > ⛔ **If we cannot verify it, we do not automate it.**
 
-## The number
+## The number most tools never print
 
 ```
-executed 41 · improved 23 (56%) · rolled back 12 · unverifiable 3
+executed · improved · rolled back · unverifiable
 ```
 
-Most tools count `executed` and call it success.
+Most tools count `executed` and call it success. **`improved` is a different column**, and it
+can be smaller. The ledger owns the counts — this page does not restate them.
 
 ## Status
 
-🚧 **Design complete, implementation in progress** (2026-08-19).
+**Running on Cloud Run.** An ADK agent on Gemini 3.7 Flash reads Cloud Monitoring, shifts
+Cloud Run traffic, and writes contracts and the ledger to Firestore.
+
+| | |
+|---|---|
+| Live API | `https://warranty-api-povpqj6m5a-uc.a.run.app` |
+| Public health probe | `curl https://warranty-api-povpqj6m5a-uc.a.run.app/livez` → `200` |
+| `POST /agent:chat` | bearer token required — no token or a wrong one returns `401` |
+| Demo target | `https://demo-target-povpqj6m5a-uc.a.run.app/work` |
+
+⚠️ **The signal only exists while traffic flows.** Both services scale to zero, so with no
+load the p95 window holds no samples and the agent answers *"I cannot read this right now"*
+rather than *"healthy"*. That is the policy working, not a fault — put load on
+`demo-target/work` first if you want to watch a recovery.
+
+Evidence for every live claim above is in [`docs/evidence/`](docs/evidence/); what is still
+open is in [`specs/warranty/tasks.md`](specs/warranty/tasks.md).
 
 ## Start here
 

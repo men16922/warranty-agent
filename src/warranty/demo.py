@@ -112,7 +112,8 @@ TITLE = "warranty — make demo (offline · deterministic)"
 #: 이 데모가 **증명하지 않는 것.** 출력에 함께 싣는다 — 빼면 fake 위의 초록이
 #: 실물 왕복으로 읽힌다 (docs/PRINCIPLES.md #3).
 CAVEATS = (
-    "신호는 ScriptedSignal이 낸다 — 실물 Cloud Monitoring이 아니다 (REQ-601·602는 TODO).",
+    "신호는 ScriptedSignal이 낸다 — 실물 Cloud Monitoring이 아니다. "
+    "이 데모는 REQ-601·602의 실물 증거가 아니다 (상태는 requirements.md가 소유한다).",
     "계약은 생성 응답에서 유도되지만(REQ-103) 그 응답이 각본이다 — "
     "실물 Cloud Run 응답이 이 모양으로 오는지는 확인 안 됐다 (T3-1).",
     "wasted_usd가 0인 것은 낭비가 없어서가 아니라 조치에 비용 경로가 아직 없어서다 (REQ-503).",

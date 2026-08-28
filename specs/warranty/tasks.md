@@ -55,7 +55,15 @@
   지금은 겨냥한 테스트가 0이라 게이트가 `TODO`를 강제한다 — 실물은 도는데 상태는 아니라고 말한다.
   `Implements: REQ-602` · `Design: 10§5`
 - [x] **T6-1** 느린 리비전 `00002-lss`로 p95를 실제 악화시키고 롤백했다. `Design: 11§1`
-- [ ] **T8-2** README 재현 절차를 사람 기준으로 최종 확인한다. `Implements: REQ-901`
+- [x] **T8-2** README를 심사자 기준으로 걸었고 **결함 셋을 회수했다**. `Implements: REQ-901`
+  - ⛔ 헤드라인이 `executed 41 · improved 23 (56%)`을 **측정치처럼** 적고 있었다. 그 수는
+    어디서도 측정되지 않았다 — 영상 대본(11§3)의 슬라이드 값이 번진 것이고, 원장의 조치는
+    **둘**이다. `make demo`는 `executed 1 · improved 0`을 낸다. README·OVERVIEW§7·11§3 셋 다
+    수를 지우고 **모양**만 남겼다(T0-6의 교훈이 세 번째로 같은 자리에서 났다).
+  - ⛔ 상태가 *"Design complete, implementation in progress"*였다 — 실물이 도는데 안 돈다고
+    말하고 있었다. 실물 URL 표와 `/livez` 200 · 무토큰 401을 넣었다(셋 다 재확인).
+  - ⛔ `make demo`의 caveat이 *"REQ-601·602는 TODO"*라고 말했다. REQ-601은 `VERIFIED`다 —
+    상태 주장을 지우고 `requirements.md`를 가리키게 했다.
 - [ ] **T8-3** 4분 영어 영상을 녹화한다. `Implements: REQ-901` · `Design: 11§3`
 - [ ] **T8-4** 신규 코드 여부를 확인한다. `Implements: REQ-902` · `Design: 10§8`
 - [ ] **T8-5** Devpost에 제출한다 — **09-01 09:00 KST**.
