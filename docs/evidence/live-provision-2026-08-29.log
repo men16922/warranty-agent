@@ -1,0 +1,77 @@
+# Day-1 실물 — 만든 호출과 계약이 같은 순간에 났다 (T3-1 · REQ-101) · 2026-08-29
+#
+# 08-29까지 실물 `provision`은 `not_implemented`를 돌려주고 있었다. 첫 화면이 내세우는
+# *"만든 에이전트가 어떻게 확인하고 어떻게 되돌리는지도 함께 적어 둔다"*의 Day-1 절반이
+# 비어 있었다는 뜻이다. 아래가 그 절반을 실물에서 닫은 기록이다.
+#
+# ⚠️ 배포된 리비전(00003-z9m)에는 이 코드가 없다 — 로컬에서 실물 GCP를 향해 돌렸다.
+#    08-28 왕복과 같은 방식이다. 배포는 커밋 뒤 사람이 한다.
+
+## 1. 실행
+$ WR_ADAPTERS=live .venv-live/bin/python <run> day1-warranty-demo
+project=warranty-hack region=us-central1 target=day1-warranty-demo
+
+{
+  "resource": "day1-warranty-demo",
+  "region": "us-central1",
+  "contract": "01m14xkweqd3bb0cf9ne4bwjkg",
+  "health_signal": {
+    "metric_type": "run.googleapis.com/request_latencies",
+    "resource_filter": "day1-warranty-demo",
+    "aggregation": "P95",
+    "window_s": 120
+  },
+  "reversibility": "irreversible",
+  "rollback_revision": null
+}
+
+## 2. 되읽기 ① — Cloud Run이 실제로 만들었는가
+URL       https://day1-warranty-demo-povpqj6m5a-uc.a.run.app
+리비전    day1-warranty-demo-00001-k9c
+이미지    us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:dbb6f74
+minScale  0
+조건      Ready · Active · ContainerHealthy · ContainerReady · ResourcesAvailable = 전부 True
+진입점    python -m warranty.demo_target_server · WR_DEMO_REVISION=healthy
+
+⇒ **이미지가 warranty-api와 같은 태그(dbb6f74)다.** 이미지 주소를 설정으로 받지 않고
+  *"지금 내가 무엇으로 도는지"*를 Cloud Run에게 물어서 쓴 결과다 — 값의 출처가 하나다.
+⇒ **minScale=0이다.** 만드는 자리도 REQ-805를 지킨다. 만드는 자리가 예외면 규칙이 아니다.
+
+## 3. 되읽기 ② — Firestore에 계약이 있는가
+contracts/01m14xkweqd3bb0cf9ne4bwjkg
+  resource            = {name: day1-warranty-demo, kind: cloud_run_service, region: us-central1}
+  health_signal       = {metric_type: run.googleapis.com/request_latencies,
+                         resource_filter: day1-warranty-demo, aggregation: P95, window_s: 120}
+  recovery_criterion  = {direction: decrease, threshold: 0.5, mode: relative, tolerance: 0.1}
+  rollback_plan       = None
+  reversibility       = irreversible
+  provisioned_by      = warranty
+  provisioned_at      = 2026-08-28T19:30:15.127356+00:00
+  state               = active
+
+⇒ `resource_filter`가 **방금 만든 그 이름**이다. 손으로 적은 값이 아니라 생성 응답에서
+  유도된 값이다(REQ-103). 사람이 정한 것은 `recovery_criterion` 하나뿐이다.
+
+## 4. 인계 — Day-2가 그 계약을 찾는가
+$ tools.inspect("day1-warranty-demo")
+{"resource": "day1-warranty-demo", "contract": "01m14xkweqd3bb0cf9ne4bwjkg",
+ "signal": {"value": null, "points": 0}, "rollback_revision": null}
+
+⇒ Day-1이 쓴 계약을 Day-2가 **같은 실행에서 읽는다.** 이 인계가 논지의 전부다.
+
+## 5. ⛔ 가역성이 `irreversible`인 것은 결함이 아니다
+갓 만든 서비스에는 **돌아갈 리비전이 없다**. 타입만 보고 `reversible`을 쓰면 그 계약은
+필요한 날 틀린다 — design 01§3이 적어 둔 결과다. 그리고 그 결과의 값은 판정에서 난다:
+계약이 `irreversible`이면 그 리소스는 **자동 조치 대상이 아니다**(REQ-402 · MANUAL).
+⇒ Day-1이 만든 것이 곧바로 자동화 대상이 되지 않는다는 것을 계약이 스스로 말한다.
+
+## 6. ⛔ 알려진 한계 — 만든 서비스는 아무도 못 부른다
+IAM 정책이 **비어 있다**(바인딩 0). 무토큰 403, 신원 토큰 401. 비교하면 `demo-target`은
+`allUsers → roles/run.invoker`를 갖고 있다.
+프로비저너는 리소스와 계약을 만들 뿐 **초대 권한을 주지 않는다.** 에이전트가 조용히
+서비스를 전 세계에 여는 것보다 낫다고 판단했지만, 그 대가는 분명하다:
+**이 리소스의 health_signal은 밖에서 부하를 걸어 채울 수 없다.**
+⇒ 주장하지 않고 적는다. 공개 초대가 필요하면 그것은 별도의 결정이고 별도의 태스크다.
+
+## 7. teardown 범위에 추가
+`day1-warranty-demo` (us-central1) — 09-02 teardown 대상(T8-6). minScale=0이라 유휴 과금은 0이다.

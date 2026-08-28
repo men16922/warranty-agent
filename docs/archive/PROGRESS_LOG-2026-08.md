@@ -9,6 +9,37 @@
 
 ---
 
+## 2026-08-28 — 공개 URL이 드디어 200을 냈다 · 커밋 → 배포 → 프로덕션 왕복 (gate 392)
+
+- **Status**: T5-1의 배포 절반 완료. 직접 `/actions/*` 경로는 아직 501이다.
+- **Changed**: 미커밋 29건을 `dbb6f74` 하나로 묶어 커밋했다 — 배포 태그가 커밋 SHA라
+  **커밋이 곧 배포 블로커**였다. 빌드 `e5fb704c` SUCCESS, 리비전 `00003-z9m` 트래픽 100%.
+- **Verified**: `/livez` 200 공개 · 무헤더 401 · 틀린 토큰 401 · **유효 토큰 200**(이전 배포는 501).
+  프로덕션 `inspect` 한 번이 Firestore 원장에 model_call 두 행(`01m1404chq…`·`01m1404cnt…`)을
+  남겼다 — REQ-603이 로컬이 아니라 배포된 리비전에서 성립한다.
+- **⛔ 경계**: 신호 점 0 · 값 `null`. demo-target에 트래픽이 없어 p95 창에 표본이 없다.
+  에이전트는 *"건강하다"*가 아니라 **"지금은 읽을 수 없다"**를 답했다 — 계약대로다(REQ-205).
+  ⇒ 영상은 **부하가 먼저다**(T8-1을 새로 열었다).
+- **⛔ 상태 칸이 실물보다 뒤에 있다**: REQ-602(대회 필수 · Cloud Run에서 돈다)는 실제로 도는데
+  `TODO`다. `Verifies: REQ-602`를 단 테스트가 0이라 게이트가 그렇게 강제한다 — 게이트가 틀린 게
+  아니라 **겨냥한 자리가 없다.** 조용히 올리지 않고 T5-3으로 열어 뒀다.
+- **Next**: T8-1 부하 → T8-3 영상 → T8-2 README 검수 → 제출(09-01) → teardown(09-02).
+- **Evidence**: `docs/evidence/live-agent-chat-2026-08-28.log` · `docs/evidence/deploy-2026-08-28.log`.
+
+## 2026-08-28 — ADK가 실물 조치·검증·원자적 롤백을 끝까지 돌렸다 (gate 372 → 392)
+
+- **Status**: T2-1·T2-4·T5-2·T6-1 `[x]`; REQ-601·603·604 `VERIFIED`. 공개 리비전 배포는 아직이다.
+- **Changed**: 실행자·Firestore 예산·시계/ULID·Vertex 전송·합성 지점·ADK 단발 세션을 만들고,
+  인증된 `/agent:chat` JSON을 실물 콜백에 연결했다. `(default)` Firestore Native DB와 계약도 생성했다.
+- **Verified**: `make check` **392 passed** · M-01~M-246 **246종 전부 red**, 복구 392·잔여 0.
+  실물 ADK 응답은 `AUTO`, p95 `674.17 → 988.60`, `not_recovered`, 건강 리비전 100% 롤백.
+- **원장/예산**: `01m13fpgc8e091es3ekpqx48f4` · 잔액 `$0.49` · 미정산 0.
+- **Boundary**: `signal_restored=false` — 120초 p95 창에 장애 표본이 남아 신호 복구는 증명 못 했다.
+- **모델 계량**: 실물 `inspect`의 ADK 모델 응답 둘이 Firestore `model_call` 두 행이 됐다.
+- **Blockers**: 현재 Cloud Run 리비전은 이전 SHA다. 커밋 없이 배포하면 이미지 태그가 거짓이 된다.
+- **Next**: 명시적 커밋·재배포 → bearer `/agent:chat` 프로덕션 왕복 → 영상.
+- **Evidence**: `docs/evidence/live-adk-remediate-2026-08-28.log`.
+
 ## 2026-08-27 — 논지 한 덩어리를 응답 모양으로 고정했다 · T5-1 렌더러 (gate 356 → 372)
 
 - **Status**: T5-1 `[~]`. design 08§3.1의 응답을 내는 `wire.py`가 생겼다. 경로는 아직 501이다.

@@ -81,10 +81,28 @@
   - ⛔ 그래도 상태는 `TODO`다 — 겨냥한 테스트가 없다. T5-3이 이 칸을 함께 닫는다.
 - [ ] **T8-5** Devpost에 제출한다 — **09-01 09:00 KST**.
 - [ ] **T8-6** 프로젝트 teardown 캘린더를 등록한다 — **09-02** · `Design: 10§6`
+  ⚠️ 범위에 `day1-warranty-demo`(T3-1이 실물로 만든 것)가 **추가됐다**. minScale 0이라
+  유휴 과금은 0이지만, 만든 것을 목록에 안 적으면 teardown이 그것을 안 본다.
 
 ### P2 — Day-1 수명주기
 
-- [ ] **T3-1** Cloud Run 서비스 프로비저닝과 계약 동시 산출. `Implements: REQ-101` · `Design: 01§1`
+- [x] **T3-1** Cloud Run 서비스 프로비저닝과 계약을 **한 번에** 냈다 — 실물 확인.
+  `Implements: REQ-101` · `Design: 01§1, 01§3`
+  - 08-29까지 실물 `provision`은 `not_implemented`였다 — 첫 화면이 내세우는 **Day-1 절반이
+    비어 있었다.** `live_provision.py` + `ContractStore.put` + 합성 지점으로 닫았다.
+  - 이미지 주소를 설정으로 안 받는다. *"지금 내가 무엇으로 도는지"*를 Cloud Run에 물어서
+    쓴다 — 그래서 만들어진 리소스는 `warranty-api`와 **같은 태그**(`dbb6f74`)로 떴다.
+  - 실물: `day1-warranty-demo` 리비전 `00001-k9c` Ready · minScale 0 · 계약
+    `01m14xkweqd3bb0cf9ne4bwjkg`가 Firestore에 났고 `inspect`가 같은 실행에서 읽었다.
+  - ⛔ 갓 만든 서비스는 `irreversible`이다(돌아갈 리비전 없음) — 결함이 아니라 design 01§3의
+    결과이고, 그래서 그 리소스는 자동 조치 대상이 아니다(REQ-402).
+  - ⛔ **만든 서비스는 아무도 못 부른다** — IAM 바인딩이 비어 있다. 프로비저너는 초대
+    권한을 주지 않는다. 그 대가로 이 리소스의 신호는 밖에서 부하로 못 채운다. 아래 T3-5.
+  - 증거 `docs/evidence/live-provision-2026-08-29.log`.
+- [ ] **T3-5** 프로비저닝이 만든 서비스에 **초대 권한을 줄지** 정한다. 지금은 IAM이 비어
+  403/401이라 그 리소스의 health_signal을 밖에서 채울 수 없다. ⚠️ 에이전트가 조용히
+  서비스를 전 세계에 여는 것은 기본값이 될 수 없다 — 그래서 **결정이 먼저다.**
+  `Implements: REQ-101` · `Design: 01§3`
 - [ ] **T3-4** 리소스 삭제 시 계약을 `retired`로 전환. `Implements: REQ-105` · `Design: 01§5`
 
 ### P3 — 선택 범위
@@ -123,6 +141,7 @@
 | T13-6 | 문서 예산 회수: log≤120 · open plan≤200 | REQ-802 |
 | T14-1 | Firestore 문서 매핑·원장 전이 단일화·census 이름 한정 | REQ-102, REQ-501, REQ-503, REQ-505, REQ-801 |
 | T5-3 | 제출·실물 요건의 오프라인 절반을 겨냥 + `create()` 변이 경로 | REQ-602, REQ-901, REQ-902 |
+| T3-1 | Day-1 실물 — 생성 응답에서 계약 유도·기록을 한 번에 | REQ-101, REQ-103, REQ-801 |
 | T5-1(렌더러) | 원장 행 → design 08§3.1 응답 덩어리 | REQ-205, REQ-302, REQ-502, REQ-503, REQ-505, REQ-604 |
 | T2-1·4 | ADK·Gemini 실물 도구 호출 → Monitoring·Cloud Run·Firestore 왕복 | REQ-201, REQ-202, REQ-301, REQ-302, REQ-303, REQ-304, REQ-501, REQ-502, REQ-601, REQ-604 |
 
@@ -140,7 +159,7 @@
 | G8 `improved` 유도 | T1-5 | M-13 |
 | G9 검증불가는 AUTO 아님 | T1-6 | M-14 |
 
-**게이트**: `make check` → **394 passed** (2026-08-29 로컬 macOS·py3.13)
+**게이트**: `make check` → **399 passed** (2026-08-29 로컬 macOS·py3.13)
 
 숫자는 여기 한 곳에만 둔다. 변이 문서의 기준선 숫자는 해당 증거가 어느 스위트를 봤는지
 나타내는 별도 사실이며, T0-8이 둘의 불일치를 집행한다.

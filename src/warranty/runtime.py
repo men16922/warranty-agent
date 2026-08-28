@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -11,22 +12,35 @@ from warranty.adapters.adk_agent import TOOL_NAMES
 from warranty.adapters.genai_transport import VertexGenaiTransport
 from warranty.adapters.live_action import LiveActionExecutor
 from warranty.adapters.live_budget import LiveBudgetStore
+from warranty.adapters.live_provision import LiveProvisioner
 from warranty.adapters.live_run import LiveRunControl
 from warranty.adapters.live_signal import LiveSignalSource
 from warranty.adapters.live_store import LiveContractStore, LiveLedger
 from warranty.adapters.model_judge import PromptedJudge
 from warranty.adapters.system import SystemClock, UlidGen
-from warranty.config import Adapters, Settings
-from warranty.domain.contract import ResourceRef
+from warranty.config import SERVICE_NAME, Adapters, Settings
+from warranty.domain.contract import Criterion, CriterionMode, Direction, ResourceRef
 from warranty.domain.tokens import TokenPrices
 from warranty.ports import ContractStore, SignalSource
 from warranty.tunables import DEMO_BUDGET_USD
 from warranty.usecases.meter import MeteredModel, ModelCallMeter
+from warranty.usecases.provision import Provisioner, derive_contract
 from warranty.usecases.remediate import Remediator
 from warranty.wire import remediate_response
 
 AGENT_ID = "warranty"
 RESOURCE_KIND = "cloud_run_service"
+
+#: ⛔ **사람이 정하는 유일한 것** — *"무엇을 회복이라 부를지"*는 정책이지 사실이 아니다
+#: (usecases/provision 모듈 독스트링). 나머지 계약 필드는 전부 생성 응답에서 유도된다.
+#: ⚠️ 데모의 기준(`demo.py`)과 값이 같지만 **같은 상수가 아니다** — 저쪽은 각본의 일부이고
+#: 이쪽은 배포된 정책이다. 하나로 묶으면 각본을 고칠 때 배포 정책이 따라 움직인다.
+LIVE_RECOVERY_CRITERION = Criterion(
+    direction=Direction.DECREASE,
+    threshold=Decimal("0.5"),
+    mode=CriterionMode.RELATIVE,
+    tolerance=Decimal("0.1"),
+)
 
 
 class RuntimeError(ValueError):
@@ -48,13 +62,44 @@ class AgentTools:
     signals: SignalSource
     default_region: str
     model_calls: ModelCallMeter | None = None
+    provisioner: Provisioner | None = None
+    clock: Any = None
+    ids: Any = None
 
     def provision(self, resource_name: str) -> dict[str, object]:
-        """Create a resource and operational contract. Day-1 is not wired in this demo."""
+        """Create a Cloud Run service and record its operational contract in one step.
+
+        ⛔ **만드는 것과 계약이 같은 순간에 난다**(REQ-101). 나눠 두면 사이에 실패가 들어갈
+           자리가 생기고, 그 자리에서 만들어진 리소스는 **계약 없는 리소스**가 된다 —
+           그런 리소스는 자동 조치 대상이 아니고(REQ-104), 아무도 그것을 모른다.
+        ⚠️ 계약은 여기서 조립하지 않는다 — `derive_contract`가 생성 응답에서 유도한다.
+           사람이 정하는 것은 `LIVE_RECOVERY_CRITERION` 하나뿐이다(REQ-103).
+        """
+        if self.provisioner is None or self.clock is None or self.ids is None:
+            raise RuntimeError("실물 프로비저너가 합성되지 않았다")
+        response = self.provisioner.create(resource_name)
+        contract = derive_contract(
+            response,
+            recovery_criterion=LIVE_RECOVERY_CRITERION,
+            contract_id=self.ids.new_entry_id(),
+            provisioned_at=datetime.fromisoformat(self.clock.now_iso()),
+            provisioned_by=AGENT_ID,
+        )
+        self.contracts.put(contract)
         return {
-            "status": "not_implemented",
-            "resource_name": resource_name,
-            "detail": "Day-1 provisioning is outside the current live demo path",
+            "resource": contract.resource.name,
+            "region": contract.resource.region,
+            "contract": contract.contract_id,
+            "health_signal": {
+                "metric_type": contract.health_signal.metric_type,
+                "resource_filter": contract.health_signal.resource_filter,
+                "aggregation": contract.health_signal.aggregation,
+                "window_s": contract.health_signal.window_s,
+            },
+            "reversibility": contract.reversibility.value,
+            "rollback_revision": (
+                None if contract.rollback_plan is None else contract.rollback_plan.previous_revision
+            ),
         }
 
     def inspect(self, resource_name: str, region: str = "") -> dict[str, object]:
@@ -149,4 +194,13 @@ def build_live_tools(settings: Settings, pause: Callable[[float], None]) -> Agen
         ids=ids,
         judge=judge,
     )
-    return AgentTools(remediator, contracts, signals, settings.region, model_calls)
+    return AgentTools(
+        remediator,
+        contracts,
+        signals,
+        settings.region,
+        model_calls,
+        provisioner=LiveProvisioner(settings.project_id, settings.region, SERVICE_NAME),
+        clock=clock,
+        ids=ids,
+    )

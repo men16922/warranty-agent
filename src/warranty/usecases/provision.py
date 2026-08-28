@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Protocol
 
 from warranty.domain.contract import (
     ContractError,
@@ -81,6 +82,19 @@ KNOWN_KINDS: dict[str, KindProfile] = {
         rollback_kind="cloud_run_traffic",
     ),
 }
+
+
+class Provisioner(Protocol):
+    """리소스를 **실제로 만들고**, 만들어진 것을 되읽어 돌려준다 (REQ-101).
+
+    ⚠️ 이 프로토콜이 `ports.py`가 아니라 여기 있는 이유: 돌려주는 타입(`ProvisionResponse`)이
+       이 모듈의 것이다. 포트 모듈이 유스케이스 타입을 가리키면 의존이 거꾸로 선다.
+
+    ⛔ **계약을 돌려주지 않는다.** 어댑터가 계약을 만들면 *"계약은 유도된다"*(REQ-103)는
+       문장이 관례가 된다 — 유도하는 자리는 아래 `derive_contract` 하나다.
+    """
+
+    def create(self, name: str, kind: str = "cloud_run_service") -> ProvisionResponse: ...
 
 
 def derive_contract(

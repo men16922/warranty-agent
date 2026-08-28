@@ -123,9 +123,7 @@ def test_req_902_no_vendored_source_tree_is_carried_in_the_repo() -> None:
         "이 상태의 초록은 판정이 아니다."
     )
     found = sorted(
-        str(path.relative_to(ROOT))
-        for path in walked
-        if path.name in VENDORED_DIR_NAMES
+        str(path.relative_to(ROOT)) for path in walked if path.name in VENDORED_DIR_NAMES
     )
     assert not found, (
         f"베끼어 심은 소스 트리가 있다: {found}. "

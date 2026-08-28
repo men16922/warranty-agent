@@ -228,6 +228,20 @@ class LiveContractStore:
             self._client = firestore.Client(project=self._project)
         return self._client
 
+    def put(self, contract: OperationalContract) -> None:
+        """계약 하나를 Firestore에 **한 번만** 쓴다 (REQ-101).
+
+        ⛔ `create`다 — `set`이 아니다. 같은 `contract_id`로 두 번 오면 Firestore가
+           `AlreadyExists`로 거절하고, 그 거절이 *"계약은 산출물이지 갱신 대상이 아니다"*를
+           집행한다. `set`을 쓰면 두 번째 프로비저닝이 첫 계약을 **조용히 덮는다**.
+
+        ⛔ 첫 줄이 tripwire다(G5) — `_db`가 캐시되어 있으면 그쪽 관측 지점을 안 지난다.
+        """
+        live_guard.note("live_store.LiveContractStore.put")
+        self._db().collection(CONTRACTS).document(contract.contract_id).create(
+            contract_document(contract)
+        )
+
     def active_for(self, resource: ResourceRef) -> OperationalContract | None:
         live_guard.note("live_store.LiveContractStore.active_for")
         query: Any = self._db().collection(CONTRACTS)

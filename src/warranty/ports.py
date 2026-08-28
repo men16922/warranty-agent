@@ -32,6 +32,13 @@ class IdGen(Protocol):
 
 
 class ContractStore(Protocol):
+    def put(self, contract: OperationalContract) -> None:
+        """Day-1이 **유도한** 계약을 기록한다 (REQ-101).
+
+        ⛔ 이 자리가 포트에 없던 동안 REQ-101은 문장으로만 참이었다 — 인메모리 대역에는
+           `put`이 있었는데 실물 저장소에는 없었고, 프로토콜이 그 어긋남을 안 물었다.
+        """
+
     def active_for(self, resource: ResourceRef) -> OperationalContract | None:
         """⚠️ `retired`된 계약은 돌려주지 않는다 — 없는 리소스를 고치려 들면 안 된다."""
 

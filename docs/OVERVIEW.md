@@ -190,6 +190,7 @@ flowchart LR
 제출 요건  ⭐ REQ-602·901·902가 겨냥·변이를 얻었다 — **못 묻는 절반은 안 주장한다**
 가드      G1~G9 변이 확인 → tasks.md「가드 현황」
 변이      선언한 것 전부 red 확인 · 복구 후 초록 · 잔여 0 → docs/evidence/mutations.md
+Day-1     ⭐ 프로비저닝이 계약을 함께 냈다 — 실물 서비스 + Firestore 계약 + Day-2 인계
 루프      ⭐ ADK가 기준선→조치→미회복→롤백→원장을 실물 GCP 어댑터로 완주(2026-08-28)
 ADK       ⭐ Gemini 3.7 Flash가 `remediate` 호출 · decision/verification/rollback 응답 확인
 GCP       ⭐ Firestore Native 계약·원장·예산 + Monitoring p95 + Cloud Run 원자적 트래픽 전환
@@ -209,6 +210,7 @@ README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난�
 
 | | 왜 | 잠그는 것 |
 |---|---|---|
+| 만든 서비스의 초대 권한 | 프로비저너가 IAM을 안 준다 — 조용히 전 세계에 열 수 없다 | 그 리소스의 신호를 밖에서 채우기(T3-5) |
 | BQ 결제 내보내기 *(선택)* | 콘솔 수동 · 하루 지연 | REQ-506·509만 |
 
 ### ✅ 중단 기준 — **통과**
