@@ -1,0 +1,43 @@
+# demo-target 부하 → 신호가 읽힌다 — T8-1 · 2026-08-29
+#
+# 왜 이걸 따로 했나: 08-28 프로덕션 왕복에서 에이전트가 낸 답은 "점 0 · 값 null"이었다.
+# 그건 고장이 아니라 계약대로였지만(REQ-205), **영상에 담을 그림이 아니다.**
+# 회복 서사를 보이려면 신호가 먼저 존재해야 한다.
+
+## 0. 계약이 요구하는 것 (Firestore `contracts/demo-target-warranty-v1`)
+health_signal = cloud_monitoring · run.googleapis.com/request_latencies
+                window_s = 120 · aggregation = P95 · resource_filter = demo-target
+recovery_criterion = relative · direction=decrease · threshold=0.5 · tolerance=0.1
+rollback_plan = cloud_run_traffic · previous_revision = demo-target-00001-swl · verify_traffic
+⇒ **창이 120초다.** 표본은 그 안에 있어야 하고, 창은 계속 미끄러진다.
+
+## 1. 대상 상태
+demo-target 트래픽 100% → demo-target-00001-swl (건강한 쪽 · 08-28 롤백이 남긴 상태)
+단발 확인: GET /work → 200 · {"revision":"demo-target-00007-abc","latency_ms":620}
+(`/work`가 지연을 쓰는 유일한 경로다. 헬스 경로는 빠르다 — demo_target.py)
+
+## 2. 부하
+18:13:10Z–18:16:30Z  워커 5 · 요청 1140건 (워커당 228) · 약 5.7 req/s
+18:16:35Z–           워커 3 유지 — 조회 중 창이 비지 않게 (수집 지연 대비)
+18:17:40Z            중단
+
+## 3. 조회 — 인증된 프로덕션 /agent:chat, 읽기 전용 inspect
+HTTP 200 · 16.51s
+  Health Signal Value: 674.171849767732
+  Observed Points:     1
+  Active Contract:     demo-target-warranty-v1
+  Rollback Revision:   demo-target-00001-swl
+  No remediation actions were executed.
+
+## 4. 대비 — 같은 질문, 다른 답
+08-28 (트래픽 없음)  점 0 · 값 null   → "지금은 읽을 수 없다"
+08-29 (부하 아래)    점 1 · 674.17 ms → "이게 기준선이다"
+⇒ **신호는 트래픽이 흐르는 동안에만 존재한다.** 영상 촬영은 부하를 켜 둔 채로 해야 한다.
+  이건 버그가 아니라 scale-to-zero의 대가이고, REQ-805를 지키는 값이다.
+
+## 5. ⚠️ 확인하지 않은 것 — 관찰만 적는다
+674.171849767732는 08-28 기준선(`674.17`)과 **찍힌 자리까지 같다.** demo-target이 고정
+620ms를 자고 Cloud Monitoring의 p95가 히스토그램 버킷 보간이라면 표본이 전부 같은 버킷에
+떨어져 추정값이 결정론적이 되는 것으로 설명되지만, **그 설명은 확인하지 않았다.**
+관찰만 적는다: 두 날의 기준선이 같은 수였다. 재현성에는 유리하고, 그 수가 원측정이
+아니라 보간값일 가능성은 열려 있다.

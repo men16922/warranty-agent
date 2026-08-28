@@ -16,7 +16,7 @@
 ## 일정과 현재 초점
 
 - 제출: **2026-09-01 09:00 KST** · teardown: **09-02** · Free Trial 만료: **09-06**.
-- **다음**: demo-target에 부하를 실어 p95 표본을 만든 뒤 4분 영상을 녹화한다(T8-3).
+- **다음**: 부하를 켠 채 4분 영상을 녹화한다(T8-3) — 신호는 T8-1에서 살아났다.
 - 현재 실물: `warranty-api` 리비전 `00003-z9m`(이미지 `dbb6f74` · `/agent:chat` 실물) + `demo-target`(리비전 2개).
 - 오프라인 기준선: 이 파일 하단의 `make check` 한 곳만 권위로 둔다.
 
@@ -47,8 +47,10 @@
   `docs/evidence/live-agent-chat-2026-08-28.log`.
   ⛔ `POST /actions/{action_id}:remediate` 직접 경로는 아직 501이다.
   `Implements: REQ-604` · `Design: 08§3.1`
-- [ ] **T8-1** demo-target에 부하를 실어 p95 표본을 만든다 — 표본이 0이면 에이전트는 회복 서사가
-  아니라 `unverifiable`을 답하고, 그건 영상에서 보여줄 그림이 아니다. `Design: 11§1`
+- [x] **T8-1** demo-target `/work`에 부하 1140건을 넣어 120초 창을 채웠고, 프로덕션 `inspect`가
+  p95 `674.17 ms` · 관측점 1을 냈다(08-28에는 점 0 · `null`이었다).
+  ⚠️ **신호는 트래픽이 흐르는 동안에만 존재한다** — 촬영은 부하를 켜 둔 채로 한다.
+  증거 `docs/evidence/live-signal-load-2026-08-29.log`. `Design: 11§1`
 - [ ] **T5-3** REQ-602(대회 필수)에 `Verifies:`를 단 테스트를 붙여 상태 칸을 실물과 맞춘다.
   지금은 겨냥한 테스트가 0이라 게이트가 `TODO`를 강제한다 — 실물은 도는데 상태는 아니라고 말한다.
   `Implements: REQ-602` · `Design: 10§5`

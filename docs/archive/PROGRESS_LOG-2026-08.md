@@ -9,6 +9,26 @@
 
 ---
 
+## 2026-08-27 — 공개 URL과 무인 과금 권한을 갈랐다 · D15 (gate 311 → 330)
+
+- **Status**: D15 앱 인증 경계의 로컬 구현·검증 완료. 실물 배포는 아직 이전 리비전이다.
+- **Changed**: bearer 검증, 503/동일 401/유효→501 서버 경계, 공개 invoker+Secret Manager 배포 렌더링, 설계·테스트.
+- **Verified**: `make check` **330 passed** · M-206~M-213 red · 전체 213종 red, `❌` 0, 복구·잔여 213/0(1065줄).
+- **Blockers**: 비밀 생성·`secretAccessor` IAM·재배포·실물 HTTP 확인, ADK/Firestore 도구 배선은 미수행.
+- **Next**: D15를 재배포해 `/livez` 공개와 503/401/501 행렬을 실증한 뒤 T2-4 실물 왕복을 잇는다.
+
+---
+
+## 2026-08-27 — 시작 문맥 예산을 다시 회복했다 · T13-6/T12-9 (gate 311 유지)
+
+- **Status**: T13-6/T12-9 `[x]`. 완료 서사를 현재 계획에서 걷어내고 열린 판단만 남겼다.
+- **Changed**: `PROGRESS_LOG` 1012→55줄 · open `tasks.md` 638→103줄 · `OVERVIEW` 240→239줄.
+  옛 로그는 8월 아카이브에 최신순으로 병합했고, 정리 전 태스크 638줄은 읽기 전용 스냅샷으로 보존했다.
+- **Completed**: `COMPLETED_SUMMARY`에 T13-1·2·4와 이번 정리를 M7 한 줄로 압축했다.
+- **Verified**: 상대 링크 해석 · `git diff --check` · `make check` **311 passed**.
+- **Blockers**: 공개 `/agent:chat`은 D15 앱 인증 선행. `/livez` 외 7경로는 정책상 501.
+- **Next**: **T2-4** — D15 앱 인증을 설계·배선한 뒤 에이전트 실물 왕복을 원장까지 통과시킨다.
+
 ## 2026-08-27 — 기존 Mermaid를 단일 출처의 제출 다이어그램으로 회수 · T13-4 (gate 307 → 311)
 
 - **Status**: T13-4/T8-1 `[x]`. 새 그림 없이 `OVERVIEW.md` §4를 독립 제출 표면으로 회수했다.
