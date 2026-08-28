@@ -9,6 +9,22 @@
 
 ---
 
+## 2026-08-27 — 논지 한 덩어리를 응답 모양으로 고정했다 · T5-1 렌더러 (gate 356 → 372)
+
+- **Status**: T5-1 `[~]`. design 08§3.1의 응답을 내는 `wire.py`가 생겼다. 경로는 아직 501이다.
+- **Changed**: `remediate_response()` — `rule`·`rationale`·`verified_traffic`이 **필수 칸**이고,
+  `executed`·`improved`·`rolled_back`이 셋으로 따로 나간다. 돈은 문자열, 빈 창은 `null`,
+  실측은 추정 **옆칸**이다. 테스트 16 · 변이 M-224~M-232.
+- **왜 이 셋인가**: 4분 안에 논지가 전달되려면 화면에 보여야 한다. 로그에만 있으면 없는
+  것과 같다 — `performed: true`만 남기고 배분을 지우면 그것은 측정이 아니라 주장이다.
+- **Verified**: `make check` **372 passed** · 전체 **232종 red**, `❌` 0, 복구·잔여 232/0
+  (1160줄 원본 로그).
+- **Blockers**: `POST /actions/{action_id}:remediate`가 501이라 이 덩어리는 아직 아무에게도
+  안 보인다. 경로를 열려면 실물 `ActionExecutor`·`BudgetStore`와 합성 지점이 먼저다.
+- **Next**: **T2-4 잔여** — 실행자·예산·합성 지점 → ADK 도구 넷 → `/agent:chat` 실물 왕복.
+
+---
+
 ## 2026-08-27 — 계약과 원장이 Firestore로 나갔다 오는 길 · T14-1 (gate 330 → 356)
 
 - **Status**: T14-1 `[x]`. `ContractStore`·`Ledger`의 실물 절반이 생겼다. 배선은 아직 아니다.

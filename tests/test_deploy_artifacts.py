@@ -174,7 +174,15 @@ def test_the_deploy_artifacts_exist_and_are_actually_read(rendered: tuple[str, .
 def test_the_renderer_actually_emits_service_region_and_min_instances(
     rendered: tuple[str, ...],
 ) -> None:
-    """② 렌더러가 셋을 **실제로 낸다**. 여기가 배포 산출물의 유일한 값 출처다."""
+    """② 렌더러가 셋을 **실제로 낸다**. 여기가 배포 산출물의 유일한 값 출처다.
+
+    Verifies: REQ-602
+
+    ⚠️ REQ-602의 *"유휴 시 인스턴스 0으로 수렴한다"* 절반이 여기서 집행된다 —
+       `--min-instances`가 렌더에서 빠지면 배포는 기본값으로 돌고, 그 기본값은 0이 아니다.
+       ⛔ 실물에서 **돈다**는 절반은 오프라인이 못 묻는다 —
+       그쪽은 `docs/evidence/live-agent-chat-2026-08-29.log`가 갖는다.
+    """
     assert SERVICE_NAME in rendered, f"렌더된 인자에 서비스명이 없다: {rendered}"
     assert f"--region={SAMPLE.region}" in rendered, (
         f"리전이 설정에서 안 왔다: {rendered} — 배포와 앱이 다른 리전을 볼 수 있다"
@@ -280,6 +288,8 @@ def test_the_image_python_matches_what_the_project_requires() -> None:
 def test_the_entrypoint_module_exists_and_the_gate_never_deploys() -> None:
     """⑥ `CMD`가 가리키는 모듈이 실재하는가 · `make deploy`가 스크립트를 부르는가 ·
     **게이트가 그것을 안 부르는가**(REQ-801).
+
+    Verifies: REQ-602
 
     ⛔ `make demo`가 죽어 있던 전례가 있다(M-46) — 선언된 진입점이 죽어도 함수를 직접
        부르는 테스트는 초록이었다. 배포는 그보다 나쁘다: 아무도 안 돌리니 더 오래 죽어 있다.

@@ -157,7 +157,13 @@ def test_documented_make_commands_are_real_targets() -> None:
 
 
 def test_procedure_names_bootstrap_gate_and_run() -> None:
-    """③ ⛔ 블록을 통째로 지우면 ②는 초록이다. **존재를 묻는 자리는 여기 하나다.**"""
+    """③ ⛔ 블록을 통째로 지우면 ②는 초록이다. **존재를 묻는 자리는 여기 하나다.**
+
+    Verifies: REQ-901
+
+    ⚠️ REQ-901이 요구하는 다섯 중 *"재현 가능한 실행/배포 절차"*가 여기서 집행된다.
+       영상과 시각 증거는 사람이 만드는 산출물이라 게이트가 못 묻는다 — 주장하지 않는다.
+    """
     documented = _documented_commands(_read(README))
     missing = [command for command in REQUIRED_COMMANDS if command not in documented]
     assert not missing, (
@@ -171,7 +177,10 @@ def test_procedure_names_bootstrap_gate_and_run() -> None:
 
 
 def test_repo_relative_links_resolve() -> None:
-    """④ 제출물의 진입점이 **없는 문서를 가리키면** 재현은 첫 클릭에서 끝난다."""
+    """④ 제출물의 진입점이 **없는 문서를 가리키면** 재현은 첫 클릭에서 끝난다.
+
+    Verifies: REQ-901
+    """
     dangling = [
         token
         for token in _repo_links(_read(README))

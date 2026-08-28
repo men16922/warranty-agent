@@ -10,10 +10,11 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-246|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-248|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
+CREATED=()                     # 이번 변이가 **새로 만든** 경로 — 복구는 지우는 것이다
 REPO="$PWD"
 
 # ⚠️ stale .pyc가 복구를 무효로 만든다. 소스는 되돌아왔는데 테스트가 옛 코드를 보고
@@ -32,10 +33,38 @@ backup() {
   mkdir -p "$BACKUP/$(dirname "$1")"; cp "$1" "$BACKUP/$1"; TOUCHED+=("$1")
 }
 
+# ⚠️ **없던 것을 심는 변이**를 위한 자리. `backup`은 있는 파일만 다루므로 "금지된 것을
+#    하나 만들어 본다"류의 변이를 표현할 수 없었다 — 그리고 `restore`가 파일 복사뿐이라
+#    만들어진 것은 **잔여로 남는데 `residue`도 그것을 안 본다.** 구멍이 조용했다.
+create() {
+  case "$1" in
+    /*|*..*) echo "  ❌ 상대·절대 경로는 안 만든다: $1" >&2; RESULT=1; return 1 ;;
+  esac
+  if [ -e "$REPO/$1" ]; then
+    echo "  ❌ 이미 있는 것을 '만든다'고 했다: $1 — 이 변이는 판정이 아니다" >&2
+    RESULT=1; return 1
+  fi
+  # ⛔ **잎이 아니라 아직 없는 가장 위 조상을 기록한다.** 첫 판에서 여기서 틀렸다(#10):
+  #    `vendor/borrowed/__init__.py`만 적었더니 복구가 **파일만** 지우고 빈 `vendor/`를
+  #    남겼다 — 디렉터리 이름을 보는 가드에게 그것은 여전히 편입이다. 더 나쁜 것은
+  #    `residue`도 파일만 봐서 **"잔여 없음"이라고 말한 것**이다. 지우는 복구는
+  #    **심은 것의 뿌리**를 알아야 한다.
+  local top="$1" parent
+  parent="$(dirname "$top")"
+  while [ "$parent" != "." ] && [ ! -e "$REPO/$parent" ]; do
+    top="$parent"; parent="$(dirname "$top")"
+  done
+  CREATED+=("$top"); mkdir -p "$REPO/$(dirname "$1")"; return 0
+}
+
 restore() {
   local f
   for f in "${TOUCHED[@]:-}"; do
     [ -n "$f" ] && [ -f "$BACKUP/$f" ] && cp "$BACKUP/$f" "$REPO/$f"
+  done
+  # ⚠️ 지우는 복구다. `create`가 절대경로와 `..`를 이미 거부하므로 대상은 저장소 안이다.
+  for f in "${CREATED[@]:-}"; do
+    [ -n "$f" ] && [ -e "$REPO/$f" ] && rm -rf "${REPO:?}/$f"
   done
   find "$REPO/src" "$REPO/tests" "$REPO/tools" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
 }
@@ -47,6 +76,10 @@ residue() {
   for f in "${TOUCHED[@]:-}"; do
     [ -z "$f" ] && continue
     cmp -s "$BACKUP/$f" "$REPO/$f" || dirty="$dirty $f"
+  done
+  # 심은 것이 남아 있으면 그것도 잔여다 — 안 보면 다음 변이가 그 위에서 돈다.
+  for f in "${CREATED[@]:-}"; do
+    [ -n "$f" ] && [ -e "$REPO/$f" ] && dirty="$dirty $f"
   done
   printf '%s' "$dirty"
 }
@@ -1128,6 +1161,11 @@ apply() {
     M-246) # T5-2 — ADK가 usage를 안 주면 호출 자체를 조용히 지운다
       backup src/warranty/agent_chat.py
       perl -0pi -e 's/^    if failed or not usages:$/    if failed:/m' src/warranty/agent_chat.py ;;
+    M-247) # T5-3 — 선언이 저장소 밖 git 출처에서 코드를 끌어온다 (편입)
+      backup pyproject.toml
+      perl -0pi -e 's/^    "google-genai>=1\.0",$/    "google-genai>=1.0",\n    "borrowed \@ git+https:\/\/example.invalid\/borrowed.git",/m' pyproject.toml ;;
+    M-248) # T5-3 — 베끼어 심은 소스 트리를 저장소에 들인다 (선언을 거치지 않는 편입)
+      create vendor/borrowed/__init__.py && printf 'BORROWED = 1\n' > "$REPO/vendor/borrowed/__init__.py" ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -1160,5 +1198,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213 M-214 M-215 M-216 M-217 M-218 M-219 M-220 M-221 M-222 M-223 M-224 M-225 M-226 M-227 M-228 M-229 M-230 M-231 M-232 M-233 M-234 M-235 M-236 M-237 M-238 M-239 M-240 M-241 M-242 M-243 M-244 M-245 M-246; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213 M-214 M-215 M-216 M-217 M-218 M-219 M-220 M-221 M-222 M-223 M-224 M-225 M-226 M-227 M-228 M-229 M-230 M-231 M-232 M-233 M-234 M-235 M-236 M-237 M-238 M-239 M-240 M-241 M-242 M-243 M-244 M-245 M-246 M-247 M-248; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

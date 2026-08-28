@@ -47,7 +47,13 @@ def _markdown_paths() -> list[Path]:
 
 
 def test_readme_exposes_the_canonical_architecture_link() -> None:
-    """제출 진입점은 일반 문서가 아니라 **선택한 다이어그램 앵커**를 이름으로 가리킨다."""
+    """제출 진입점은 일반 문서가 아니라 **선택한 다이어그램 앵커**를 이름으로 가리킨다.
+
+    Verifies: REQ-901
+
+    ⚠️ REQ-901이 요구하는 다섯 중 *"아키텍처 다이어그램"*이 여기서 집행된다 —
+       제출물이 가리키는 앵커가 죽으면 심사자에게 다이어그램은 **없는 것**이다.
+    """
     readme = _read(README)
     assert f"| **{EXPECTED_LABEL}** |" in readme, f"README에 {EXPECTED_LABEL!r} 항목이 없다."
     links = LINK_RE.findall(readme)
