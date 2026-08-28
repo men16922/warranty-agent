@@ -1,11 +1,10 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = `RunControl`·`SignalSource`·Firestore를 ADK 도구 경로에 배선해 `/agent:chat`이 실물 왕복을 돌게 한다.**
-> ✅ D15 로컬 경계까지 끝났다 — bearer 인증·공개 invoker+비밀 바인딩·M-206~M-213,
-> 전체 213종 red를 확인했다(`make check` 330 passed).
-> ⛔ **에이전트 도구 배선은 아직 안 했다.** 유효 토큰으로도 `/agent:chat`은 정책상 `501`이다.
-> ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) ·
-> `https://demo-target-450305106907.us-central1.run.app` (리비전 2개).
+> ▶ **NEXT SESSION: 첫 행동 = 변경분을 명시적으로 커밋한 뒤 `warranty-api`를 배포하고 인증된 `/agent:chat` 실물 호출을 확인한다.**
+> ✅ ADK·Gemini→Monitoring→Cloud Run→Firestore 실물 왕복 완료 — AUTO·미회복·원자적 롤백,
+> M-01~M-246 전부 red와 `make check` 392 passed를 확인했다.
+> ⛔ **현재 배포 리비전은 이전 코드다.** 로컬 실물 배선은 끝났지만 공개 URL은 아직 유효 토큰에 501이다.
+> ⭐ **실물 URL**: `https://warranty-api-povpqj6m5a-uc.a.run.app` (공개) · `https://demo-target-450305106907.us-central1.run.app` (리비전 2개).
 > ⚠️ 남은 `[auto]`와 `.env`의 부트스트랩 `WR_PROJECT_ID`는
 > [`tasks.md`](../specs/warranty/tasks.md)가 권위다 — **여기서 세지 않는다.**
 
@@ -181,28 +180,28 @@ flowchart LR
 ```
 게이트    `make check` — 통과 수는 tasks.md 하단 한 곳에만 적는다
 요구사항  44종 — 상태 분포는 `make trace`가 센다 (사람이 세어 적지 않는다)
-가드      G1~G4 · G6~G9 변이 확인 · G5만 미착수 → tasks.md「가드 현황」
+가드      G1~G9 변이 확인 → tasks.md「가드 현황」
 변이      선언한 것 전부 red 확인 · 복구 후 초록 · 잔여 0 → docs/evidence/mutations.md
-루프      조치→검증→롤백 **전부 fake 위에서 배선·검증됨**. 남은 건 어댑터뿐
-ADK       ⭐ **실물 호출 확인**(2026-08-23) — Gemini 3.7 Flash · Vertex · 도구 호출 포함
-GCP       ⭐ **Cloud Run에서 돈다** — warranty-api + demo-target(리비전 2개) · 실물 왕복 확인
-어댑터    `RunControl`·`SignalSource`·Firestore(계약·원장) 코드 있음. ⛔ 미배선 · 실행자/예산은 아직 없음
+루프      ⭐ ADK가 기준선→조치→미회복→롤백→원장을 실물 GCP 어댑터로 완주(2026-08-28)
+ADK       ⭐ Gemini 3.7 Flash가 `remediate` 호출 · decision/verification/rollback 응답 확인
+GCP       ⭐ Firestore Native 계약·원장·예산 + Monitoring p95 + Cloud Run 원자적 트래픽 전환
+어댑터    `RunControl`·`SignalSource`·Firestore·실행자·예산을 `runtime.py` 한 곳에서 합성
 README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
-응답      design 08§3.1 덩어리를 내는 렌더러 있음(`wire.py`). ⛔ 경로가 501이라 아직 안 보인다
-서버      ⭐ **D15 실물 확인**(2026-08-27) — `/livez` 200 공개 · 401×3 · 유효 토큰만 501 · rev 00002-c6q
+응답      실물 ADK 최종 응답에 판정·검증·롤백 근거 노출. 직접 `/actions/*` 경로는 아직 501
+서버      현재 배포 `00002-c6q`는 D15만 포함. 새 `/agent:chat` 배선은 다음 커밋·배포 대상
 ```
 
 ⚠️ **여기에 숫자를 세어 적지 않는다**(T0-6의 교훈) — 실제로 썩어 있었다: 이 상자가 말하던
 `120 passed`·`VERIFIED 18`·`M-01~M-32`·`커밋 6개`는 **넷 다 틀렸다.** ⇒ 세는 자리는 하나다.
 
-**다음**: **T2-4 — 비밀·IAM·재배포로 D15를 실증한 뒤 에이전트 실물 왕복을 배선한다.**
+**다음**: **ADK usage 계량 → 명시적 커밋 → 재배포 → 인증된 `/agent:chat` 프로덕션 왕복.**
 [`tasks.md`](../specs/warranty/tasks.md)가 권위다.
 
 ### 막혀 있는 것
 
 | | 왜 | 잠그는 것 |
 |---|---|---|
-| **에이전트 도구 배선** | `RunControl`·`SignalSource`·Firestore가 ADK 도구 경로에 없다 | `/agent:chat` 실물 왕복 |
+| **새 리비전 배포** | 배포 태그가 커밋 SHA라 미커밋 코드를 올릴 수 없다 | 프로덕션 `/agent:chat` 왕복 |
 | BQ 결제 내보내기 *(선택)* | 콘솔 수동 · 하루 지연 | REQ-506·509만 |
 
 ### ✅ 중단 기준 — **통과**

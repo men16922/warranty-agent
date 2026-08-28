@@ -11,12 +11,10 @@ Spec: specs/warranty/design/08-interfaces.md §3-4 (REQ-602)
    이 서비스가 받는 트래픽이 **심사자 한 명과 프로브**이기 때문이다 — 그 이상을 가정하면
    REQ-805(유휴 과금 0)와 어긋나는 물건을 짓게 된다.
 
-⛔ **선언된 경로 중 실제로 답하는 것은 헬스뿐이고, 나머지는 `501`을 낸다.**
-   그게 게으름이 아니라 이 저장소의 정책이다: 실물 어댑터가 아직 없고(REQ-601·602는 TODO),
-   설정은 `fake`를 **기본값으로 두지 않는다**(design 08§5) — 배포가 조용히 가짜로 도는 것을
-   막기 위해서다. 여기서 fake를 물려 `200`을 내면 그 금지를 우회하는 것이고,
-   그 순간 이 서비스는 *"돌아간다"*와 *"가짜로 돌아간다"*를 구별할 수 없게 된다.
-   ⇒ 답할 수 없는 경로는 **시끄럽게** 답할 수 없다고 말한다(docs/PRINCIPLES.md #3).
+`/agent:chat`은 인증 뒤 주입된 실물 ADK 콜백만 호출한다. 콜백이 없으면 `501`, 호출이
+실패하면 `503`으로 닫으며 fake 성공을 만들지 않는다. 아직 배선하지 않은 나머지 경로도
+`501`을 유지한다. 설정은 `fake`를 **기본값으로 두지 않는다**(design 08§5) — 배포가
+조용히 가짜로 도는 것을 막기 위해서다(docs/PRINCIPLES.md #3).
 
 ⚠️ **경로 표는 설계가 소유한다.** 여기 적힌 `ROUTES`는 design 08§3 표의 사본이고,
    사본인 이상 따로 썩는다 — 게이트가 둘을 맞댄다(tests/test_http_server.py ②).
@@ -31,7 +29,8 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -39,11 +38,14 @@ from warranty.auth import AUTH_ENV_KEY, AUTH_SCHEME, AuthVerdict, authenticate
 from warranty.config import SERVICE_NAME, load_port
 
 OK = 200
+BAD_REQUEST = 400
 UNAUTHORIZED = 401
 NOT_FOUND = 404
 METHOD_NOT_ALLOWED = 405
 NOT_IMPLEMENTED = 501
 SERVICE_UNAVAILABLE = 503
+
+AgentChat = Callable[[Mapping[str, object]], Mapping[str, object]]
 
 #: 플랫폼이 프로브하는 경로. ⛔ **이것만은 지금 진짜로 답해야 한다** — 나머지가 `501`인
 #: 것은 정책이지만, 이것이 `501`이면 리비전은 트래픽을 한 번도 못 받는다.
@@ -120,6 +122,8 @@ def resolve(
     *,
     authorization: str | None = None,
     agent_auth_token: str | None = None,
+    body: bytes = b"",
+    agent_chat: AgentChat | None = None,
 ) -> Response:
     """요청 하나에 대한 응답. **소켓을 모른다** — 그래서 단위로 태울 수 있다.
 
@@ -158,6 +162,35 @@ def resolve(
                 {"error": "unauthorized"},
                 {"WWW-Authenticate": AUTH_SCHEME},
             )
+        if agent_chat is None:
+            return Response(
+                NOT_IMPLEMENTED,
+                {
+                    "error": "not_implemented",
+                    "route": f"{method} {path}",
+                    "detail": "인증 경계는 열렸지만 실물 ADK 합성 지점이 주입되지 않았다",
+                },
+            )
+        try:
+            decoded = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            return Response(BAD_REQUEST, {"error": "invalid_json", "detail": str(exc)})
+        if not isinstance(decoded, dict):
+            return Response(
+                BAD_REQUEST, {"error": "invalid_body", "detail": "JSON object required"}
+            )
+        try:
+            return Response(OK, agent_chat(decoded))
+        except ValueError as exc:
+            return Response(BAD_REQUEST, {"error": "invalid_request", "detail": str(exc)})
+        except Exception:
+            return Response(
+                SERVICE_UNAVAILABLE,
+                {
+                    "error": "agent_unavailable",
+                    "detail": "authenticated agent execution failed; inspect Cloud Run logs",
+                },
+            )
     return Response(
         NOT_IMPLEMENTED,
         {
@@ -181,6 +214,7 @@ class WarrantyHandler(BaseHTTPRequestHandler):
 
     protocol_version = "HTTP/1.1"
     server_version = "warranty/1"
+    agent_chat: AgentChat | None = None
 
     #: ⚠️ 메서드 이름은 취향이 아니라 stdlib의 디스패치 규약이다(`do_<METHOD>`).
     def do_GET(self) -> None:
@@ -190,12 +224,14 @@ class WarrantyHandler(BaseHTTPRequestHandler):
         self._respond("POST")
 
     def _respond(self, method: str) -> None:
-        self._drain_body()
+        body = self._read_body()
         response = resolve(
             method,
             self.path,
             authorization=self.headers.get("Authorization"),
             agent_auth_token=os.environ.get(AUTH_ENV_KEY),
+            body=body,
+            agent_chat=self.agent_chat,
         )
         payload = response.payload()
         self.send_response(response.status)
@@ -208,23 +244,35 @@ class WarrantyHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def _drain_body(self) -> None:
+    def _read_body(self) -> bytes:
         """본문을 읽어 버린다. ⚠️ 안 읽으면 keep-alive에서 **다음 요청이 이 본문을
         요청 줄로 읽는다** — 그러면 두 번째 요청부터 조용히 `400`이 된다.
         """
         raw = self.headers.get("Content-Length", "")
         if raw.isdigit() and int(raw) > 0:
-            self.rfile.read(int(raw))
+            return self.rfile.read(int(raw))
+        return b""
 
 
-def serve(port: int) -> ThreadingHTTPServer:
+def serve(port: int, agent_chat: AgentChat | None = None) -> ThreadingHTTPServer:
     """포트를 **실제로 연다**. ⛔ 게이트는 이것을 안 부른다(REQ-801 — 오프라인)."""
-    return ThreadingHTTPServer(("", port), WarrantyHandler)
+    if agent_chat is None:
+        handler = WarrantyHandler
+    else:
+
+        class LiveWarrantyHandler(WarrantyHandler):
+            pass
+
+        LiveWarrantyHandler.agent_chat = staticmethod(agent_chat)
+        handler = LiveWarrantyHandler
+    return ThreadingHTTPServer(("", port), handler)
 
 
 def main() -> int:
+    from warranty.agent_chat import lazy_live_agent_chat
+
     port = load_port()
-    httpd = serve(port)
+    httpd = serve(port, lazy_live_agent_chat(time.sleep))
     # ⚠️ 뜬 것을 말하고 시작한다 — 프로브가 실패했을 때 *"안 떴다"*와 *"떴는데 다른 포트"*를
     #    로그만으로 가를 수 있어야 한다.
     print(f"listening on :{port}", flush=True)

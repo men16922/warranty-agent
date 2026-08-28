@@ -1,6 +1,6 @@
 # tasks — warranty
 
-작성: 2026-08-19 · 최종 정리: 2026-08-27 · 권위: `requirements.md` · 설계: `design.md` + `design/*.md`
+작성: 2026-08-19 · 최종 정리: 2026-08-28 · 권위: `requirements.md` · 설계: `design.md` + `design/*.md`
 
 > 이 파일은 **열린 실행 계획**과 요구사항→태스크 추적성만 소유한다.
 > 완료 상세는 [`docs/COMPLETED_SUMMARY.md`](../../docs/COMPLETED_SUMMARY.md), 시간순 증거는
@@ -16,7 +16,7 @@
 ## 일정과 현재 초점
 
 - 제출: **2026-09-01 09:00 KST** · teardown: **09-02** · Free Trial 만료: **09-06**.
-- **다음**: T2-4 — `RunControl`·`SignalSource`·Firestore를 ADK 도구 경로에 배선해 실물 왕복을 원장까지 잇는다.
+- **다음**: 변경분을 명시적으로 커밋한 뒤 `warranty-api`를 배포해 인증된 `/agent:chat` 실물 호출을 확인한다.
 - 현재 실물: `warranty-api` 리비전 `00002-c6q`(이미지 `a7c660d` · D15 포함) + `demo-target`(리비전 2개).
 - 오프라인 기준선: 이 파일 하단의 `make check` 한 곳만 권위로 둔다.
 
@@ -24,25 +24,27 @@
 
 ### P0 — 실물 에이전트 왕복
 
-- [~] **T2-4** 에이전트가 기준선→조치→같은 신호 재측정→실패 판정→트래픽 롤백→배분 재확인→
+- [x] **T2-4** 에이전트가 기준선→조치→같은 신호 재측정→실패 판정→트래픽 롤백→배분 재확인→
   롤백 후 재측정→원장 기록까지 수행한다. `Implements: REQ-201, REQ-202, REQ-301,
   REQ-302, REQ-303, REQ-304, REQ-501, REQ-502, REQ-601, REQ-604, REQ-901` · `Design: 10§7, 11`
   - [x] D15 로컬 경계: 공개 invoker + Secret Manager bearer, 503/401/유효→501 계약과 변이 검증.
   - [x] D15 실물: 비밀·`secretAccessor` IAM·재배포 뒤 `/livez` 200 공개, 무헤더/틀린 토큰/틀린 스킴
     전부 401, 유효 토큰만 501을 실물에서 확인했다 — `docs/evidence/d15-auth-matrix-2026-08-27.log`.
-  - 이미 확인: 사람이 한 실물 왕복과 Monitoring p95 `674.2 → 988.6 → 674.2 ms`.
+  - 실물 확인: ADK·Gemini가 도구를 호출해 Monitoring p95 `674.2 → 988.6 ms`,
+    `not_recovered`, 원자적 롤백과 건강 리비전 100%를 응답·Firestore 원장에 남겼다.
   - [x] 계약·원장의 Firestore 어댑터(T14-1): 문서 매핑·질의·전이가 오프라인에서 검증됐다.
-  - 남음: `RunControl`·`SignalSource`·Firestore를 ADK 도구 경로에 배선하고 실물 증거를 남긴다.
-    ⛔ 아직 없는 것: 실물 `ActionExecutor`·`BudgetStore`와 이들을 조립하는 합성 지점.
-- [~] **T2-1** ADK + Gemini 실물 호출은 성공했다. 라이브 테스트와 에이전트 왕복으로
-  수용 기준을 닫은 뒤 REQ 상태를 재판정한다. `Implements: REQ-601` · `Design: 06§2–3`
+  - 증거: `docs/evidence/live-adk-remediate-2026-08-28.log` · 원장 `01m13fpgc8e091es3ekpqx48f4`.
+- [x] **T2-1** ADK Runner + Vertex AI Gemini 3.7 Flash 실물 도구 호출 완료.
+  `Implements: REQ-601` · `Design: 06§2–3`
+- [x] **T5-2** 판정 모델과 ADK 오케스트레이션 모델 응답을 호출 1건=원장 1행으로 계량했다.
+  실물 `inspect`의 모델 응답 둘이 Firestore 두 행이 됐다. `Implements: REQ-603` · `Design: 06§5`
 
 ### P1 — 제출 가능한 데모
 
-- [~] **T5-1** 응답 렌더러는 끝났다(`wire.py` · M-224~M-232). ⛔ 남은 것은 **경로**다 —
-  `POST /actions/{action_id}:remediate`가 아직 501이라 그 덩어리가 화면에 안 나간다.
+- [~] **T5-1** 응답 렌더러와 인증된 `/agent:chat` 콜백 경로는 끝났다(`wire.py` · M-224~M-243).
+  ⛔ `POST /actions/{action_id}:remediate` 직접 경로와 새 Cloud Run 리비전 배포는 남았다.
   `Implements: REQ-604` · `Design: 08§3.1`
-- [ ] **T6-1** 건강하지만 느린 리비전으로 신호를 실제 악화시킨다. `Design: 11§1`
+- [x] **T6-1** 느린 리비전 `00002-lss`로 p95를 실제 악화시키고 롤백했다. `Design: 11§1`
 - [ ] **T8-2** README 재현 절차를 사람 기준으로 최종 확인한다. `Implements: REQ-901`
 - [ ] **T8-3** 4분 영어 영상을 녹화한다. `Implements: REQ-901` · `Design: 11§3`
 - [ ] **T8-4** 신규 코드 여부를 확인한다. `Implements: REQ-902` · `Design: 10§8`
@@ -90,6 +92,7 @@
 | T13-6 | 문서 예산 회수: log≤120 · open plan≤200 | REQ-802 |
 | T14-1 | Firestore 문서 매핑·원장 전이 단일화·census 이름 한정 | REQ-102, REQ-501, REQ-503, REQ-505, REQ-801 |
 | T5-1(렌더러) | 원장 행 → design 08§3.1 응답 덩어리 | REQ-205, REQ-302, REQ-502, REQ-503, REQ-505, REQ-604 |
+| T2-1·4 | ADK·Gemini 실물 도구 호출 → Monitoring·Cloud Run·Firestore 왕복 | REQ-201, REQ-202, REQ-301, REQ-302, REQ-303, REQ-304, REQ-501, REQ-502, REQ-601, REQ-604 |
 
 ## 가드 현황
 
@@ -105,7 +108,7 @@
 | G8 `improved` 유도 | T1-5 | M-13 |
 | G9 검증불가는 AUTO 아님 | T1-6 | M-14 |
 
-**게이트**: `make check` → **372 passed** (2026-08-27 로컬 macOS·py3.13)
+**게이트**: `make check` → **392 passed** (2026-08-28 로컬 macOS·py3.13)
 
 숫자는 여기 한 곳에만 둔다. 변이 문서의 기준선 숫자는 해당 증거가 어느 스위트를 봤는지
 나타내는 별도 사실이며, T0-8이 둘의 불일치를 집행한다.

@@ -51,6 +51,7 @@ from warranty.config import (
 )
 from warranty.server import (
     AGENT_PATH,
+    BAD_REQUEST,
     HEALTH_PATH,
     METHOD_NOT_ALLOWED,
     NOT_FOUND,
@@ -283,6 +284,73 @@ def test_valid_authentication_does_not_fake_an_unwired_agent() -> None:
     )
     assert response.status == NOT_IMPLEMENTED
     assert response.body["error"] == "not_implemented"
+
+
+def test_valid_authentication_reaches_an_injected_agent_with_the_json_body() -> None:
+    seen: list[dict[str, object]] = []
+
+    def chat(body: Mapping[str, object]) -> Mapping[str, object]:
+        seen.append(dict(body))
+        return {"message": "done"}
+
+    response = resolve(
+        "POST",
+        AGENT_PATH,
+        authorization=f"Bearer {AUTH_TOKEN}",
+        agent_auth_token=AUTH_TOKEN,
+        body=b'{"message":"remediate demo-target"}',
+        agent_chat=chat,
+    )
+    assert response.status == OK
+    assert response.body == {"message": "done"}
+    assert seen == [{"message": "remediate demo-target"}]
+
+
+def test_the_agent_rejects_non_json_before_calling_the_model() -> None:
+    response = resolve(
+        "POST",
+        AGENT_PATH,
+        authorization=f"Bearer {AUTH_TOKEN}",
+        agent_auth_token=AUTH_TOKEN,
+        body=b"not-json",
+        agent_chat=lambda body: body,
+    )
+    assert response.status == BAD_REQUEST
+
+
+def test_an_agent_failure_is_a_json_service_error_not_a_dropped_connection() -> None:
+    def broken(_body: Mapping[str, object]) -> Mapping[str, object]:
+        raise RuntimeError("transport failed")
+
+    response = resolve(
+        "POST",
+        AGENT_PATH,
+        authorization=f"Bearer {AUTH_TOKEN}",
+        agent_auth_token=AUTH_TOKEN,
+        body=b'{"message":"go"}',
+        agent_chat=broken,
+    )
+    assert response.status == SERVICE_UNAVAILABLE
+    assert response.body["error"] == "agent_unavailable"
+    assert "transport failed" not in response.payload().decode("utf-8")
+
+
+def test_the_live_server_handler_keeps_the_injected_agent_callback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    made: list[type[WarrantyHandler]] = []
+
+    class FakeServer:
+        def __init__(self, _address: object, handler: type[WarrantyHandler]) -> None:
+            made.append(handler)
+
+    monkeypatch.setattr(server, "ThreadingHTTPServer", FakeServer)
+
+    def chat(body: Mapping[str, object]) -> Mapping[str, object]:
+        return body
+
+    server.serve(8080, chat)
+    assert made[0].agent_chat is chat
 
 
 def test_the_http_handler_passes_the_header_and_runtime_secret(

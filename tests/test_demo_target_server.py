@@ -59,15 +59,16 @@ def test_the_two_roles_are_actually_different() -> None:
     )
 
 
-def test_the_wall_clock_is_touched_only_here() -> None:
-    """④ ⛔ `time.sleep`이 이 파일 밖에 있으면 **게이트가 그것을 상속받는다.**
+def test_the_wall_clock_is_touched_only_in_deployment_entrypoints() -> None:
+    """④ ⛔ `time.sleep`은 **배포 진입점**에서만 실물 시계 포트에 주입한다.
 
     ⚠️ 실제로 그 규칙이 T11-4의 결정이었다: `demo_target`은 지연을 주입받고 구현을 안 갖는다.
        주입하는 자리가 늘어나면 그 결정은 문서에만 남는다.
     """
     offenders = []
+    entrypoints = {"demo_target_server.py", "server.py"}
     for path in sorted((ROOT / "src").rglob("*.py")):
-        if path.name == "demo_target_server.py":
+        if path.name in entrypoints:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -79,6 +80,6 @@ def test_the_wall_clock_is_touched_only_here() -> None:
             ):
                 offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
     assert not offenders, (
-        f"`time.sleep`이 진입점 밖에 있다: {offenders} — 게이트가 그것을 상속받고 "
+        f"`time.sleep`이 배포 진입점 밖에 있다: {offenders} — 게이트가 그것을 상속받고 "
         "결정론이 샌다(REQ-802)."
     )

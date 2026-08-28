@@ -10,7 +10,7 @@ RESULT=0
 LAST_SUMMARY=""
 cd "$(dirname "$0")/.."
 
-MUT="${1:?사용법: scripts/mutate.sh <M-01..M-232|all>}"
+MUT="${1:?사용법: scripts/mutate.sh <M-01..M-246|all>}"
 BACKUP="$(mktemp -d)"          # ⚠️ git checkout이 아니라 디스크 백업 — 커밋 안 된 고침을 안 날린다
 PYTEST=".venv/bin/pytest"
 TOUCHED=()                     # 이번 변이가 건드린 파일만 추적한다
@@ -169,7 +169,7 @@ apply() {
       perl -0pi -e 's/return self\.rollback is not None and not self\.rollback\.performed/return not self.rolled_back/' src/warranty/domain/entry.py ;;
     M-33) # REQ-603 — 모델 호출이 원장에 **안 남는다** (호출은 있었는데 지출이 없다)
       backup src/warranty/usecases/meter.py
-      perl -0pi -e 's/        finally:\n            self\._record\(action_id, usage\)/        finally:\n            pass/' src/warranty/usecases/meter.py ;;
+      perl -0pi -e 's/        finally:\n            self\._meter\(\)\.record\(action_id, usage\)/        finally:\n            pass/' src/warranty/usecases/meter.py ;;
     M-34) # REQ-508 — 리포트가 모델 호출 행을 **조치로 센다** (★ 모델을 쓸수록 회복률이 나빠진다)
       backup src/warranty/domain/report.py
       perl -0pi -e 's/ if row\.kind is EntryKind\.ACTION//' src/warranty/domain/report.py ;;
@@ -178,7 +178,7 @@ apply() {
       perl -0pi -e 's/return Attribution\(Method\.NONE, reason=str\(exc\)\), zero/return Attribution(Method.TOKEN_METER), zero/' src/warranty/usecases/meter.py ;;
     M-36) # REQ-603 — 호출이 예외로 끝나면 행을 안 남긴다 (실패했는데 나간 토큰이 사라진다)
       backup src/warranty/usecases/meter.py
-      perl -0pi -e 's/        finally:\n            self\._record\(action_id, usage\)/        except Exception:\n            raise\n        else:\n            self._record(action_id, usage)/' src/warranty/usecases/meter.py ;;
+      perl -0pi -e 's/        finally:\n            self\._meter\(\)\.record\(action_id, usage\)/        except Exception:\n            raise\n        else:\n            self._meter().record(action_id, usage)/' src/warranty/usecases/meter.py ;;
     M-37) # REQ-803 — 데모가 **살아 있는 시계**를 쓴다 (재현이 아니라 실행이 된다)
       backup src/warranty/demo.py
       perl -0pi -e 's/clock = FrozenClock\(DEMO_CLOCK_ISO\)/clock = FrozenClock(datetime.now().astimezone().isoformat())/' src/warranty/demo.py ;;
@@ -607,7 +607,7 @@ apply() {
             # ⛔ keep-alive에서 다음 요청이 그 본문을 요청 줄로 읽는다. 부하에서 나는
             #    실패가 아니라 **두 번째 클릭**에서 나고, 한 번만 눌러 보면 안 보인다.
       backup src/warranty/server.py
-      perl -0pi -e 's/^            self\.rfile\.read\(int\(raw\)\)$/            pass/m' src/warranty/server.py ;;
+      perl -0pi -e 's/^            return self\.rfile\.read\(int\(raw\)\)$/            return b""/m' src/warranty/server.py ;;
     M-132) # T12-1 — 산출물이 포트를 **다시 적는다**
             # ⛔ 이미지가 듣는 포트와 프로브가 두드리는 포트가 따로 썩는다. `config.py`를
             #    고쳐도 이 줄은 안 따라오고, 그 어긋남은 첫 배포에서만 보인다.
@@ -1086,6 +1086,48 @@ apply() {
             # ⛔ 칸이 빠져도 응답은 성공한다. 빠진 칸은 심사자에게 *"없는 기능"*으로 보인다.
       backup src/warranty/wire.py
       perl -0pi -e 's/^    missing = \[key for key in REQUIRED_KEYS if key not in body\]$/    missing = []/m' src/warranty/wire.py ;;
+    M-233) # T2-4 — 다른 서비스의 리비전을 조치 대상으로 허용한다
+      backup src/warranty/adapters/live_action.py
+      perl -0pi -e 's/^    if not revision\.startswith\(f"\{resource\.name\}-"\):$/    if False:/m' src/warranty/adapters/live_action.py ;;
+    M-234) # T2-4 — 실행기가 Cloud Run 트래픽 전환을 부르지 않는다
+      backup src/warranty/adapters/live_action.py
+      perl -0pi -e 's/^        self\.run\.shift_all_traffic\(resource, target_revision\(action_id, resource\)\)\n//m' src/warranty/adapters/live_action.py ;;
+    M-235) # T2-4 — 미정산 예약을 headroom에서 빼지 않는다
+      backup src/warranty/adapters/live_budget.py
+      perl -0pi -e 's/^        return self\.limit - self\.spent - sum\(self\.reservations\.values\(\), Decimal\(0\)\)$/        return self.limit - self.spent/m' src/warranty/adapters/live_budget.py ;;
+    M-236) # T2-4 — Firestore 예산 한도와 배포 한도의 drift를 허용한다
+      backup src/warranty/adapters/live_budget.py
+      perl -0pi -e 's/^    if stored_limit != limit:$/    if False:/m' src/warranty/adapters/live_budget.py ;;
+    M-237) # T2-4 — 실제 지출이 예약액을 넘어도 정산한다
+      backup src/warranty/adapters/live_budget.py
+      perl -0pi -e 's/^    if actual < 0 or actual > reservation\.amount:$/    if False:/m' src/warranty/adapters/live_budget.py ;;
+    M-238) # T2-4 — ADK에 report 도구를 붙이지 않는다
+      backup src/warranty/runtime.py
+      perl -0pi -e 's/^        tools = \(self\.provision, self\.inspect, self\.remediate, self\.report\)$/        tools = (self.provision, self.inspect, self.remediate)/m' src/warranty/runtime.py ;;
+    M-239) # T2-4 — HTTP가 받은 JSON을 에이전트에 전달하지 않는다
+      backup src/warranty/server.py
+      perl -0pi -e 's/agent_chat\(decoded\)/agent_chat({})/' src/warranty/server.py ;;
+    M-240) # T2-4 — ADK의 중간 이벤트까지 최종 답으로 노출한다
+      backup src/warranty/agent_chat.py
+      perl -0pi -e 's/^        if not callable\(is_final\) or not is_final\(\):$/        if False:/m' src/warranty/agent_chat.py ;;
+    M-241) # T2-4 — 실물 시계가 주입받은 대기를 실행하지 않는다
+      backup src/warranty/adapters/system.py
+      perl -0pi -e 's/^        self\._pause\(seconds\)$/        pass/m' src/warranty/adapters/system.py ;;
+    M-242) # T2-4 · G5 — Firestore BudgetStore 생성 입구의 tripwire를 지운다
+      backup src/warranty/adapters/live_budget.py
+      perl -0pi -e 's/^        live_guard\.note\("live_budget\.LiveBudgetStore\._db"\)\n//m' src/warranty/adapters/live_budget.py ;;
+    M-243) # T2-4 — 서버가 주입받은 실물 에이전트 콜백을 핸들러에서 버린다
+      backup src/warranty/server.py
+      perl -0pi -e 's/^        LiveWarrantyHandler\.agent_chat = staticmethod\(agent_chat\)$/        LiveWarrantyHandler.agent_chat = None/m' src/warranty/server.py ;;
+    M-244) # T5-2 — ADK 도구 결과를 다시 보낸 입력 토큰을 계량에서 누락한다
+      backup src/warranty/agent_chat.py
+      perl -0pi -e 's/prompt \+ tool_prompt/prompt/' src/warranty/agent_chat.py ;;
+    M-245) # T5-2 — usage가 있어도 ADK 모델 호출 원장 행을 만들지 않는다
+      backup src/warranty/agent_chat.py
+      perl -0pi -e 's/enumerate\(usages, start=1\)/enumerate((), start=1)/' src/warranty/agent_chat.py ;;
+    M-246) # T5-2 — ADK가 usage를 안 주면 호출 자체를 조용히 지운다
+      backup src/warranty/agent_chat.py
+      perl -0pi -e 's/^    if failed or not usages:$/    if failed:/m' src/warranty/agent_chat.py ;;
     *) echo "알 수 없는 변이: $1" >&2; exit 2 ;;
   esac
 }
@@ -1118,5 +1160,5 @@ one() {
   [ "$VERDICT" = ok ] || RESULT=1
 }
 
-if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213 M-214 M-215 M-216 M-217 M-218 M-219 M-220 M-221 M-222 M-223 M-224 M-225 M-226 M-227 M-228 M-229 M-230 M-231 M-232; do one "$m"; done; else one "$MUT"; fi
+if [ "$MUT" = "all" ]; then for m in M-01 M-02 M-03 M-04 M-05 M-06 M-07 M-08 M-09 M-10 M-11 M-12 M-13 M-14 M-15 M-16 M-17 M-18 M-19 M-20 M-21 M-22 M-23 M-24 M-25 M-26 M-27 M-28 M-29 M-30 M-31 M-32 M-33 M-34 M-35 M-36 M-37 M-38 M-39 M-40 M-41 M-42 M-43 M-44 M-45 M-46 M-47 M-48 M-49 M-50 M-51 M-52 M-53 M-54 M-55 M-56 M-57 M-58 M-59 M-60 M-61 M-62 M-63 M-64 M-65 M-66 M-67 M-68 M-69 M-70 M-71 M-72 M-73 M-74 M-75 M-76 M-77 M-78 M-79 M-80 M-81 M-82 M-83 M-84 M-85 M-86 M-87 M-88 M-89 M-90 M-91 M-92 M-93 M-94 M-95 M-96 M-97 M-98 M-99 M-100 M-101 M-102 M-103 M-104 M-105 M-106 M-107 M-108 M-109 M-110 M-111 M-112 M-113 M-114 M-115 M-116 M-117 M-118 M-119 M-120 M-121 M-122 M-123 M-124 M-125 M-126 M-127 M-128 M-129 M-130 M-131 M-132 M-133 M-134 M-135 M-136 M-137 M-138 M-139 M-140 M-141 M-142 M-143 M-144 M-145 M-146 M-147 M-148 M-149 M-150 M-151 M-152 M-153 M-154 M-155 M-156 M-157 M-158 M-159 M-160 M-161 M-162 M-163 M-164 M-165 M-166 M-167 M-168 M-169 M-170 M-171 M-172 M-173 M-174 M-175 M-176 M-177 M-178 M-179 M-180 M-181 M-182 M-183 M-184 M-185 M-186 M-187 M-188 M-189 M-190 M-191 M-192 M-193 M-194 M-195 M-196 M-197 M-198 M-199 M-200 M-201 M-202 M-203 M-204 M-205 M-206 M-207 M-208 M-209 M-210 M-211 M-212 M-213 M-214 M-215 M-216 M-217 M-218 M-219 M-220 M-221 M-222 M-223 M-224 M-225 M-226 M-227 M-228 M-229 M-230 M-231 M-232 M-233 M-234 M-235 M-236 M-237 M-238 M-239 M-240 M-241 M-242 M-243 M-244 M-245 M-246; do one "$m"; done; else one "$MUT"; fi
 exit $RESULT

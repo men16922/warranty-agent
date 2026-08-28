@@ -7,6 +7,20 @@
 
 ---
 
+## 2026-08-28 — ADK가 실물 조치·검증·원자적 롤백을 끝까지 돌렸다 (gate 372 → 392)
+
+- **Status**: T2-1·T2-4·T5-2·T6-1 `[x]`; REQ-601·603·604 `VERIFIED`. 공개 리비전 배포는 아직이다.
+- **Changed**: 실행자·Firestore 예산·시계/ULID·Vertex 전송·합성 지점·ADK 단발 세션을 만들고,
+  인증된 `/agent:chat` JSON을 실물 콜백에 연결했다. `(default)` Firestore Native DB와 계약도 생성했다.
+- **Verified**: `make check` **392 passed** · M-01~M-246 **246종 전부 red**, 복구 392·잔여 0.
+  실물 ADK 응답은 `AUTO`, p95 `674.17 → 988.60`, `not_recovered`, 건강 리비전 100% 롤백.
+- **원장/예산**: `01m13fpgc8e091es3ekpqx48f4` · 잔액 `$0.49` · 미정산 0.
+- **Boundary**: `signal_restored=false` — 120초 p95 창에 장애 표본이 남아 신호 복구는 증명 못 했다.
+- **모델 계량**: 실물 `inspect`의 ADK 모델 응답 둘이 Firestore `model_call` 두 행이 됐다.
+- **Blockers**: 현재 Cloud Run 리비전은 이전 SHA다. 커밋 없이 배포하면 이미지 태그가 거짓이 된다.
+- **Next**: 명시적 커밋·재배포 → bearer `/agent:chat` 프로덕션 왕복 → 영상.
+- **Evidence**: `docs/evidence/live-adk-remediate-2026-08-28.log`.
+
 ## 2026-08-27 — 논지 한 덩어리를 응답 모양으로 고정했다 · T5-1 렌더러 (gate 356 → 372)
 
 - **Status**: T5-1 `[~]`. design 08§3.1의 응답을 내는 `wire.py`가 생겼다. 경로는 아직 501이다.

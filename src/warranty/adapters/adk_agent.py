@@ -8,9 +8,9 @@ Spec: specs/warranty/design/06-agent-runtime.md §2-3 (REQ-601)
    **아래**를 태운다: 생성자에 실릴 인자를 순수 함수가 **값으로** 낸다.
    `tools/deploy_plan.py`가 `gcloud` 인자에 대해 한 것과 같은 수법이다(T11-1).
 
-⛔ **REQ-601은 그대로 TODO다.** 수용 기준은 실물 호출이고, 여기서 확인되는 것은
-   *"우리가 이렇게 조립한다"*까지다. *"Gemini가 답한다"*가 아니다 — 그 둘은 다르고,
-   이 저장소는 그 구분을 지우지 않는다 (docs/PRINCIPLES.md #3 · design 06§2).
+⚠️ 이 모듈의 오프라인 테스트가 확인하는 것은 *"우리가 이렇게 조립한다"*까지다.
+   *"Gemini가 답했다"*는 별도 실물 증거가 소유한다 — 둘을 합치지 않는다
+   (`docs/evidence/live-adk-remediate-2026-08-28.log`).
 
 ⚠️ **인자를 값으로 내는 것이 취향이 아닌 이유**는 probe 로그 ②다: `Runner`의
    `session_service`는 **기본값이 없는 키워드 인자**다. 안 넘기면 그 실패는 임포트에서도

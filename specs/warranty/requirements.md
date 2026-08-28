@@ -334,8 +334,11 @@ REQ-506 화해로 따로 오고, 그것이 예약을 다시 열지는 않는다.
 `Ubiquitous` 에이전트는 Google ADK로 구현되고 Vertex AI를 통해 Gemini 3.5 이상을 호출한다.
 
 ⚠️ **수용 기준은 실물 호출이다.** 스텁 위에서 통과하는 테스트는 이 요구사항을 만족시키지 못한다.
+2026-08-28에 실제 ADK Runner가 Vertex AI의 Gemini 3.7 Flash로 `remediate`를 호출해
+Cloud Monitoring→Cloud Run 조치→Firestore 원장까지 왕복했다.
+증거: `docs/evidence/live-adk-remediate-2026-08-28.log`.
 
-상태: `TODO`
+상태: `VERIFIED`
 
 ### REQ-602 — Cloud Run에서 돈다 (대회 필수)
 `Ubiquitous` API는 Cloud Run에서 실행되고 유휴 시 인스턴스 0으로 수렴한다.
@@ -352,8 +355,10 @@ REQ-506 화해로 따로 오고, 그것이 예약을 다시 열지는 않는다.
 그 행들은 원리상 절대 `improved`가 되지 않는다.
 ⚠️ 단가를 모르는 모델은 `token_meter` + 0원이 아니라 **`none` + 사유**로 적는다 (REQ-504).
 *"계량했는데 공짜였다"*와 *"얼마인지 모른다"*는 다른 문장이다.
-⛔ 검증은 **fake 모델 포트 위**다. 이 요구사항은 원장 기록에 관한 것이라 오프라인으로
-판정 가능하지만, **실물 호출은 REQ-601이고 그것은 여전히 `TODO`다.**
+`PromptedJudge` 호출은 `MeteredModel`을 거친다. ADK Runner의 오케스트레이션 호출은 각
+모델 응답 이벤트의 `usage_metadata`를 `ModelCallMeter`로 넘긴다. usage가 없거나 호출이
+실패해도 `FAILED` 행을 남긴다. 실물 `inspect` 한 번의 모델 응답 둘이 Firestore 원장 두 행이
+된 것을 확인했다(`docs/evidence/live-adk-remediate-2026-08-28.log`).
 
 상태: `VERIFIED`
 
@@ -361,8 +366,10 @@ REQ-506 화해로 따로 오고, 그것이 예약을 다시 열지는 않는다.
 `Ubiquitous` 판정 근거·검증 결과·모델의 판단 근거를 API 응답에 포함한다.
 
 ⚠️ 4분 안에 전달되려면 **화면에 보여야** 한다.
+실물 ADK 응답에서 `decision`·`verification`·`rollback`이 최종 응답 본문으로 반환됐고,
+M-224·225·232·240이 필수 칸과 최종 이벤트 경계를 red로 고정한다.
 
-상태: `TODO`
+상태: `VERIFIED`
 
 ---
 

@@ -1,0 +1,70 @@
+2026-08-28 · warranty-hack · us-central1 · local ADK Runner + live GCP adapters
+
+[precondition]
+demo-target traffic: demo-target-00001-swl = 100%
+Firestore (default): Native, us-central1
+contract: demo-target-warranty-v1
+signal: run.googleapis.com/request_latencies · P95 · window 120s
+target revision: demo-target-00002-lss
+rollback revision: demo-target-00001-swl
+
+[empty-window diagnosis]
+2026-08-28T06:05:11Z request window 120s
+series_count=0
+measurement=Measurement(value=None, points=0)
+result: verifiable=false is a fail-close response to an actually empty Monitoring window.
+
+[fresh baseline]
+40 requests to the healthy revision returned HTTP 200.
+2026-08-28T06:06:42Z
+Measurement(value=Decimal('674.171849767732'), points=1)
+
+[actual ADK request]
+model: gemini-3.7-flash via Vertex AI global
+tool: remediate(resource_name=demo-target,
+                target_revision=demo-target-00002-lss,
+                projected_usd=0.01,
+                region=us-central1)
+
+[observed traffic]
+06:07:58 demo-target-00002-lss = 100%
+06:08:00..06:08:50 degraded revision load applied
+06:08:54 demo-target-00001-swl = 100%
+06:08:56 restored revision load applied
+
+[tool result]
+ledger entry: 01m13fpgc8e091es3ekpqx48f4
+status: executed
+decision.verdict: AUTO
+decision.rule: reversible and verifiable within budget
+decision.verifiable: true
+decision.projected_usd: 0.01
+decision.headroom_usd: 0.50
+verification.baseline: 674.171849767732 ms · 2 points
+verification.after: 988.6001754740923 ms · 2 points
+verification.verdict: not_recovered
+verification.decided_by: rule
+rollback.performed: true
+rollback.verified_traffic: {demo-target-00001-swl: 100}
+rollback.signal_restored: false
+
+[postcondition]
+demo-target traffic: demo-target-00001-swl = 100%
+budget headroom: 0.49 USD
+unsettled reservations: 0
+
+[interpretation boundary]
+The action/verification/atomic traffic rollback completed. signal_restored=false is not
+rewritten as success: the 120s p95 window still contained degraded samples at the rollback
+re-measurement. Traffic restoration is proven; signal restoration is not proven by this run.
+
+[ADK orchestration usage ledger proof]
+request: inspect demo-target in us-central1 through actual ADK + Gemini 3.7 Flash
+response: contract demo-target-warranty-v1, signal points=0, value=null
+model response 1: 01m13j0v2yvg14sxyy92gwr0sp
+  action_id=model:adk:request-1:1 · status=executed · kind=model_call
+model response 2: 01m13j0w3nt2m3qed8x2s5jbt5
+  action_id=model:adk:request-1:2 · status=executed · kind=model_call
+attribution for both: none · reason="단가표에 없는 모델이다: gemini-3.7-flash"
+Interpretation: usage metadata was present and each ADK model response became one row. An
+unknown published rate is not represented as token_meter + zero USD.
