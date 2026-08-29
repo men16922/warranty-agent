@@ -252,8 +252,9 @@ Daily Accountability Report: 2026-08-28
 
 **화면**: 창 B(원장 화면)를 전면으로 → 창 C(Cloud Run 콘솔)로 잠깐 전환.
 
-- **창 B** — 배포된 서비스가 낸 화면이다. 위 카드에 `실행됨` 옆에 `나아짐`이 있고,
-  표에서 **비용의 `귀속` 열**을 가리킨다.
+- **창 B** — 배포된 서비스가 낸 화면이다. ⭐ **화면 문자열은 영어다**(2026-08-30) —
+  심사·영상의 언어가 영어이고, 이 화면은 저장소가 아니라 **바깥 사람**이 읽는 자리다.
+  위 카드에 `Executed` 옆에 `Improved`가 있고, 표에서 **비용의 `Attribution` 열**을 가리킨다.
 - **창 C** — `demo-target` 트래픽 100%가 `demo-target-00001-swl`에 있는 것.
 
 > "This page is served by the agent itself, on Cloud Run. Read-only — there is no button here.

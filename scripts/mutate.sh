@@ -1251,10 +1251,10 @@ apply() {
       perl -0pi -e 's/^        response = self\.provisioner\.create\(resource_name, cost_label=entry_id\)$/        response = self.provisioner.create(resource_name, cost_label="")/m' src/warranty/runtime.py ;;
     M-275) # UI — 헤드라인에서 improved를 뗀다 (executed만 보이면 논지가 사라진다)
       backup src/warranty/ui.py
-      perl -0pi -e 's/^    \("improved", "나아짐"\),\n//m' src/warranty/ui.py ;;
+      perl -0pi -e 's/^    \("improved", "Improved"\),\n//m' src/warranty/ui.py ;;
     M-276) # UI — 비용의 귀속 열을 없앤다 (금액이 계산값인지 청구서인지 화면에서 사라진다)
       backup src/warranty/ui.py
-      perl -0pi -e 's/^    "귀속",\n//m' src/warranty/ui.py ;;
+      perl -0pi -e 's/^    "Attribution",\n//m' src/warranty/ui.py ;;
     M-277) # UI — 원장 값을 이스케이프하지 않는다 (모델·API가 채운 문자열이 그대로 나간다)
       backup src/warranty/ui.py
       perl -0pi -e 's/^    return f.<span class="tag \{tone\}">\{escape\(text\)\}<\/span>.$/    return f\x27<span class="tag {tone}">{text}<\/span>\x27/m' src/warranty/ui.py ;;

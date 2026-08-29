@@ -28,30 +28,32 @@ from html import escape
 #: 헤드라인 칸과 사람이 읽는 이름. ⚠️ **순서가 논지다** — `executed` 바로 옆에
 #: `improved`가 온다. 떨어뜨려 놓으면 둘이 다른 값이라는 것이 안 보인다.
 HEADLINE: tuple[tuple[str, str], ...] = (
-    ("executed", "실행됨"),
-    ("improved", "나아짐"),
-    ("rolled_back", "되돌림"),
-    ("escalated", "에스컬레이션"),
-    ("unverifiable", "검증 불가"),
-    ("manual_required", "수동 필요"),
-    ("model_decided", "모델이 판단"),
-    ("wasted_usd", "헛쓴 비용 (USD)"),
-    ("wasted_assumed_only", "그중 추정만"),
+    ("executed", "Executed"),
+    ("improved", "Improved"),
+    ("rolled_back", "Rolled back"),
+    ("escalated", "Escalated"),
+    ("unverifiable", "Unverifiable"),
+    ("manual_required", "Manual required"),
+    ("model_decided", "Model decided"),
+    ("wasted_usd", "Wasted (USD)"),
+    ("wasted_assumed_only", "of which assumed"),
 )
 
-#: 원장 표의 열. ⚠️ `귀속`과 `추정/실측`이 **같은 줄에** 있어야 한다 — 금액만 보이면
+#: 원장 표의 열. ⚠️ `Attribution`과 금액이 **같은 줄에** 있어야 한다 — 금액만 보이면
 #: 그 수가 계산값인지 청구서인지 사라지고, 그 구분이 이 프로젝트 논지의 절반이다.
+#: ⛔ **화면 문자열은 영어다.** 심사·데모의 언어가 영어이고, 화면은 저장소가 아니라
+#:    **바깥 사람**이 읽는 자리다. 주석·문서는 한국어로 남는다 — 그건 우리가 읽는다.
 COLUMNS: tuple[str, ...] = (
-    "항목",
-    "종류",
-    "대상",
-    "상태",
-    "판정",
-    "검증",
-    "롤백",
-    "귀속",
-    "비용 (USD)",
-    "근거",
+    "Entry",
+    "Kind",
+    "Target",
+    "Status",
+    "Decision",
+    "Verification",
+    "Rollback",
+    "Attribution",
+    "Cost (USD)",
+    "Reason",
 )
 
 STYLE = """
@@ -61,7 +63,7 @@ STYLE = """
 --soft:#bab3ca;--mute:#8b839d;--rule:#322d40;--ok:#7ba3ff;--warn:#f0a63c;--bad:#f08a8a;--zero:#8b839d}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
-font-family:ui-sans-serif,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+font-family:ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .wrap{max-width:72rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
 h1{font-size:1.5rem;margin:0 0 .35rem;letter-spacing:-.02em}
 .sub{color:var(--mute);font-size:.9rem;margin:0 0 2rem}
@@ -93,9 +95,10 @@ padding-top:1rem}
 
 #: ⛔ 화면 맨 위에 붙는 문장. **이 화면이 무엇을 주장하지 않는지**를 먼저 적는다.
 THESIS = (
-    "대부분의 운영 도구는 <b>실행됨</b>만 세고 그것을 성공이라 부른다. "
-    "이 표에 <b>나아짐</b>이 따로 있고, 그 칸이 <b>실행됨보다 작을 수 있다</b>는 것이 논지다. "
-    "여기 있는 수는 전부 원장에서 유도된다 — 하나도 저장하지 않는다."
+    "Most operations tools count <b>executed</b> and call that success. "
+    "This table keeps <b>improved</b> in a column of its own, and the whole point is that "
+    "it <b>can be smaller than executed</b>. "
+    "Every number here is derived from the ledger — none of them is stored."
 )
 
 #: 상태별 색. ⚠️ 모르는 상태는 **회색이지 초록이 아니다** — 조용한 성공을 만들지 않는다.
@@ -175,24 +178,25 @@ def render_dashboard(
     else:
         # ⛔ 빈 표를 조용히 그리지 않는다 — *"조치가 없었다"*와 *"못 읽었다"*는 다르다.
         table = (
-            '<div class="empty">이 날짜의 원장 항목이 없다. '
-            "조치가 없었다는 뜻이지, 읽기에 실패했다는 뜻이 아니다.</div>"
+            '<div class="empty">No ledger entries for this date. '
+            "That means no action was taken — not that reading failed.</div>"
         )
 
     where = escape(service) + (f" · {escape(revision)}" if revision else "")
     return (
-        "<!doctype html><html lang=ko><head><meta charset=utf-8>"
+        "<!doctype html><html lang=en><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>warranty — {escape(day)}</title><style>{STYLE}</style></head><body>"
         '<div class="wrap">'
-        "<h1>책임 원장</h1>"
+        "<h1>Accountability Ledger</h1>"
         f'<p class="sub">{escape(day)} · {where}</p>'
         f'<p class="thesis">{THESIS}</p>'
         f'<div class="grid">{cells}</div>'
         f'<div class="tablewrap">{table}</div>'
-        '<p class="note">읽기 전용이다 — 이 화면에서는 아무 조치도 걸 수 없다. '
-        "비용의 <b>귀속</b>이 <code>resource_label</code>이면 그 행은 청구서에서 "
-        "되찾을 수 있고, <code>none</code>이면 되찾을 수 없다. 그 구분을 숨기지 않는다.</p>"
+        '<p class="note">Read-only — no action can be taken from this page. '
+        "When a cost's <b>attribution</b> is <code>resource_label</code>, that row can be "
+        "found again in the bill; when it is <code>none</code>, it cannot. "
+        "We do not hide the difference.</p>"
         "</div></body></html>"
     )
 

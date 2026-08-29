@@ -125,7 +125,7 @@ def test_the_headline_puts_improved_next_to_executed() -> None:
     assert keys.index("improved") == keys.index("executed") + 1
 
     page = _page()
-    assert "실행됨" in page and "나아짐" in page
+    assert "Executed" in page and "Improved" in page
     # ⛔ 두 값이 실제로 화면에 다르게 그려진다 — 2와 0.
     assert ">2</p>" in page
     assert 'class="v zero">0</p>' in page
@@ -138,10 +138,10 @@ def test_the_page_shows_how_the_cost_is_attributed() -> None:
     """
     page = _page()
     # ⛔ **표의 머리에서** 찾는다. 페이지 어디에나 있는지 물으면 아래 각주의
-    #    "비용의 귀속이 …" 문장이 그 단언을 **공짜로 통과시킨다** — 실제로 그랬고
+    #    "…<b>attribution</b>…" 문장이 그 단언을 **공짜로 통과시킨다** — 실제로 그랬고
     #    M-276이 그것을 잡았다(열을 지워도 초록이었다).
     header = page.split("<thead>")[1].split("</thead>")[0]
-    assert "귀속" in header, "비용의 귀속이 표의 열에 없다"
+    assert "Attribution" in header, "비용의 귀속이 표의 열에 없다"
     assert "resource_label" in page
     assert "0.00150" in page
 
@@ -152,7 +152,7 @@ def test_an_empty_ledger_is_not_drawn_as_an_empty_table() -> None:
     Verifies: REQ-508
     """
     page = _page(rows=[])
-    assert "원장 항목이 없다" in page
+    assert "No ledger entries for this date" in page
     assert "<tbody>" not in page
 
 
