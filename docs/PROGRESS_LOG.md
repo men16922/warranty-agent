@@ -55,6 +55,16 @@
 - **teardown 범위가 다섯이 됐다**: `day1-cost-demo` 추가(T8-6 · OVERVIEW·tasks 반영).
 - **문서 반영**: README 첫 표에 화면 링크 · DEVPOST "Try it out"의 **첫 줄**로 올림 ·
   DEVPOST §4의 40%/30% 자체평가를 실물에 맞춰 고침(약점 둘을 숨기지 않고 적음).
+- **⭐ 그리고 두 번째 조치도 실물에서 완주했다**(T2-5): 부하를 켠 채 `concurrency:16` 한 줄로
+  게이트 `AUTO` → 새 리비전 `demo-target-00003-67d`(동시성 16) → `674.17 → 988.60` →
+  `not_recovered` → 롤백 → 배분 되읽기 `00001-swl = 100`. **롤백 코드는 한 줄도 안 늘었다.**
+- **⛔ 그러면서 하나 알게 됐다 — 롤백은 트래픽이지 템플릿이 아니다.** 되돌린 뒤에도 서비스
+  템플릿의 동시성은 16으로 남는다. 결함이 아니라 **원자성의 정의**다: 한 번의 호출로 즉시
+  되돌릴 수 있는 것은 배분이고, 템플릿까지 되돌리면 **리비전을 또 만드는 일**이라 원자적이지
+  않다. ⚠️ 대가는 있다 — 다음 템플릿 변경이 16을 물려받는다. 증거 로그 §11에 적었다.
+- **화면이 세션 전체를 한 장으로 말한다**: `실행됨 1 · 나아짐 0 · 되돌림 1 · 헛쓴 비용 $0 ·
+  그중 추정만 1`, 그리고 표의 마지막 조치 행이 `concurrency:16 · not_recovered · 롤백 true ·
+  none · $0`이다.
 - **Next**: 부하를 켠 채 4분 영상(T8-3) → 제출(09-01) → teardown(09-02).
 - **Evidence**: `docs/evidence/mutation-sweep-2026-08-29-442.log` ·
   `docs/evidence/live-cost-axis-2026-08-29.log`.
@@ -96,26 +106,3 @@
 - **Next**: T2-5를 배포해 실물로 만들 것인가 결정 → 부하 켠 채 영상(T8-3) → 제출(09-01).
 - **Evidence**: `docs/evidence/gpu-quota-probe-2026-08-29.log` ·
   `docs/evidence/mutation-sweep-2026-08-29-422.log`.
-
-## 2026-08-29 — 저장소를 열고, 대본을 쓰고, 논지가 약하다는 것을 찾았다 (gate 403 유지)
-
-- **Status**: 제출물 자격 조건 하나 해소. ⛔ **논지 전환 계획을 세웠고 결정 대기 중이다.**
-- **Changed**: 코드 없음. `github.com/men16922/warranty-agent` 공개(89 커밋) ·
-  `submission/SCRIPT.md`(4분 대본) · `docs/plans/2026-08-29-llm-serving-pivot.md`.
-- **Verified**: 프로덕션 리비전 `00005-8x9`가 자연어 한 줄에 08-28 원장을 긁어
-  `executed 1 · improved 0 · rolled_back 1`을 냈다. 게이트 거부 비트도 실물에서 확인 —
-  `MANUAL` · 규칙 `irreversible and not verifiable` · 6.3s. 대본의 출력은 전부 실측이다.
-- **푸시 전 점검**: API 키·개인키·토큰 **0건**, `.env`는 이력에도 없다. public으로 정한 이유는
-  private 초대가 이메일이 아니라 계정명 기준이라 실패하면 **점수가 아니라 자격** 문제가 되기 때문.
-- **⛔ 이 세션의 가장 큰 발견 — 논지가 약하다**: *"조치 후 재측정해 안 나아졌으면 롤백"*은
-  Flagger·Argo Rollouts·Kayenta가 이미 성숙하게 한다. *"이거 Flagger 아니야?"*에 답할 말이
-  없고, 조치가 트래픽 전환 하나뿐이라 더 그렇다. **기계가 약한 게 아니라 프레이밍이 틀렸다.**
-- **길이 보였다**: 사용자 아티클(Cloud Run GPU·vLLM) §A4가 이미 답이다 — 동시성 16에서
-  요청 100% 성공, **goodput 50%**. `executed ≠ improved`의 가장 순수한 형태이고 LLM 서빙에서는
-  헬스체크가 원리적으로 못 잡는다. ⭐ 게다가 동시성 변경은 **새 리비전을 만들어서** 롤백이
-  지금 메커니즘 그대로다 — 어댑터 하나 + `KNOWN_KINDS` 한 줄이면 된다.
-- **Blockers**: ① 결정 대기(ⓑ 이동 vs ⓒ 서사만) ② `warranty-hack`의 **L4 GPU 쿼터 미확인**
-  ③ 영상 미촬영 — 남은 유일한 필수 산출물.
-- **Next**: 계획의 **P0**(GPU 쿼터 확인 · 30분) → 결과에 따라 갈래 확정. P1(동시성 조치)은
-  어느 갈래에서도 한다.
-- **Evidence**: `docs/evidence/live-report-prod-2026-08-29.log` · `deploy-2026-08-29b.log`.

@@ -86,6 +86,12 @@ ask() { curl -sS -X POST "$URL/agent:chat" -H "Authorization: Bearer $TOKEN" \
 
 ### ⑤ demo-target을 건강한 쪽으로 되돌려 둔다
 
+⚠️ **템플릿 동시성이 16이라는 것을 알고 시작한다.** 08-29의 동시성 조치가 리비전
+`demo-target-00003-67d`(동시성 16)를 만들었고, **롤백은 트래픽만 되돌린다** — 템플릿은
+그대로다. 촬영 중 동시성 조치를 또 걸면 16에서 출발한다. 결함이 아니라 원자적 롤백의
+정의이고, 증거 로그 §11에 적어 뒀다.
+
+
 ```bash
 gcloud run services update-traffic demo-target --project=warranty-hack \
   --region=us-central1 --to-revisions=demo-target-00001-swl=100

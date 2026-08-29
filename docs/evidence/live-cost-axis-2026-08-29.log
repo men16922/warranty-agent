@@ -76,3 +76,75 @@ wasted_usd 0            : 회복 실패 조치의 compute가 0이므로 0이 맞
 ## 8. 잔여물 — teardown 범위가 다섯이 됐다
 warranty-api · demo-target · day1-warranty-demo · day1-prod-demo · **day1-cost-demo**(신규)
 ⚠️ 만든 것을 목록에 안 적으면 teardown이 그것을 안 본다(T8-6).
+
+## 9. ★ 두 번째 조치가 실물에서 루프를 완주했다 (T2-5 · 같은 리비전 00007-mrq)
+
+부하: demo-target/work 에 워커 4개. 신호 확인 → p95 674.17 · points 1.
+
+요청(자연어 한 줄):
+  Remediate demo-target with the action "concurrency:16" and a projected cost of 0.01 USD.
+→ HTTP 200 · 110.99s
+
+응답:
+  Ledger Entry ID   01m16hwpsc44b8h64g5mc9weqm
+  Gate Decision     AUTO  (rule: "reversible and verifiable within budget")
+  Baseline          674.17  (2 points)
+  After             988.60  (2 points)
+  Verdict           not_recovered
+  Rolled Back       Yes
+
+## 10. 되읽어 확인한 것 — 주장이 아니다
+
+$ gcloud run revisions list --service=demo-target
+  demo-target-00003-67d   containerConcurrency 16   2026-08-29T10:43:51Z   ← ★ 조치가 만든 것
+  demo-target-00002-lss   containerConcurrency 80   2026-08-23
+  demo-target-00001-swl   containerConcurrency 80   2026-08-23
+
+⭐ **조치는 트래픽 전환이 아니었다.** 동시성을 80 → 16으로 바꿨고, Cloud Run이 새 리비전을
+   만들었다. 그게 T2-5의 주장이었고 여기서 실물이 됐다.
+
+$ gcloud run services describe demo-target --format="value(status.traffic)"
+  {'percent': 100, 'revisionName': 'demo-target-00001-swl'}
+
+⭐ **롤백이 되돌렸다.** 그리고 그 롤백은 **새로 쓴 코드가 아니다** — 이미 원자적이라고
+   되읽어 증명한 트래픽 전환(REQ-302·303) 그대로다. 조치를 하나 더한 대가로 검증·롤백
+   코드는 한 줄도 안 늘었다.
+
+## 11. ⛔ 정직하게 적어 두는 한 가지 — 롤백은 트래픽이지 템플릿이 아니다
+
+$ gcloud run services describe demo-target --format="value(spec.template.spec.containerConcurrency)"
+  16
+
+롤백 후에도 **서비스 템플릿의 동시성은 16으로 남아 있다.** 되돌린 것은 *"지금 무엇이
+요청을 받는가"*(트래픽)이지 *"다음 리비전이 무엇을 물려받는가"*(템플릿)가 아니다.
+
+⚠️ 이것은 결함이 아니라 **원자적 롤백의 정의 그 자체**다: 한 번의 호출로 즉시, 부분 없이
+   되돌릴 수 있는 것은 트래픽 배분이고, 템플릿을 함께 되돌리면 그건 **새 리비전을 또
+   만드는 일**이라 원자적이지 않다.
+⛔ 그러나 대가가 있다: 다음 템플릿 변경은 **16을 물려받는다.** 촬영 전에 이 값을 알고
+   시작해야 하고, 그래서 여기 적는다.
+
+## 12. 잔여물 갱신
+demo-target 리비전이 **셋**이 됐다(00001-swl · 00002-lss · **00003-67d**).
+teardown 대상 서비스는 여전히 다섯이다 — 리비전은 서비스와 함께 지워진다.
+
+## 13. 화면이 이 세션 전체를 한 장으로 말한다 (GET / · 11,323B)
+
+헤드라인:
+  실행됨 1 · 나아짐 0 · 되돌림 1 · 에스컬레이션 0 · 검증 불가 0 · 수동 필요 1 ·
+  모델이 판단 0 · 헛쓴 비용 $0 · 그중 추정만 1
+
+표(최신 5행):
+  model_call  model:adk:request-4:2   executed            token_meter   $0.00162225
+  model_call  model:adk:request-4:1   executed            token_meter   $0.00096525
+  model_call  model:adk:request-3:2   executed            token_meter   $0.00210225
+  model_call  model:adk:request-3:1   executed            token_meter   $0.00114075
+  action      concurrency:16          executed  not_recovered  롤백=true  none  $0
+
+⭐ **마지막 줄이 이 프로젝트의 문장이다**: 조치는 **동시성 변경**(트래픽 전환이 아니다)이고,
+   실행은 성공했고(`executed`), **나아지지 않았고**(`not_recovered`), 되돌렸다(`롤백=true`).
+   그 옆의 `none · $0`은 침묵이 아니라 판정이다 — 트래픽 전환은 과금 리소스를 안 만든다.
+
+⚠️ `그중 추정만 = 1`이 말하는 것: 회복 실패 조치가 하나 있고 그 비용은 **아직 청구서로
+   확인되지 않았다.** 총액($0)만 내면서 *"그 총액을 지배하는 것이 추정인지 실측인지"*를
+   함께 내는 도구는 드물고, 그 칸이 여기 있다.

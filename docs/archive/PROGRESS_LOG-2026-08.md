@@ -7,7 +7,29 @@
 
 ---
 
----
+---## 2026-08-29 — 저장소를 열고, 대본을 쓰고, 논지가 약하다는 것을 찾았다 (gate 403 유지)
+
+- **Status**: 제출물 자격 조건 하나 해소. ⛔ **논지 전환 계획을 세웠고 결정 대기 중이다.**
+- **Changed**: 코드 없음. `github.com/men16922/warranty-agent` 공개(89 커밋) ·
+  `submission/SCRIPT.md`(4분 대본) · `docs/plans/2026-08-29-llm-serving-pivot.md`.
+- **Verified**: 프로덕션 리비전 `00005-8x9`가 자연어 한 줄에 08-28 원장을 긁어
+  `executed 1 · improved 0 · rolled_back 1`을 냈다. 게이트 거부 비트도 실물에서 확인 —
+  `MANUAL` · 규칙 `irreversible and not verifiable` · 6.3s. 대본의 출력은 전부 실측이다.
+- **푸시 전 점검**: API 키·개인키·토큰 **0건**, `.env`는 이력에도 없다. public으로 정한 이유는
+  private 초대가 이메일이 아니라 계정명 기준이라 실패하면 **점수가 아니라 자격** 문제가 되기 때문.
+- **⛔ 이 세션의 가장 큰 발견 — 논지가 약하다**: *"조치 후 재측정해 안 나아졌으면 롤백"*은
+  Flagger·Argo Rollouts·Kayenta가 이미 성숙하게 한다. *"이거 Flagger 아니야?"*에 답할 말이
+  없고, 조치가 트래픽 전환 하나뿐이라 더 그렇다. **기계가 약한 게 아니라 프레이밍이 틀렸다.**
+- **길이 보였다**: 사용자 아티클(Cloud Run GPU·vLLM) §A4가 이미 답이다 — 동시성 16에서
+  요청 100% 성공, **goodput 50%**. `executed ≠ improved`의 가장 순수한 형태이고 LLM 서빙에서는
+  헬스체크가 원리적으로 못 잡는다. ⭐ 게다가 동시성 변경은 **새 리비전을 만들어서** 롤백이
+  지금 메커니즘 그대로다 — 어댑터 하나 + `KNOWN_KINDS` 한 줄이면 된다.
+- **Blockers**: ① 결정 대기(ⓑ 이동 vs ⓒ 서사만) ② `warranty-hack`의 **L4 GPU 쿼터 미확인**
+  ③ 영상 미촬영 — 남은 유일한 필수 산출물.
+- **Next**: 계획의 **P0**(GPU 쿼터 확인 · 30분) → 결과에 따라 갈래 확정. P1(동시성 조치)은
+  어느 갈래에서도 한다.
+- **Evidence**: `docs/evidence/live-report-prod-2026-08-29.log` · `deploy-2026-08-29b.log`.
+
 ## 2026-08-29 — 마지막 스텁이 헤드라인 숫자를 내는 자리였다 · T5-4 리포트 + DEVPOST (gate 399 → 403)
 
 - **Status**: 실물 `report` 배선 완료. `submission/DEVPOST.md`를 **실제 원고로** 다시 썼다.
