@@ -31,3 +31,18 @@ docs/test/history/*-overnight-review-checklist.md
 
 # MCP 도구가 만드는 로컬 상태 (재생성 가능)
 .serena/
+
+# ── 영상 파이프라인이 만드는 것 (재생성 가능) ──────────────────────────
+# ⚠️ `submission/vo/README.md`의 절차를 저장소 안에서 돌리면 아래가 생긴다.
+#    대본(`vo3/*.txt`)과 스크립트는 **추적한다** — 그것이 재현의 재료다.
+#    ⛔ 생성물은 안 넣는다: 목소리·프레임·중간 세그먼트는 대본에서 다시 나온다.
+submission/vo/audio*/
+submission/vo/frames/
+submission/vo/seg/
+submission/vo/html/
+submission/vo/chrome-profile/
+*.aiff
+submission/vo/**/*.mp3
+
+# 갤러리 렌더 중간물 (PNG만 추적한다)
+submission/gallery/*.html
