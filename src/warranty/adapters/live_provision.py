@@ -29,6 +29,7 @@ from __future__ import annotations
 from typing import Any
 
 from warranty.adapters import live_guard
+from warranty.domain.attribution import LABEL_KEY
 from warranty.usecases.provision import ProvisionResponse
 
 #: Admin v2에서 서비스를 **만들** 때 부모가 되는 경로. ⚠️ 서비스 하나를 가리키는
@@ -83,6 +84,36 @@ def service_name(name: str) -> str:
     return trimmed
 
 
+def cost_labels(cost_label: str) -> dict[str, str]:
+    """*"이 리소스를 이 원장 항목으로 되찾는다"*를 뜻하는 요청 조각. **순수하다.**
+
+    ⛔ **이 조각이 비면 그 리소스의 청구 행은 영원히 원장으로 못 돌아온다** —
+       `Method.RESOURCE_LABEL`이 약속하는 것이 그 순간 문장으로만 남는다(REQ-504).
+
+    ⚠️ 순수 함수로 빼 둔 이유는 취향이 아니다. 라벨을 실제로 다는 줄은 실물 어댑터
+       안이라 **오프라인 게이트가 못 태운다** — 변이를 걸어도 초록이었다(M-270).
+       ⇒ 게이트가 태울 수 있는 것은 호출이 아니라 **요청의 모양**이다
+       (`traffic_spec`·`service_path`와 같은 수법).
+
+    ⚠️ 빈 라벨은 **빈 사전이지 빈 값이 아니다.** `{LABEL_KEY: ""}`를 보내면 GCP는 라벨이
+       있다고 받아들이고, 되읽기는 빈 문자열을 보고 *"없음"*으로 읽는다 — 두 사실이
+       갈라진다.
+    """
+    return {LABEL_KEY: cost_label} if cost_label else {}
+
+
+def label_of(service: Any) -> str | None:
+    """만들어진 서비스에서 **비용 라벨을 되읽는다**. **순수하다.**
+
+    ⛔ 우리가 보낸 값을 그대로 쓰지 않는다. 라벨은 조용히 안 붙을 수 있고(권한·정책·
+       형식), 그때 *"붙였다"*고 적으면 **화해가 원리상 못 찾는데 원인이 안 보인다.**
+       못 읽으면 `None`이고, 부르는 쪽은 그것을 `Method.NONE`으로 정직하게 적는다.
+    """
+    labels = getattr(service, "labels", None) or {}
+    value = str(labels.get(LABEL_KEY, "") or "")
+    return value or None
+
+
 def response_from_service(service: Any, *, kind: str, name: str, region: str) -> ProvisionResponse:
     """만들어진 것을 **되읽어** 유도의 입력으로 옮긴다. **순수하다.**
 
@@ -101,7 +132,13 @@ def response_from_service(service: Any, *, kind: str, name: str, region: str) ->
         raise ProvisionError(
             f"생성 응답이 다른 것을 가리킨다: {served!r} — 기대한 이름은 {name!r}이다"
         )
-    return ProvisionResponse(kind=kind, name=name, region=region, previous_revision=None)
+    return ProvisionResponse(
+        kind=kind,
+        name=name,
+        region=region,
+        previous_revision=None,
+        cost_label=label_of(service),
+    )
 
 
 class LiveProvisioner:
@@ -140,7 +177,9 @@ class LiveProvisioner:
             raise ProvisionError(f"본보기 서비스가 이미지를 안 말한다: {name}")
         return image
 
-    def create(self, name: str, kind: str = "cloud_run_service") -> ProvisionResponse:
+    def create(
+        self, name: str, kind: str = "cloud_run_service", cost_label: str = ""
+    ) -> ProvisionResponse:
         """서비스 하나를 **실제로 만들고**, 만들어진 것을 되읽어 돌려준다.
 
         ⛔ 첫 줄이 tripwire다(G5). 게이트가 여기 온 것 자체가 REQ-801 위반이다.
@@ -154,7 +193,12 @@ class LiveProvisioner:
         client = self._services()
         from google.cloud import run_v2
 
+        # ★ 비용 라벨 (REQ-504). ⛔ **이 한 줄이 없으면 이 리소스의 청구 행은
+        #    영원히 원장으로 못 돌아온다** — `Method.RESOURCE_LABEL`이 약속하는
+        #    "청구 행에서 되찾는다"가 그 순간 문장으로만 남는다.
+        # ⚠️ 붙이는 것과 붙었다는 것은 다르다 — 아래에서 **되읽어** 응답에 담는다.
         service = run_v2.Service(
+            labels=cost_labels(cost_label),
             template=run_v2.RevisionTemplate(
                 scaling=run_v2.RevisionScaling(
                     min_instance_count=PROVISIONED_MIN_INSTANCES,
@@ -170,7 +214,7 @@ class LiveProvisioner:
                         ],
                     )
                 ],
-            )
+            ),
         )
         created = client.create_service(
             parent=parent_path(self._project, self._region),

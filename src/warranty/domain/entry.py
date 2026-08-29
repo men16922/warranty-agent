@@ -32,6 +32,11 @@ class EntryKind(StrEnum):
 
     ACTION = "action"  # 조치 — 게이트를 거친다
     MODEL_CALL = "model_call"  # 모델 호출 — 게이트를 거치지 않는다 (REQ-603)
+    #: Day-1 프로비저닝 — **돈을 쓰는 리소스가 태어나는 순간**이다 (REQ-101·504).
+    #: ⛔ `ACTION`으로 두면 안 된다: 상태가 `EXECUTED`인데 검증이 없어 **절대
+    #:    `improved`가 되지 않고**, 그러면 프로비저닝할수록 회복률이 떨어진다 —
+    #:    모델 호출을 섞을 때와 **똑같은 오염**이고 리포트를 봐서는 안 보인다.
+    PROVISION = "provision"
 
 
 class Status(StrEnum):

@@ -19,9 +19,12 @@ from warranty.adapters.live_store import LiveContractStore, LiveLedger
 from warranty.adapters.model_judge import PromptedJudge
 from warranty.adapters.system import SystemClock, UlidGen
 from warranty.config import SERVICE_NAME, Adapters, Settings
+from warranty.domain.attribution import Attribution, Method
 from warranty.domain.contract import Criterion, CriterionMode, Direction, ResourceRef
+from warranty.domain.cost import Basis, CostFact
+from warranty.domain.entry import EntryKind, LedgerEntry, Status
 from warranty.domain.report import daily_report
-from warranty.ports import ContractStore, LedgerReader, SignalSource
+from warranty.ports import ContractStore, Ledger, SignalSource
 from warranty.prices import published_prices
 from warranty.tunables import DEMO_BUDGET_USD
 from warranty.usecases.meter import MeteredModel, ModelCallMeter
@@ -64,7 +67,9 @@ class AgentTools:
     default_region: str
     model_calls: ModelCallMeter | None = None
     provisioner: Provisioner | None = None
-    ledger: LedgerReader | None = None
+    #: ⚠️ 읽기만으로는 부족하다 — `provision`이 **원장에 행을 쓴다**(REQ-504).
+    #:    돈을 쓰는 리소스가 태어나는 순간을 안 적으면 그 청구 행은 되찾을 실이 없다.
+    ledger: Ledger | None = None
     clock: Any = None
     ids: Any = None
 
@@ -79,7 +84,17 @@ class AgentTools:
         """
         if self.provisioner is None or self.clock is None or self.ids is None:
             raise RuntimeError("실물 프로비저너가 합성되지 않았다")
-        response = self.provisioner.create(resource_name)
+        if self.ledger is None:
+            # ⛔ 원장 없이 만들면 **돈을 쓰는 리소스가 원장 밖에서 태어난다.**
+            #    그 리소스의 청구 행은 되찾을 실이 없다 (REQ-504).
+            raise RuntimeError("실물 원장이 합성되지 않았다")
+
+        # ★ 원장 id를 **먼저** 만든다 — 그것이 곧 리소스에 박을 비용 라벨이다.
+        #   ⛔ 순서가 반대면 라벨에 넣을 값이 없어서, 만들어 놓고 나중에 붙이게 된다.
+        #      그 사이에 실패하면 **라벨 없는 리소스**가 남고 청구 행은 못 돌아온다.
+        entry_id = self.ids.new_entry_id()
+        started = datetime.fromisoformat(self.clock.now_iso())
+        response = self.provisioner.create(resource_name, cost_label=entry_id)
         contract = derive_contract(
             response,
             recovery_criterion=LIVE_RECOVERY_CRITERION,
@@ -88,7 +103,42 @@ class AgentTools:
             provisioned_by=AGENT_ID,
         )
         self.contracts.put(contract)
+
+        # ★ 귀속은 **되읽은 라벨이 있을 때만** `resource_label`이다 (REQ-504).
+        #   ⛔ 보낸 값으로 주장하면 화해가 원리상 못 찾는데 원인이 안 보인다.
+        label = response.cost_label
+        attribution = (
+            Attribution(Method.RESOURCE_LABEL, label_value=label)
+            if label
+            else Attribution(
+                Method.NONE,
+                reason="cost label absent on the created resource — billing cannot be traced back",
+            )
+        )
+        # ⚠️ `assumed`가 0인 것은 **모르는 것이 아니라 아직 안 쓴 것**이다:
+        #    갓 만든 서비스는 `min-instances=0`이라 요청이 없으면 0이다.
+        #    ⇒ 미래 비용을 **추정하지 않는다.** 실제 값은 청구서가 말하고, 위 라벨이
+        #      그 행을 이 항목으로 되돌리는 실이다 (REQ-505·506).
+        self.ledger.create(
+            LedgerEntry(
+                entry_id=entry_id,
+                agent_id=AGENT_ID,
+                action_id=f"provision:{contract.resource.name}",
+                status=Status.EXECUTED,
+                started_at=started,
+                attribution=attribution,
+                assumed=CostFact(Decimal(0), started, Basis.PUBLISHED_RATE),
+                contract_id=contract.contract_id,
+                kind=EntryKind.PROVISION,
+            )
+        )
+
         return {
+            "ledger_entry": entry_id,
+            # ⛔ 되읽은 값이다 — 붙였다는 주장이 아니다.
+            "cost_label": label,
+            "attribution": attribution.method.value,
+            "reconcilable": attribution.verifiability.value,
             "resource": contract.resource.name,
             "region": contract.resource.region,
             "contract": contract.contract_id,

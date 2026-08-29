@@ -47,6 +47,10 @@ SERVICE_UNAVAILABLE = 503
 
 AgentChat = Callable[[Mapping[str, object]], Mapping[str, object]]
 
+#: 화면 하나를 그리는 함수. ⚠️ 인자가 없다 — **무엇을 그릴지는 합성 지점이 정한다.**
+#: 서버가 날짜·서비스명을 고르기 시작하면 그 선택이 두 곳(여기와 런타임)에 생긴다.
+Dashboard = Callable[[], str]
+
 #: 플랫폼이 프로브하는 경로. ⛔ **이것만은 지금 진짜로 답해야 한다** — 나머지가 `501`인
 #: 것은 정책이지만, 이것이 `501`이면 리비전은 트래픽을 한 번도 못 받는다.
 #:
@@ -63,6 +67,12 @@ AgentChat = Callable[[Mapping[str, object]], Mapping[str, object]]
 #:    그러나 헬스 경로를 **쓰는 순간**(deploy-check · T2-4) 그것은 영원히 404다.
 HEALTH_PATH = "/livez"
 AGENT_PATH = "/agent:chat"
+
+#: ★ 사람이 보는 원장 화면 (design 08§3). ⛔ **조작 표면이 아니다** — 읽기 전용이다.
+DASHBOARD_PATH = "/"
+
+JSON_TYPE = "application/json; charset=utf-8"
+HTML_TYPE = "text/html; charset=utf-8"
 
 #: `{id}` 같은 자리표시자.
 PARAM_RE = re.compile(r"\{[a-z_]+\}")
@@ -92,6 +102,7 @@ ROUTES: tuple[Route, ...] = (
     Route("GET", "/report/daily"),
     Route("POST", AGENT_PATH),
     Route("GET", HEALTH_PATH),
+    Route("GET", DASHBOARD_PATH),
 )
 
 
@@ -110,9 +121,15 @@ class Response:
     status: int
     body: Mapping[str, object]
     headers: Mapping[str, str] = field(default_factory=dict)
+    #: ★ 사람이 보는 화면은 JSON이 아니다. ⚠️ `None`이면 `body`를 JSON으로 낸다 —
+    #:    기본값을 바꾸지 않는 이유는 기존 경로 전부가 JSON 계약이기 때문이다.
+    text: str | None = None
+    content_type: str = JSON_TYPE
 
     def payload(self) -> bytes:
         """⚠️ 정렬해서 낸다 — 같은 판정이 프로세스마다 다른 바이트를 내면 안 된다(REQ-802)."""
+        if self.text is not None:
+            return self.text.encode("utf-8")
         return json.dumps(dict(self.body), ensure_ascii=False, sort_keys=True).encode("utf-8")
 
 
@@ -124,6 +141,7 @@ def resolve(
     agent_auth_token: str | None = None,
     body: bytes = b"",
     agent_chat: AgentChat | None = None,
+    dashboard: Dashboard | None = None,
 ) -> Response:
     """요청 하나에 대한 응답. **소켓을 모른다** — 그래서 단위로 태울 수 있다.
 
@@ -146,6 +164,31 @@ def resolve(
         )
     if path == HEALTH_PATH:
         return Response(OK, {"status": "ok", "service": SERVICE_NAME})
+    if path == DASHBOARD_PATH:
+        # ⛔ 화면은 **인증을 안 건다.** 읽기 전용이고 조작 표면이 없다 — 심사위원이
+        #    링크를 눌러서 봐야 하는 것이 이 화면의 존재 이유다(REQ-901).
+        # ⚠️ 원장을 못 읽으면 **빈 화면을 그리지 않는다** — 없음과 실패는 다르다.
+        # ⚠️ **둘은 다른 사실이다.** *"합성이 안 됐다"*는 배포 설정 문제이고
+        #    *"읽다가 죽었다"*는 Firestore 쪽 문제다. 같은 문장으로 내면 어디를 봐야
+        #    하는지가 사라지고, 아래 `except`가 둘을 하나로 만든다.
+        if dashboard is None:
+            return Response(
+                SERVICE_UNAVAILABLE,
+                {
+                    "error": "ledger_unavailable",
+                    "detail": "not_composed: 실물 원장이 주입되지 않아 화면을 그릴 수 없다",
+                },
+            )
+        try:
+            return Response(OK, {}, text=dashboard(), content_type=HTML_TYPE)
+        except Exception:
+            return Response(
+                SERVICE_UNAVAILABLE,
+                {
+                    "error": "ledger_unavailable",
+                    "detail": "read_failed: 원장 읽기가 실패했다 — 빈 화면 대신 이 사실을 낸다",
+                },
+            )
     if path == AGENT_PATH:
         verdict = authenticate(authorization, agent_auth_token)
         if verdict is AuthVerdict.NOT_CONFIGURED:
@@ -215,6 +258,7 @@ class WarrantyHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "warranty/1"
     agent_chat: AgentChat | None = None
+    dashboard: Dashboard | None = None
 
     #: ⚠️ 메서드 이름은 취향이 아니라 stdlib의 디스패치 규약이다(`do_<METHOD>`).
     def do_GET(self) -> None:
@@ -232,10 +276,11 @@ class WarrantyHandler(BaseHTTPRequestHandler):
             agent_auth_token=os.environ.get(AUTH_ENV_KEY),
             body=body,
             agent_chat=self.agent_chat,
+            dashboard=self.dashboard,
         )
         payload = response.payload()
         self.send_response(response.status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", response.content_type)
         for name, value in response.headers.items():
             self.send_header(name, value)
         # ⚠️ `Content-Length`를 안 주면 HTTP/1.1 keep-alive에서 클라이언트가 **응답의 끝을
@@ -254,25 +299,32 @@ class WarrantyHandler(BaseHTTPRequestHandler):
         return b""
 
 
-def serve(port: int, agent_chat: AgentChat | None = None) -> ThreadingHTTPServer:
+def serve(
+    port: int,
+    agent_chat: AgentChat | None = None,
+    dashboard: Dashboard | None = None,
+) -> ThreadingHTTPServer:
     """포트를 **실제로 연다**. ⛔ 게이트는 이것을 안 부른다(REQ-801 — 오프라인)."""
-    if agent_chat is None:
+    if agent_chat is None and dashboard is None:
         handler = WarrantyHandler
     else:
 
         class LiveWarrantyHandler(WarrantyHandler):
             pass
 
-        LiveWarrantyHandler.agent_chat = staticmethod(agent_chat)
+        if agent_chat is not None:
+            LiveWarrantyHandler.agent_chat = staticmethod(agent_chat)
+        if dashboard is not None:
+            LiveWarrantyHandler.dashboard = staticmethod(dashboard)
         handler = LiveWarrantyHandler
     return ThreadingHTTPServer(("", port), handler)
 
 
 def main() -> int:
-    from warranty.agent_chat import lazy_live_agent_chat
+    from warranty.agent_chat import lazy_live_agent_chat, lazy_live_dashboard
 
     port = load_port()
-    httpd = serve(port, lazy_live_agent_chat(time.sleep))
+    httpd = serve(port, lazy_live_agent_chat(time.sleep), lazy_live_dashboard(time.sleep))
     # ⚠️ 뜬 것을 말하고 시작한다 — 프로브가 실패했을 때 *"안 떴다"*와 *"떴는데 다른 포트"*를
     #    로그만으로 가를 수 있어야 한다.
     print(f"listening on :{port}", flush=True)

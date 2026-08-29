@@ -135,3 +135,51 @@ def lazy_live_agent_chat(
     pause: Callable[[float], None],
 ) -> Callable[[Mapping[str, object]], Mapping[str, object]]:
     return LiveAgentChat(pause)
+
+
+class LiveDashboard:
+    """사람이 보는 원장 화면의 **실물 합성 지점** (REQ-508·901).
+
+    Spec: specs/warranty/design/08-interfaces.md §3
+
+    ⚠️ 세는 규칙도 그리는 규칙도 여기 없다 — `daily_report`가 세고 `ui.render_dashboard`가
+       그린다. 이 클래스가 하는 일은 **오늘이 며칠인지 정하고 원장을 읽어 넘기는 것**뿐이다.
+    ⛔ **클라이언트는 첫 호출에서 만든다** (G5 · REQ-801).
+    """
+
+    def __init__(self, pause: Callable[[float], None]) -> None:
+        self._pause = pause
+        self._tools: Any | None = None
+        self._settings: Any | None = None
+
+    def _live(self) -> tuple[Any, Any]:
+        """⛔ **G5의 관측 지점이다.** 게이트가 여기 온 것 자체가 REQ-801 위반이다."""
+        if self._tools is None or self._settings is None:
+            live_guard.note("agent_chat.LiveDashboard._live")
+            settings = load_settings()
+            self._tools = build_live_tools(settings, self._pause)
+            self._settings = settings
+        return self._tools, self._settings
+
+    def __call__(self) -> str:
+        live_guard.note("agent_chat.LiveDashboard.__call__")
+        from datetime import UTC, datetime
+
+        from warranty.domain.report import REPORT_TZ
+        from warranty.ui import ledger_rows, render_dashboard
+
+        tools, settings = self._live()
+        if tools.ledger is None:
+            raise AgentChatError("실물 원장이 합성되지 않았다")
+        day = datetime.now(UTC).astimezone(REPORT_TZ).date()
+        entries = tools.ledger.for_day(day)
+        return render_dashboard(
+            tools.report(day.isoformat()),
+            ledger_rows(entries),
+            day=day.isoformat(),
+            service=settings.project_id,
+        )
+
+
+def lazy_live_dashboard(pause: Callable[[float], None]) -> Callable[[], str]:
+    return LiveDashboard(pause)

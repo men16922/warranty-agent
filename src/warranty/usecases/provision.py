@@ -45,6 +45,10 @@ class ProvisionResponse:
     name: str
     region: str
     previous_revision: str | None = None
+    #: ★ 만들어진 리소스에서 **되읽은** 비용 라벨 (REQ-504).
+    #: ⛔ 우리가 보낸 값이 아니다. 이 값이 없으면 그 리소스의 청구 행은 **영원히
+    #:    원장으로 못 돌아온다** — 그때는 `Method.NONE`이 정직하다.
+    cost_label: str | None = None
 
     def __post_init__(self) -> None:
         # ⚠️ 빈 응답을 통과시키면 계약이 **아무것도 안 가리키는 채로** 성립한다.
@@ -57,6 +61,12 @@ class ProvisionResponse:
             raise ContractError(
                 f"직전 리비전이 빈 문자열이다: {self.name!r} — "
                 "없으면 `None`이어야 한다. 빈 문자열은 '있다'로 읽힌다"
+            )
+        if self.cost_label is not None and not self.cost_label:
+            # ⚠️ 빈 문자열을 통과시키면 *"라벨이 붙었다"*로 읽히고, 그 위에서
+            #    `RESOURCE_LABEL`을 주면 화해가 원리상 못 찾는데 원인이 안 보인다.
+            raise ContractError(
+                f"비용 라벨이 빈 문자열이다: {self.name!r} — 없으면 `None`이어야 한다"
             )
 
 
@@ -94,7 +104,15 @@ class Provisioner(Protocol):
        문장이 관례가 된다 — 유도하는 자리는 아래 `derive_contract` 하나다.
     """
 
-    def create(self, name: str, kind: str = "cloud_run_service") -> ProvisionResponse: ...
+    def create(
+        self, name: str, kind: str = "cloud_run_service", cost_label: str = ""
+    ) -> ProvisionResponse:
+        """⚠️ `cost_label`은 **청구 행에서 이 리소스를 되찾는 유일한 실**이다 (REQ-504).
+
+        붙이는 것과 붙었다는 것은 다른 일이므로, 구현은 **되읽어서**
+        `ProvisionResponse.cost_label`에 담는다 — 못 읽었으면 `None`이다.
+        """
+        ...
 
 
 def derive_contract(

@@ -528,3 +528,52 @@ def test_the_demo_target_health_path_comes_from_the_server() -> None:
         "`demo_target`이 헬스 경로를 자기가 적는다 — 출처는 `warranty.server` 하나다."
     )
     assert demo_target.HEALTH_PATH == HEALTH_PATH
+
+
+# ── 사람이 보는 화면 (UI) ─────────────────────────────────────────────
+
+
+def test_the_dashboard_is_public_and_serves_html() -> None:
+    """⛔ 심사위원이 **링크를 눌러서** 봐야 하는 화면이다 (REQ-901).
+
+    Verifies: REQ-508
+
+    ⚠️ 인증을 걸면 그 화면은 존재 이유를 잃는다 — 읽기 전용이고 조작 표면이 없어서
+       걸지 않아도 되는 것이지, 깜빡한 것이 아니다.
+    """
+    response = resolve("GET", "/", dashboard=lambda: "<!doctype html><p>원장</p>")
+    assert response.status == OK
+    assert response.content_type.startswith("text/html")
+    assert response.payload() == "<!doctype html><p>원장</p>".encode()
+
+
+def test_the_dashboard_says_so_when_the_ledger_cannot_be_read() -> None:
+    """⛔ **빈 화면을 그리지 않는다** — 읽기 실패가 *"항목 없음"*으로 보이면 안 된다.
+
+    Verifies: REQ-508
+
+    ⚠️ 이 가드가 없던 동안 M-280(주입 없음 검사를 지움)은 **초록이었다** —
+       라우트 자체를 아무도 안 물었기 때문이다.
+    """
+    missing = resolve("GET", "/")
+    assert missing.status == SERVICE_UNAVAILABLE
+    assert missing.body["error"] == "ledger_unavailable"
+    # ⛔ **"합성이 안 됐다"와 "읽다가 죽었다"는 다른 사실이다.** 같은 문장으로 내면
+    #    어디를 봐야 하는지가 사라진다 — 배포 설정인가 Firestore인가.
+    #    ⚠️ 구분이 없던 동안 M-280은 **초록이었다**: 검사를 지워도 `except`가 같은
+    #       응답을 냈기 때문이다. 변이가 그 동등성을 드러냈다.
+    assert str(missing.body["detail"]).startswith("not_composed:")
+
+    def _raises() -> str:
+        raise RuntimeError("Firestore 못 읽음")
+
+    failed = resolve("GET", "/", dashboard=_raises)
+    assert failed.status == SERVICE_UNAVAILABLE
+    assert failed.body["error"] == "ledger_unavailable"
+    assert str(failed.body["detail"]).startswith("read_failed:")
+
+
+def test_the_dashboard_does_not_change_the_json_contract_of_other_routes() -> None:
+    """⚠️ `Content-Type`을 응답이 고르게 바꿨다 — 기존 경로가 **JSON 그대로**여야 한다."""
+    probe = resolve("GET", "/livez")
+    assert probe.content_type.startswith("application/json")

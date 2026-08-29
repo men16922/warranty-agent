@@ -21,6 +21,10 @@ executed 1 · improved 0 · rolled_back 1
 
 *"했다"*와 *"나아졌다"*가 **다른 칸**이라는 것 — 그게 이 영상의 전부다.
 
+⭐ **그리고 그 세 숫자가 사는 화면이 생겼다**(2026-08-29). 배포된 서비스가 `GET /`에서
+원장을 사람이 읽는 표로 낸다 — 읽기 전용, 버튼 없음. 이전 대본은 이 대목을 Firestore
+콘솔로 때웠는데, 그건 **구글이 만든 화면**이지 우리가 만든 것이 아니었다.
+
 ---
 
 ## 1. 촬영 전 준비 (녹화 시작 전에 끝내 둔다)
@@ -30,8 +34,13 @@ executed 1 · improved 0 · rolled_back 1
 | 창 | 무엇 | 비중 |
 |---|---|---|
 | **A** 터미널 (큰 글씨, 어두운 배경) | `curl` 요청과 JSON 응답 | 화면의 70% |
-| **B** 브라우저 — Cloud Run 콘솔 | `demo-target` 리비전/트래픽 배분 | 30% (3:30에 전면) |
-| **C** 브라우저 — Firestore 콘솔 | `ledger` 컬렉션 | B와 탭 전환 |
+| **B** 브라우저 — **원장 화면** `https://warranty-api-povpqj6m5a-uc.a.run.app/` | ★ 우리가 만든 UI | 30% (3:30에 전면) |
+| **C** 브라우저 — Cloud Run 콘솔 | `demo-target` 리비전/트래픽 배분 | B와 탭 전환 |
+| **D** 브라우저 — Firestore 콘솔 | `ledger` 컬렉션 (선택) | 시간 남을 때만 |
+
+⭐ **창 B가 새로 생겼다.** 배포된 서비스가 `GET /`에서 **원장을 사람이 읽는 화면**으로 낸다 —
+읽기 전용이고 조작 버튼이 없다. 이전 대본은 Firestore 콘솔의 JSON을 보여 줬는데,
+그건 *"우리가 만든 것"*이 아니라 **구글이 만든 화면**이었다.
 
 ### ② ⚠️ 부하를 켠다 — **이걸 안 하면 데모가 죽는다**
 
@@ -58,6 +67,8 @@ done
 
 ```bash
 curl -s -o /dev/null https://warranty-api-povpqj6m5a-uc.a.run.app/livez
+# ★ 원장 화면도 함께 깨운다 — 3:30에 전면으로 나오는 창이다
+curl -s -o /dev/null https://warranty-api-povpqj6m5a-uc.a.run.app/
 ```
 
 ### ④ 토큰을 셸 변수에 넣어 둔다 — **화면에 토큰이 뜨면 안 된다**
@@ -230,18 +241,25 @@ Daily Accountability Report: 2026-08-28
 
 ---
 
-### 3:30–3:50 · 증거 — GCP 콘솔 (20초)
+### 3:30–3:50 · ★ 증거 — 원장 화면과 Cloud Run (20초)
 
-**화면**: 창 B(Cloud Run) → 창 C(Firestore) 전환.
+**화면**: 창 B(원장 화면)를 전면으로 → 창 C(Cloud Run 콘솔)로 잠깐 전환.
 
-- **창 B**: `demo-target` 서비스 → 트래픽 100%가 `demo-target-00001-swl`에 있는 것을 보여 준다.
-- **창 C**: Firestore `ledger` 컬렉션 → 그 조치의 행 하나를 연다.
+- **창 B** — 배포된 서비스가 낸 화면이다. 위 카드에 `실행됨` 옆에 `나아짐`이 있고,
+  표에서 **비용의 `귀속` 열**을 가리킨다.
+- **창 C** — `demo-target` 트래픽 100%가 `demo-target-00001-swl`에 있는 것.
 
-> "This is Google Cloud, not a mock. The traffic really is back on the healthy revision.
-> And the ledger row is in Firestore — with the decision, the two measurements,
-> the rollback, and what it cost."
+> "This page is served by the agent itself, on Cloud Run. Read-only — there is no button here.
+> Executed and improved are **separate columns**, side by side.
+> And look at the attribution column: `resource_label` means that row can be found in the
+> **bill**. `none` means it cannot, and we say so instead of printing a number we can't check."
+
+⛔ **비용 숫자를 말로 부풀리지 말 것.** 조치 행의 금액은 **0이고 그게 맞다** —
+트래픽 전환은 과금 리소스를 안 만든다. 화면이 말하게 두고, 진짜 문장은
+*"그 수를 청구서에서 되찾을 수 있는가"*다.
 
 ⚠️ **콘솔은 미리 열어서 로그인·프로젝트 선택을 끝내 둔다.** 화면에서 로그인하지 말 것.
+⚠️ 원장 화면도 **미리 한 번 열어 콜드 스타트를 녹여 둔다**(§1③과 같은 이유).
 
 ---
 
@@ -283,9 +301,13 @@ Daily Accountability Report: 2026-08-28
 3. ask "...remediate demo-target..."      · 시간을 스톱워치로 잰다 ← 편집 계획의 근거
 4. ask "...remediate demo-day1..."        · MANUAL이 뜨는지
 5. ask "...daily report for 2026-08-28"   · 세 숫자가 나오는지
-6. 트래픽을 00001-swl로 되돌린다 (준비 ⑤)
-7. 콘솔 두 탭을 열어 둔 채로 녹화 시작
+6. 원장 화면(`/`)을 새로고침                · ★ 방금 만든 행들이 표에 뜨는지
+7. 트래픽을 00001-swl로 되돌린다 (준비 ⑤)
+8. 창 B(원장 화면)·C(Cloud Run)를 열어 둔 채로 녹화 시작
 ```
+
+⚠️ **6번을 건너뛰지 말 것.** 리허설의 조치가 원장에 남아서 화면에 뜬다 — 녹화 때
+그 행들이 이미 있는 것이 정상이고, 화면이 비어 있으면 그건 원장을 못 읽는다는 뜻이다.
 
 ⚠️ 리허설에서 만든 `demo-day1`은 **teardown 목록에 추가**한다(T8-6).
 
@@ -299,6 +321,8 @@ Daily Accountability Report: 2026-08-28
 | *"It automatically fixes your infrastructure"* | 이 프로젝트의 주장은 **고친다**가 아니라 **고쳤는지 확인하고 아니면 되돌린다**이다 |
 | *"Unfortunately it says irreversible"* | 사과하지 말 것. 그건 **정확한 판정**이고 2:45 비트의 근거다 |
 | *"It works on any cloud"* | 정반대다. 원자적 롤백이 Cloud Run이라서 되는 것이 논지다 |
+| *"and it tracks exactly what each action cost"* | ⛔ 조치 행의 금액은 **0이고 그게 맞다** — 트래픽 전환은 과금 리소스를 안 만든다. 말할 수 있는 것은 *"그 수를 청구서에서 되찾을 수 있는가"*(귀속)이지 금액의 크기가 아니다 |
+| *"here's our dashboard"* | 대시보드가 아니라 **원장의 읽기 뷰**다. 버튼이 없다 — 그 사실이 오히려 요점이다 |
 
 ## 6. 한 줄로 남길 것
 

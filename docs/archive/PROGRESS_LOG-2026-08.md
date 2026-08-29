@@ -8,6 +8,50 @@
 ---
 
 ---
+## 2026-08-29 — 마지막 스텁이 헤드라인 숫자를 내는 자리였다 · T5-4 리포트 + DEVPOST (gate 399 → 403)
+
+- **Status**: 실물 `report` 배선 완료. `submission/DEVPOST.md`를 **실제 원고로** 다시 썼다.
+- **Changed**: `LedgerReader.for_day` + `LiveLedger`의 하루치 범위 질의 + `runtime.report`.
+  세는 규칙은 `domain/report.daily_report`가 이미 갖고 있었다 — 더한 것은 *"그 함수에 무엇을
+  넘기는가"*뿐이다. `InMemoryLedger.for_day`는 `all_entries()`를 거쳐 간다(읽기 경로 한 벌).
+- **⚠️ 질의를 에이전트로 안 좁힌다**: 좁히면 Firestore가 복합 색인을 요구하고, 색인이 없는 날
+  리포트는 **예외로 죽는다.** 좁히는 일은 도메인이 이미 한다 — 넉넉히 긁고 한 곳에서 판정한다.
+- **Verified(실물)**: 08-28 원장에서 **`executed 1 · improved 0 · rolled_back 1`**이 나왔다.
+  이 프로젝트가 말하는 문장 그 자체이고, 각본이 아니라 **실제 조치 하나의 결과**다.
+- **⛔ DEVPOST가 답이 아니라 폼 스크랩이었다**: 필드 목록만 있고 답이 없었다. 칸별 원고 ·
+  Testing instructions · 심사 항목별 정직한 강약 판정을 썼다.
+- **⛔ 제출 블로커 둘을 찾았다**: ① `git remote`가 **비어 있다** — 코드 저장소 URL은 필수
+  칸이다(T8-7). ② teardown 09-02인데 심사는 그 뒤이고 크레딧은 09-06 만료다 — Hosted URL
+  수명을 정해야 한다(T8-8).
+- **⛔ `HACKATHON.md` §4가 없는 요구사항을 가리키고 있었다**: 비중 40%짜리 항목의 획득 경로가
+  `REQ-307`이었는데 **REQ-3xx는 305까지다.** 가장 큰 항목의 계획이 허공을 가리켰다 —
+  실재하는 REQ-502·402·303·304·503~505로 바꿨다.
+- **Verified**: `make check` **403 passed** · 전체 스윕 **255종 전부 red**, `❌` 0,
+  복구 255 · 잔여 0 (1275줄).
+- **Next**: T8-7 저장소 → T8-3 영상 → T8-5 제출(09-01) → T8-8 결정 → teardown(09-02).
+- **Evidence**: `docs/evidence/mutation-sweep-2026-08-29-403.log`.
+
+## 2026-08-29 — 로컬에서만 참이던 Day-1이 공개 URL에서 같은 값을 냈다 (gate 399)
+
+- **Status**: T3-1의 실물 절반까지 끝. 배포 `warranty-api-00004-4db`(이미지 `32ffcad`).
+- **Changed**: 코드는 안 건드렸다 — 커밋 `32ffcad`를 올리고 프로덕션에서 확인만 했다.
+  빌드 `ad07e352` SUCCESS 44s.
+- **Verified**: 자연어 한 줄(*"provision a service named day1-prod-demo, then tell me the
+  contract"*)에 배포된 에이전트가 **실제로 서비스를 만들고** 계약
+  `01m15qfgxv5ed6rzgr7bjzp1fk`를 함께 냈다. 리비전 `00001-qhp` Ready·ContainerHealthy,
+  Firestore 계약의 `resource_filter`가 만든 이름을 가리킨다. HTTP 200 · 23.7s.
+- **응답에 이유가 있다**: 에이전트가 `irreversible`을 말하면서 *"Initial deployment / no
+  prior rollback revision available"*을 함께 냈다 — 판단 근거는 로그가 아니라 응답에
+  있다(REQ-604)가 자연어 경로에서도 참이다.
+- **태그가 스스로를 증명했다**: 만들어진 서비스의 이미지가 `32ffcad`다 — 만든 자와 같은
+  태그. 프로비저너가 이미지를 설정으로 안 받고 *"지금 내가 무엇으로 도는지"*를 Cloud Run에
+  물어서 쓰기 때문이고, 로컬(`dbb6f74`)에서 참이던 성질이 프로덕션에서도 같은 방식으로 참이었다.
+- **경계는 그대로**: `/livez` 200 공개 · 무헤더 401 · 틀린 토큰 401.
+- **⛔ 한계도 그대로**: 만든 서비스의 IAM은 비어 있다(T3-5).
+- **teardown 범위가 넷이 됐다**: `warranty-api`·`demo-target`·`day1-warranty-demo`·
+  `day1-prod-demo`. 만든 것을 목록에 안 적으면 teardown이 그것을 안 본다(T8-6).
+- **Next**: T8-3 영상(부하 켠 채) → 제출(09-01) → teardown(09-02).
+- **Evidence**: `docs/evidence/live-day1-prod-2026-08-29.log` · `deploy-2026-08-29.log`.
 
 ## 2026-08-29 — 첫 화면이 내세우던 Day-1 절반이 비어 있었다 · T3-1 (gate 394 → 399)
 

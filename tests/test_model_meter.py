@@ -54,6 +54,7 @@ from warranty.domain.tokens import (
 from warranty.domain.verification import Measurement, Verdict
 from warranty.ports import ModelPort
 from warranty.usecases.meter import MODEL_ACTION_PREFIX, MeteredModel
+from warranty.usecases.provision import ProvisionResponse
 from warranty.usecases.remediate import Remediator
 
 FROZEN = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)  # REQ-802: 살아 있는 시계를 안 쓴다
@@ -242,9 +243,48 @@ def _a_model_call_row(ledger: InMemoryLedger, id_prefix: str = "model") -> None:
 
 #: 원장을 만드는 **경로 전부**. ⚠️ `EntryKind`에 값이 늘면 여기도 늘어야 하고,
 #: 안 늘면 아래 가드가 red다 (docs/PRINCIPLES.md #9).
+def _a_provision_row(ledger: InMemoryLedger) -> None:
+    """Day-1 프로비저닝 — **돈을 쓰는 리소스가 태어나는 순간**이 원장에 남는가 (REQ-504).
+
+    ⚠️ 실물 어댑터를 안 부른다(G5 · REQ-801). 대역이 만들었다고 말하고, 우리가 보는 것은
+       **그 응답에서 되읽은 라벨이 항목의 귀속이 되는가**다.
+    """
+    from warranty.adapters.fakes import InMemoryContracts
+    from warranty.runtime import AgentTools
+
+    AgentTools(
+        remediator=None,  # type: ignore[arg-type]
+        contracts=InMemoryContracts(),
+        signals=None,  # type: ignore[arg-type]
+        default_region=RESOURCE.region,
+        provisioner=_LabellingProvisioner(),
+        ledger=ledger,
+        clock=FrozenClock(FROZEN.isoformat()),
+        ids=SeededIdGen("prov"),
+    ).provision("day1-swept")
+
+
+class _LabellingProvisioner:
+    """⚠️ 보낸 라벨을 **되돌려준다** — 실물 Cloud Run이 하는 일과 같은 모양이다."""
+
+    def create(
+        self, name: str, kind: str = "cloud_run_service", cost_label: str = ""
+    ) -> ProvisionResponse:
+        return ProvisionResponse(
+            kind=kind,
+            name=name,
+            region=RESOURCE.region,
+            previous_revision=None,
+            cost_label=cost_label or None,
+        )
+
+
+#: 원장을 만드는 **경로 전부**. ⚠️ `EntryKind`에 값이 늘면 여기도 늘어야 하고,
+#: 안 늘면 아래 가드가 red다 (docs/PRINCIPLES.md #9).
 LEDGER_PRODUCERS: dict[EntryKind, Callable[[InMemoryLedger], None]] = {
     EntryKind.ACTION: _an_action_row,
     EntryKind.MODEL_CALL: _a_model_call_row,
+    EntryKind.PROVISION: _a_provision_row,
 }
 
 
