@@ -1,0 +1,3 @@
+And look at the attribution column. Resource label means that row can be found in the bill.
+None means it cannot, and we say so, instead of printing a number we cannot check.
+The action itself cost zero, and that is the honest answer. Shifting traffic creates no billable resource.

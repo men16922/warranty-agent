@@ -1,0 +1,5 @@
+Executed, four. Improved, zero. Rolled back, four.
+A tool that counts only executed calls this four successes.
+This one says three separate things about the same four events.
+They ran. They did not help. And they were undone.
+The middle column is the one most operations agents do not have.

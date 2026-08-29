@@ -1,0 +1,4 @@
+Two honest limits.
+This is correlation, not causation. Re-measuring after a rollback is a weak natural experiment.
+And contracts only exist for resources the agent provisioned.
+We would rather say that than show you a green number we did not measure.

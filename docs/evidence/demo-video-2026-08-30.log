@@ -1,0 +1,88 @@
+# 데모 영상 촬영 — 2026-08-30 (T8-3)
+
+⛔ **이 영상에는 지어낸 화면이 없다.** 아래 응답은 전부 오늘 프로덕션
+(`warranty-api-00009-2lk`, `https://warranty-api-povpqj6m5a-uc.a.run.app`)에서
+실제로 받은 것이고, 원장 화면은 그 배포된 서비스가 `GET /`로 낸 것을 그대로 찍었다.
+
+산출물: `warranty-demo.mp4` · 3:27 · 1920x1080 H.264 + AAC · 7.8MB
+(대회 상한 4분 이내. 언어 영어.)
+
+---
+
+## 1. 왜 이 방식으로 찍었나
+
+⚠️ 처음에는 실제 데스크톱을 `screencapture`로 찍으려 했다. **세 번 연속으로 사용자의
+   개인 창이 프레임에 들어왔다** — Chrome이 여러 창을 갖고 있고 AppleScript의 `front window`가
+   내가 만든 창을 가리키지 않았다. 키 입력도 엉뚱한 창으로 갔다(줌·북마크바가 바뀌었고 되돌렸다).
+   ⇒ 데스크톱 촬영을 버리고 **headless 렌더링**으로 갈아탔다. 결정론적이고, 남의 화면을 안 건드린다.
+
+- 터미널 화면: 실제 응답 JSON → HTML → Chrome headless `--screenshot` (1920x1080)
+- 원장 화면: 배포된 공개 URL을 Chrome headless로 직접 찍음 (2x, 실제 페이지)
+- 내레이션: macOS `say -v Samantha -r 178` — ⚠️ **기계 음성이다.** 사람 목소리로 다시
+  녹음하려면 `vo/*.txt`가 대본이고 `assemble.py`가 길이를 오디오에서 다시 읽는다.
+- 합성: ffmpeg (세그먼트별 페이드 + concat)
+
+## 2. 오늘 실물에서 받은 것 (비트 순서)
+
+### Day-1 — 리소스와 계약이 같이 태어난다 (42.9s)
+서비스 `day1-demo-final` 생성 + 계약 기록:
+- Contract ID `01m17cvqg45qfdpf59ph8yjypb`
+- Ledger Entry / Cost Label `01m17cts2x0by3x1v4thdenwtt`
+- Attribution `resource_label` · Reconciliation `reconcilable`
+- Reversibility `irreversible` · Rollback Revision `null`
+- Health Signal `run.googleapis.com/request_latencies` P95 120s
+
+⭐ 08-29 대본의 출력보다 강해졌다 — **비용 라벨과 귀속이 같은 응답에 들어왔다**(다리 ③).
+
+### 핵심 — 조치 → 재측정 → 실패 → 자동 롤백 (2분 3초)
+```
+Gate Verdict     : AUTO  (reversible and verifiable within budget, $0.01 / headroom $0.46)
+Signal Before    : 674.17
+Signal After     : 674.17
+Verification     : not_recovered  (improved: false)
+Action Taken     : automatic rollback → demo-target-00001-swl 100%
+```
+읽어서 확인:
+```
+$ gcloud run services describe demo-target --region=us-central1 --format='value(status.traffic)'
+{'percent': 100, 'revisionName': 'demo-target-00001-swl'}
+```
+
+⚠️ **before와 after가 같은 값이다.** 부하는 돌고 있었지만 Monitoring 수집 지연으로
+   120초 창이 같은 점을 두 번 읽었다. `not_recovered`는 **맞는 판정**이고,
+   이 한계는 영상 마지막 카드에 그대로 적었다 (§11 live-cost-axis 로그와 같은 사실).
+
+### ⚠️ 첫 시도는 `awaiting_approval`로 끝났다 — 그것도 원장에 남았다
+부하를 켠 직후에는 120초 창에 점이 **0개**여서 게이트가 `reversible but not verifiable`로
+자동 실행을 막았다. 다시 시도해서 위 왕복을 얻었다. **두 행이 다 화면에 있다** —
+`awaiting_approval / APPROVE`와 `executed / AUTO / not_recovered`.
+
+### 게이트 거부 (15.7s)
+`day1-demo-final`에 조치 시도 → `MANUAL` · rule `irreversible and not verifiable` · executed `false`.
+
+### 일간 리포트 (2026-08-29, UTC 기준)
+```
+Executed: 4 · Improved: 0 · Rolled Back: 4 · Improvement Rate 0% · Manual Required 3 · Wasted USD $0
+```
+
+## 3. 촬영이 잡은 것 — 화면이 잘려 있었다
+
+⛔ 원장 화면의 `.wrap`이 72rem이라 **10열 중 `Cost`와 `Reason`이 가로 스크롤 뒤에 숨어 있었다.**
+   하필 그 두 칸이 논지의 절반이다. 링크를 눌러 본 심사위원은 가로 스크롤을 안 한다.
+   ⇒ 94rem으로 넓히고 표 폰트를 좁혔다(커밋 `0ba8adf`). **촬영이 아니었으면 못 봤다.**
+
+⛔ 화면 문자열이 한국어였다. 심사와 영상의 언어는 영어다 ⇒ 전부 영어로(커밋 `f5c9459`).
+   M-275·M-276의 perl 대상이 번역으로 움직여서 **조용히 무효**가 될 뻔했고, 재조준 후
+   M-275..M-280 여섯 개를 다시 태웠다 — 전부 red.
+
+## 4. 재현
+
+```
+scratchpad/shoot/
+  vo/*.txt          내레이션 대본 (사람 목소리로 갈아끼울 자리)
+  data/*.json       프로덕션 응답 원본
+  render.py         HTML 한 장 → 1920x1080 PNG
+  build_frames*.py  장면 정의 (응답을 그대로 옮긴다)
+  assemble.py       세그먼트 길이를 **오디오에서 읽어** ffmpeg으로 합성
+  plan.json         비트 순서와 길이
+```

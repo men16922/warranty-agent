@@ -1,0 +1,7 @@
+Now a real remediation, on a service that has been running under load.
+The agent takes an action it believes will help.
+It reads the baseline from the contract's signal, not a signal it picked.
+It shifts the traffic. And then it waits.
+This pause is deliberate. Metrics arrive late.
+Measuring immediately would let us declare victory on data that has not arrived yet.
+This is the moment where most tools return success and stop.
