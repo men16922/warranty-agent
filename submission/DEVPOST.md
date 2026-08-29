@@ -182,6 +182,9 @@ mutation-testing  spec-driven-development  ports-and-adapters  sre
 ## "Try it out" links
 
 ```
+★ Accountability ledger (open this first — no login, nothing to install):
+  https://warranty-api-povpqj6m5a-uc.a.run.app/
+
 Live API (public health probe):
   https://warranty-api-povpqj6m5a-uc.a.run.app/livez
 
@@ -192,9 +195,14 @@ Code repository (public):
   https://github.com/men16922/warranty-agent
 ```
 
+⭐ **첫 링크가 이 제출물의 얼굴이다.** 배포된 에이전트 자신이 낸 화면이고, 그 안에
+`executed` 옆에 `improved`가, 금액 옆에 `attribution`이 있다. **읽기 전용이다** —
+버튼이 없고, 조치를 걸 수 없고, 아무것도 저장하지 않는다. 그래서 인증을 안 건다.
+
 > ⚠️ `/agent:chat`은 bearer 토큰이 있어야 한다(무토큰·틀린 토큰은 전부 `401`). 공개 URL이
 > 무인 과금 권한이 아니라는 것이 설계 결정이다(D15 · design 08§3.A). 심사위원에게는
-> `/livez`와 영상, 그리고 아래 Testing instructions를 준다.
+> **원장 화면**과 `/livez`, 영상, 그리고 아래 Testing instructions를 준다.
+> ⛔ **화면은 읽기 전용이라 공개해도 그 결정과 어긋나지 않는다** — 과금·변경 표면은 여전히 닫혀 있다.
 
 ## Video demo link
 
@@ -267,10 +275,26 @@ Evidence for every live claim is committed under docs/evidence/ with raw logs:
 - **롤백을 주장하지 않고 배분을 되읽어 증명하는 것**은 GCP 전용을 정당화하는 구체적 근거다.
   트랙(Fortified Enterprise Fleet)이 묻는 "무엇을 신뢰할 수 있는가"에 정확히 답한다.
 
-⚠️ **약점**: 규모가 작다. 원장의 조치는 지금 **둘**이다. 심사위원이 *"41건 중 23건 회복"* 같은
+⭐ **2026-08-29에 세 번째 축이 실물이 됐다** — 그 전까지 이 항목의 주장은 **3분의 2뿐이었다.**
+`Method.RESOURCE_LABEL`은 테스트에만 있었고 코드가 `fl_entry` 라벨을 리소스에 박은 적이
+없었다. 지금은 프로비저닝이 원장 행과 라벨을 함께 내고, **GCP에서 되읽어 확인했다**:
+`fl_entry=01m16hev85z5b7b4ykzc73tm95`이 원장 항목 id와 같다. 모델 호출은
+`token_meter · $0.00174675`를 갖는다.
+
+⭐ **그리고 이것이 *"이거 Flagger 아니야?"*의 답이다.** Flagger·Argo·Kayenta는 카나리에서
+지표를 재고 롤백한다 — ①②는 그들도 한다. **그 롤백이 얼마짜리였는지, 그리고 그 수가
+계산값인지 청구서인지는 말하지 않는다.** 그게 ③이고, 화면의 `귀속` 열이 그것을 보여 준다.
+
+⚠️ **약점 ①**: 규모가 작다. 원장의 조치는 지금 **둘**이다. 심사위원이 *"41건 중 23건 회복"* 같은
 큰 표를 기대하면 실망할 수 있다. 그러나 대회 기준 어디에도 규모가 없고(§4 마지막 줄),
 **측정하지 않은 큰 수를 적는 것이 정확히 우리가 반대하는 것**이다. 이 긴장은 영상에서
 말로 처리해야 한다: *"두 건이다. 그리고 그 두 건에 대해 우리는 세 가지를 따로 말할 수 있다."*
+
+⚠️ **약점 ② — 숨기지 않는다**: `wasted_usd`는 **0이다.** 회복에 실패한 조치가 트래픽 전환이고,
+트래픽 전환은 과금 리소스를 안 만들기 때문이다. 그 칸이 0인 것은 **정확한 값이지 미구현이
+아니다.** 그리고 `measured`(청구서로 확인된 값)는 아직 하나도 없다 — 결제 내보내기는
+하루 지연이 있고 제출 기한 안에 못 들어온다. 그래서 화면은 `resource_label`(되찾을 수 있음)과
+`none`(되찾을 수 없음)을 **구분해서** 보여 주지, 금액의 크기를 자랑하지 않는다.
 
 ⛔ **`docs/HACKATHON.md` §4가 이 칸의 획득 경로로 `REQ-307`을 적고 있는데 그런 요구사항은
 없다**(REQ-3xx는 305까지다). 실제 경로는 REQ-502(셋을 따로) · REQ-402(3축 판정) ·
@@ -293,7 +317,12 @@ REQ-303/304(증명된 롤백) · REQ-503/504/505(귀속과 추정≠실측)다. 
 
 ## Demo & Production Readiness — 30%
 
-**중간이다. 여기가 남은 위험이다.**
+**중간이다 — 다만 08-29에 한 칸 올라갔다.**
+
+⭐ **화면이 생겼다**(`GET /`). 그 전까지 이 프로젝트의 문장은 `curl`을 아는 사람에게만
+도착했다. 배포된 서비스가 원장을 사람이 읽는 표로 낸다 — 읽기 전용, 버튼 없음, 인증 없음:
+**심사위원이 링크를 눌러서 보라고 만든 화면**이다. `실행됨` 옆에 `나아짐`이 있고,
+금액 옆에 `귀속`이 있다.
 
 - ✅ `make demo`가 결정론적이고, **자기가 증명하지 않는 것을 출력에 적는다.**
 - ✅ 거부(`MANUAL`)와 한계가 화면에 보인다 — Production Readiness는 완벽함이 아니라

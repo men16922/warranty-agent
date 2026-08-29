@@ -1,0 +1,78 @@
+# 비용 축과 화면이 프로덕션에서 실물이 됐다 — 2026-08-29
+#
+# 계획 docs/plans/2026-08-29-cost-axis.md 의 C4.
+# 태우는 주장 셋:
+#   ① 원장의 금액이 0을 벗어나는가 (T5-5 단가표)
+#   ② 라벨이 **GCP 리소스에 실제로 박히는가** (T5-6) — 응답의 주장이 아니라 되읽은 값
+#   ③ 사람이 보는 화면이 배포된 서비스에서 뜨는가 (T8-9)
+
+## 0. 배포
+빌드    e356946d-fabe-4f16-b9c4-cdc248a5fe93  SUCCESS  43S
+태그    d51566c
+리비전  warranty-api-00007-mrq — 트래픽 100%
+URL     https://warranty-api-povpqj6m5a-uc.a.run.app
+
+## 1. 경계 — 그대로다
+GET  /livez                → 200 (공개)
+POST /agent:chat 무헤더     → 401
+POST /agent:chat 틀린 토큰  → 401
+
+## 2. ③ 화면 — 배포된 서비스가 HTML을 낸다
+GET / → 200 · text/html; charset=utf-8 · 7260B · 2.51s
+제목  warranty — 2026-08-29
+표 열 항목 | 종류 | 대상 | 상태 | 판정 | 검증 | 롤백 | 귀속 | 비용 (USD) | 근거
+⛔ 읽기 전용이다 — 버튼이 없고 아무것도 저장하지 않는다. 인증도 안 건다:
+   심사위원이 링크를 눌러서 봐야 하는 것이 이 화면의 존재 이유다.
+
+## 3. 요청 — 자연어 한 줄
+{"message":"Provision a Cloud Run service named day1-cost-demo. Then tell me: the contract id,
+ the ledger entry id, the cost label that was attached to the created resource, and whether
+ that cost is reconcilable against a bill."}
+→ HTTP 200 · 23.06s · session request-1
+
+## 4. 응답 — 에이전트가 라벨과 화해 가능성을 함께 냈다 (REQ-604)
+  Contract ID              01m16hf7tzdw88am643jt2bcwg
+  Ledger Entry ID          01m16hev85z5b7b4ykzc73tm95
+  Cost Label               01m16hev85z5b7b4ykzc73tm95
+  Reconcilable against a bill: Yes (reconcilable)
+
+⚠️ 여기까지는 **주장**이다. 아래가 측정이다.
+
+## 5. ② ★ GCP에서 라벨을 되읽었다 — 이것이 측정이다
+$ gcloud run services describe day1-cost-demo --format="value(metadata.labels)"
+cloud.googleapis.com/location=us-central1;fl_entry=01m16hev85z5b7b4ykzc73tm95
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+⭐ 원장 항목 id와 **정확히 같다.** `Method.RESOURCE_LABEL`이 약속하는 "청구 행에서
+   되찾는다"가 이 순간 처음으로 구조적으로 참이 됐다 — 2026-08-29 오전까지 이 라벨은
+   저장소 어디에서도 리소스에 붙은 적이 없었고, `RESOURCE_LABEL`은 테스트에만 있었다.
+
+리비전  day1-cost-demo-00001-fbl · Ready True
+이미지  ...warranty-api:d51566c — **만든 자와 같은 태그**다(프로비저너가 자기가 무엇으로
+        도는지 Cloud Run에 물어서 쓴다).
+
+## 6. ① ★ 원장의 금액이 0을 벗어났다
+화면(GET /)이 그린 최신 행들:
+
+  종류         대상                        상태       귀속              비용(USD)
+  model_call   model:adk:request-1:2       executed   token_meter       0.00174675
+  model_call   model:adk:request-1:1       executed   token_meter       0.00103125
+  provision    provision:day1-cost-demo    executed   resource_label    0
+  model_call   model:adk:request-2:2       executed   none              0        ← 배포 전 행
+  model_call   model:adk:request-2:1       executed   none              0        ← 배포 전 행
+  action       day1-prod-demo-00001-qhp    manual_required  none        0
+
+⭐ 같은 화면에 **배포 전 행(`none` · 0)과 배포 후 행(`token_meter` · 0.0017)이 나란히** 있다.
+   그 대비가 이 커밋이 무엇을 고쳤는지 한 줄로 말한다: 계량이 없어서가 아니라 **단가를
+   몰라서** 0이었다.
+
+## 7. ⛔ 0인 것들 — 그리고 그게 맞는 이유
+provision 행의 비용 0   : 갓 만든 서비스는 min-instances=0이라 아직 아무 요청도 안 받았다.
+                          **모르는 것이 아니라 안 쓴 것**이고, 미래 비용을 추정하지 않는다.
+                          라벨이 있으므로 실제 값은 청구서가 말한다(reconcilable).
+action 행의 비용 0      : 트래픽 전환은 과금 리소스를 안 만든다. `method=none`은 정확하다.
+wasted_usd 0            : 회복 실패 조치의 compute가 0이므로 0이 맞다.
+                          ⛔ 여기에 수를 만들면 그건 지어낸 수다.
+
+## 8. 잔여물 — teardown 범위가 다섯이 됐다
+warranty-api · demo-target · day1-warranty-demo · day1-prod-demo · **day1-cost-demo**(신규)
+⚠️ 만든 것을 목록에 안 적으면 teardown이 그것을 안 본다(T8-6).

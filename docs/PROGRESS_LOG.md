@@ -43,8 +43,21 @@
 - **Changed(문서)**: `HACKATHON.md` §0 신설(목적↔심사 매핑) · §6의 REQ 번호 둘 정정
   (`Runtime(REQ-5xx)`→6xx · `비용 축(REQ-2xx/4xx)`→5xx — §4의 REQ-307과 같은 종류의 버그) ·
   `SCRIPT.md` 3:30 비트를 **Firestore 콘솔 → 우리 화면**으로 교체.
-- **Next**: 배포 → 실물 확인(화면·라벨·원장) → 부하 켠 채 영상(T8-3) → 제출(09-01).
-- **Evidence**: `docs/evidence/mutation-sweep-2026-08-29-442.log`.
+- **⭐ 실물 확인 완료** (리비전 `00007-mrq` · 이미지 `d51566c`):
+  ① **화면**이 `GET /`에서 200 HTML(7,260B · 2.51s)을 낸다 — 배포된 에이전트가 그린 것이다.
+  ② **라벨이 GCP 리소스에 박혔다**: `fl_entry=01m16hev85z5b7b4ykzc73tm95`이 원장 항목 id와
+  **같다.** 응답의 주장이 아니라 `gcloud run services describe`로 **되읽은 값**이다.
+  ③ **금액이 0을 벗어났다**: 모델 호출 행이 `token_meter · $0.00174675`.
+  ⭐ 같은 화면에 **배포 전 행(`none`·0)과 배포 후 행(`token_meter`·0.0017)이 나란히** 있다 —
+  그 대비가 무엇을 고쳤는지 한 줄로 말한다: 계량이 없어서가 아니라 **단가를 몰라서** 0이었다.
+- **⛔ 0인 것들과 그게 맞는 이유도 로그에 적었다**: 갓 만든 서비스는 아직 안 썼고(추정 안 한다),
+  트래픽 전환은 과금 리소스를 안 만들고, 그래서 `wasted_usd`는 0이 맞다.
+- **teardown 범위가 다섯이 됐다**: `day1-cost-demo` 추가(T8-6 · OVERVIEW·tasks 반영).
+- **문서 반영**: README 첫 표에 화면 링크 · DEVPOST "Try it out"의 **첫 줄**로 올림 ·
+  DEVPOST §4의 40%/30% 자체평가를 실물에 맞춰 고침(약점 둘을 숨기지 않고 적음).
+- **Next**: 부하를 켠 채 4분 영상(T8-3) → 제출(09-01) → teardown(09-02).
+- **Evidence**: `docs/evidence/mutation-sweep-2026-08-29-442.log` ·
+  `docs/evidence/live-cost-axis-2026-08-29.log`.
 
 ## 2026-08-29 — GPU 쿼터가 없어서 갈래가 정해졌고, 조치가 둘이 됐다 (gate 403 → 422)
 

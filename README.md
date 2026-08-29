@@ -57,10 +57,16 @@ Run traffic, and writes contracts and the ledger to Firestore — all behind the
 | | |
 |---|---|
 | Repository | https://github.com/men16922/warranty-agent |
+| **★ Accountability ledger (open this first)** | **`https://warranty-api-povpqj6m5a-uc.a.run.app/`** — read-only, no login |
 | Live API | `https://warranty-api-povpqj6m5a-uc.a.run.app` |
 | Public health probe | `curl https://warranty-api-povpqj6m5a-uc.a.run.app/livez` → `200` |
 | `POST /agent:chat` | bearer token required — no token or a wrong one returns `401` |
 | Demo target | `https://demo-target-povpqj6m5a-uc.a.run.app/work` |
+
+⭐ **The first link is the agent's own page.** It renders the ledger: `executed` next to
+`improved`, and the cost **attribution** next to the amount — `resource_label` means that row
+can be found in the bill, `none` means it cannot, and we say which. It is read-only: there is
+no button on it, nothing is stored, and that is why it needs no login.
 
 ⚠️ **The signal only exists while traffic flows.** Both services scale to zero, so with no
 load the p95 window holds no samples and the agent answers *"I cannot read this right now"*

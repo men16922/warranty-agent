@@ -19,10 +19,13 @@
 - **다음**: 부하를 켠 채 4분 영상을 녹화한다(T8-3) — 신호는 T8-1에서 살아났다.
 - ⛔ **LLM 서빙 이동(계획 ⓑ)은 죽었다** — `warranty-hack`에 L4 GPU 쿼터가 없다
   (`docs/evidence/gpu-quota-probe-2026-08-29.log`). 계획 §5 중단 기준대로 **ⓒ 확정**.
-- ⭐ **조치가 둘이 됐다**(T2-5): 트래픽 전환 + 동시성 변경. *"결국 배포 롤백이잖아"*에
-  답이 생겼다. ⛔ 다만 **아직 배포 안 됐다** — 프로덕션은 `00005-8x9` 그대로다.
-- 현재 실물: `warranty-api` 리비전 `00005-8x9`(이미지 `27b61a6` · Day-1·Day-2·리포트 실물) +
-  `demo-target`(리비전 2개) + 에이전트가 만든 `day1-warranty-demo`·`day1-prod-demo`.
+- ⭐ **조치가 둘이 됐다**(T2-5): 트래픽 전환 + 동시성 변경. ⛔ 동시성 조치는 배포됐지만
+  **실물 왕복은 아직 안 했다** — 오프라인까지만 참이다.
+- ⭐ **비용 축이 실물이 됐다**(T5-5·T5-6): `fl_entry` 라벨이 GCP 리소스에 박혀 있고
+  원장 항목 id와 같다(되읽음). 모델 호출이 `token_meter · $0.00174675`.
+- ⭐ **화면이 생겼다**(T8-9): `GET /`가 원장을 사람이 읽는 표로 낸다.
+- 현재 실물: `warranty-api` 리비전 `00007-mrq`(이미지 `d51566c` · Day-1·Day-2·리포트·**화면** 실물) +
+  `demo-target`(리비전 2개) + 에이전트가 만든 `day1-warranty-demo`·`day1-prod-demo`·`day1-cost-demo`.
 - 오프라인 기준선: 이 파일 하단의 `make check` 한 곳만 권위로 둔다.
 
 ## 열린 작업 — 우선순위순
@@ -156,7 +159,8 @@
 - [ ] **T8-5** Devpost에 제출한다 — **09-01 09:00 KST**.
   원고는 [`submission/DEVPOST.md`](../../submission/DEVPOST.md)에 있다(폼 칸별 답 + 심사 판정).
 - [ ] **T8-6** 프로젝트 teardown 캘린더를 등록한다 — **09-02** · `Design: 10§6`
-  ⚠️ 범위: `warranty-api` · `demo-target` · **`day1-warranty-demo`** · **`day1-prod-demo`**
+  ⚠️ 범위: `warranty-api` · `demo-target` · **`day1-warranty-demo`** · **`day1-prod-demo`** ·
+  **`day1-cost-demo`**(08-29 비용 라벨 실증에서 생김) — **다섯이다**
   (뒤 둘은 에이전트가 실물로 만든 것). minScale 0이라 유휴 과금은 0이지만, 만든 것을
   목록에 안 적으면 teardown이 그것을 안 본다.
 
