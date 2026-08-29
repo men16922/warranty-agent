@@ -4,7 +4,7 @@
 (`warranty-api-00009-2lk`, `https://warranty-api-povpqj6m5a-uc.a.run.app`)에서
 실제로 받은 것이고, 원장 화면은 그 배포된 서비스가 `GET /`로 낸 것을 그대로 찍었다.
 
-산출물: `warranty-demo.mp4` · 3:27 · 1920x1080 H.264 + AAC · 7.8MB
+산출물: `submission/warranty-demo.mp4` · **3:49** · 1920x1080 H.264 + AAC · 8.7MB
 (대회 상한 4분 이내. 언어 영어.)
 
 ---
@@ -18,7 +18,7 @@
 
 - 터미널 화면: 실제 응답 JSON → HTML → Chrome headless `--screenshot` (1920x1080)
 - 원장 화면: 배포된 공개 URL을 Chrome headless로 직접 찍음 (2x, 실제 페이지)
-- 내레이션: macOS `say -v Samantha -r 178` — ⚠️ **기계 음성이다.** 사람 목소리로 다시
+- 내레이션: **ElevenLabs `eleven_v3`** · voice `2zGvynULFssveGrcP8hi` (Jackson) · stability 0.65
   녹음하려면 `vo/*.txt`가 대본이고 `assemble.py`가 길이를 오디오에서 다시 읽는다.
 - 합성: ffmpeg (세그먼트별 페이드 + concat)
 
@@ -79,10 +79,29 @@ Executed: 4 · Improved: 0 · Rolled Back: 4 · Improvement Rate 0% · Manual Re
 
 ```
 scratchpad/shoot/
-  vo/*.txt          내레이션 대본 (사람 목소리로 갈아끼울 자리)
+  vo/*.txt          내레이션 대본 — ⚠️ **v3 감정 태그가 본문에 박혀 있다**
+                    ([serious]/[thoughtful]/[curious]/[pause]). 태그도 과금 글자수에 든다.
+  tts.py            ElevenLabs 호출. ⛔ 키는 .env에서만 읽는다 — 인자로 안 받는다
   data/*.json       프로덕션 응답 원본
   render.py         HTML 한 장 → 1920x1080 PNG
   build_frames*.py  장면 정의 (응답을 그대로 옮긴다)
   assemble.py       세그먼트 길이를 **오디오에서 읽어** ffmpeg으로 합성
+                    ⚠️ TEMPO=1.05 — 4분 상한은 편집 취향이 아니라 **실격 조건**이다
   plan.json         비트 순서와 길이
 ```
+
+## 5. ⚠️ 목소리를 바꾸면 길이가 바뀐다 — 이것이 상한을 건드린다
+
+| | 기계음성(say) | ElevenLabs Jackson |
+|---|---|---|
+| 같은 대본 한 비트 | 17.6s | **24.9s (×1.41)** |
+| 내레이션 합계 | 164.9s | 236.2s → 대본 조인 뒤 **214.2s** |
+| 영상 전체 | 3:27 | **3:49** |
+
+⛔ **그대로 갈았으면 4:29로 실격이었다.** 두 가지로 맞췄다:
+1. 가장 긴 다섯 비트의 **군더더기만** 잘랐다 — 논지 문장은 안 건드렸다.
+2. `TEMPO=1.05` (안 들리는 수준). 대본을 더 깎는 대신 여기서 당긴다.
+
+⚠️ **stability 0.65인 이유.** Jackson은 `use_case: advertisement`다. 기본값 0.5면
+   *"Improved: zero"*를 신나게 읽는다 — **이 저장소가 통째로 반대하는 톤이다.**
+   담백하게 가려면 0.8, 극적으로 가려면 0.4. `tts.py`의 넷째 인자다.

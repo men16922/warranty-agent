@@ -1,3 +1,1 @@
-They cannot tell, because nobody wrote down what better would look like.
-That knowledge exists exactly once, when the resource is created, and it never makes it into the code.
-So the day two agent guesses. And verification built on a guessed signal is not verification.
+[thoughtful] They cannot tell, because nobody wrote down what better would look like. That knowledge exists exactly once — when the resource is created — and it never reaches the code. [pause] So the Day Two agent guesses. [serious] Verification built on a guessed signal is not verification.

@@ -1,5 +1,1 @@
-The action ran. The API said two hundred. And the signal did not recover.
-So the agent rolled the traffic back in a single call. And then, this is the part I care about,
-it read the traffic split back from Cloud Run.
-Not, I rolled back. But, I rolled back, and here is the server telling me it is one hundred percent
-on the healthy revision. That is a measurement, not a claim.
+[serious] The action ran. The API said two hundred. And the signal did not recover. [pause] So the agent rolled the traffic back, then read the split back from Cloud Run. [thoughtful] Not: I rolled back. But: the server says I did. That is a measurement, not a claim.

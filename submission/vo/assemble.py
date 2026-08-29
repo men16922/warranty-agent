@@ -4,11 +4,14 @@ from __future__ import annotations
 import json, pathlib, subprocess, sys
 
 ROOT = pathlib.Path(__file__).parent
-FRAMES, AUDIO, SEG = ROOT / "frames", ROOT / "audio", ROOT / "seg"
+FRAMES, AUDIO, SEG = ROOT / "frames", ROOT / "audio11", ROOT / "seg"
 SEG.mkdir(exist_ok=True)
 
-PAD_HEAD = 0.45   # 말 시작 전 숨
-PAD_TAIL = 0.9    # 말 끝나고 남기는 여운
+PAD_HEAD = 0.30   # 말 시작 전 숨
+PAD_TAIL = 0.70   # 말 끝나고 남기는 여운
+#: ⚠️ **4분 상한이 편집상의 제약이 아니라 실격 조건이다.** 목소리를 바꾸면 길이가
+#:    바뀌고, 그때 대본을 다시 쓰는 대신 여기서 아주 살짝 당긴다. 1.05는 안 들린다.
+TEMPO = 1.05
 
 def dur(p: pathlib.Path) -> float:
     return float(subprocess.run(
@@ -22,10 +25,11 @@ def segment(name: str, frame: str, vo: str | None, hold: float = 0.0,
     assert png.exists(), f"프레임이 없다: {png}"
     out = SEG / f"{name}.mp4"
     if vo:
-        aif = AUDIO / f"{vo}.aiff"
-        length = PAD_HEAD + lead_silence + dur(aif) + PAD_TAIL + hold
+        aif = AUDIO / f"{vo}.mp3"
+        speech = dur(aif) / TEMPO
+        length = PAD_HEAD + lead_silence + speech + PAD_TAIL + hold
         # 앞뒤로 무음을 붙여 말이 컷에 물리지 않게 한다.
-        afilter = (f"adelay={int((PAD_HEAD + lead_silence) * 1000)}|"
+        afilter = (f"atempo={TEMPO},adelay={int((PAD_HEAD + lead_silence) * 1000)}|"
                    f"{int((PAD_HEAD + lead_silence) * 1000)},apad")
         cmd = ["ffmpeg", "-y", "-loop", "1", "-i", str(png), "-i", str(aif),
                "-filter_complex", f"[1:a]{afilter}[a]", "-map", "0:v", "-map", "[a]"]

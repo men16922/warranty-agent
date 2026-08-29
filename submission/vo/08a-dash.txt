@@ -1,2 +1,1 @@
-This page is served by the agent itself, on Cloud Run. Read only. There is no button here.
-Executed and improved are separate columns, side by side. Four executed. Zero improved.
+This page is served by the agent itself, on Cloud Run. Read only — there is no button here. [pause] Executed and improved are separate columns, side by side. Four executed. Zero improved.

@@ -1,5 +1,1 @@
-Every remediation agent ends its run the same way. It reports success.
-It restarted the service, and the error rate is unchanged.
-It scaled up, and latency got worse.
-In all three cases, the logs are the same shade of green.
-Executing is not improving, and most tools cannot tell the difference.
+[serious] Every remediation agent ends its run the same way. It reports success. [pause] It restarted the service — error rate unchanged. It scaled up — latency got worse. The logs are the same shade of green. [thoughtful] Executing is not improving, and most tools cannot tell the difference.

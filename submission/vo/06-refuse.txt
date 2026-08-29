@@ -1,4 +1,1 @@
-Now watch it refuse. This is the service we created ninety seconds ago.
-It has nowhere to roll back to, and no signal to read yet. So the executor was never called.
-The rule is printed right there. Irreversible, and not verifiable.
-Most gates ask only, can I undo this. This one also asks, can I measure it.
+[curious] Now watch it refuse. Nowhere to roll back to, and no signal to read yet. [pause] The executor was never called, and the rule is printed right there. Irreversible, and not verifiable. [thoughtful] Most gates ask only: can I undo this. This one also asks: can I measure it.
