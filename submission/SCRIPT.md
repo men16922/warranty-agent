@@ -1,0 +1,307 @@
+# 4분 데모 영상 대본 — warranty
+
+작성 2026-08-29 · `Design: 11§3` · `Implements: REQ-901` (T8-3)
+**≤4분 · 영어 · Google Cloud 배포의 시각 증거 필수.**
+
+> ⛔ **여기 적힌 출력은 전부 실제로 받아 본 것이다.** 지어낸 화면이 없다.
+> 각 비트 아래 `실제로 받은 출력`은 2026-08-29 프로덕션(`warranty-api-00005-8x9`)에서
+> 그대로 복사한 것이다. 촬영 때 값이 다를 수 있는 칸은 ⚠️로 표시했다.
+
+---
+
+## 0. 이 영상이 보여 주려는 것 — 한 문장
+
+> **고쳤다고 말하기 전에 진짜 나아졌는지 다시 재고, 안 나아졌으면 스스로 되돌린다.**
+
+**화면에 반드시 남아야 하는 세 숫자**가 있다. 나머지는 다 곁가지다:
+
+```
+executed 1 · improved 0 · rolled_back 1
+```
+
+*"했다"*와 *"나아졌다"*가 **다른 칸**이라는 것 — 그게 이 영상의 전부다.
+
+---
+
+## 1. 촬영 전 준비 (녹화 시작 전에 끝내 둔다)
+
+### ① 창 배치
+
+| 창 | 무엇 | 비중 |
+|---|---|---|
+| **A** 터미널 (큰 글씨, 어두운 배경) | `curl` 요청과 JSON 응답 | 화면의 70% |
+| **B** 브라우저 — Cloud Run 콘솔 | `demo-target` 리비전/트래픽 배분 | 30% (3:30에 전면) |
+| **C** 브라우저 — Firestore 콘솔 | `ledger` 컬렉션 | B와 탭 전환 |
+
+### ② ⚠️ 부하를 켠다 — **이걸 안 하면 데모가 죽는다**
+
+**신호는 트래픽이 흐르는 동안에만 존재한다.** 부하 없이 찍으면 에이전트가 `points: 0`,
+`value: null`을 답하고, 화면상 *"고장난 것"*처럼 보인다. 그건 정책이 제대로 도는 것이지만
+영상에 담을 그림이 아니다.
+
+녹화 **5분 전**에 별도 터미널에서 켜고, 영상 내내 **끄지 않는다**:
+
+```bash
+END=$(( $(date +%s) + 1800 ))
+for i in 1 2 3 4 5; do
+  ( while [ "$(date +%s)" -lt "$END" ]; do
+      curl -s -o /dev/null --max-time 20 https://demo-target-povpqj6m5a-uc.a.run.app/work
+    done ) &
+done
+```
+
+*(워커 5 · 30분 · 약 5.7 req/s — 120초 창을 채우고도 남는다)*
+
+### ③ 콜드 스타트를 녹인다
+
+`min-instances=0`이라 **첫 요청이 느리다.** 녹화 전에 한 번 부어서 깨워 둔다:
+
+```bash
+curl -s -o /dev/null https://warranty-api-povpqj6m5a-uc.a.run.app/livez
+```
+
+### ④ 토큰을 셸 변수에 넣어 둔다 — **화면에 토큰이 뜨면 안 된다**
+
+```bash
+TOKEN=$(gcloud secrets versions access latest --secret=warranty-agent-auth --project=warranty-hack)
+URL=https://warranty-api-povpqj6m5a-uc.a.run.app
+ask() { curl -sS -X POST "$URL/agent:chat" -H "Authorization: Bearer $TOKEN" \
+        -H "Content-Type: application/json" -d "{\"message\":\"$1\"}" | python3 -m json.tool; }
+```
+
+⚠️ **`ask` 함수를 미리 정의해 두고 화면에는 `ask "..."`만 보이게 한다.** `Bearer $TOKEN`이
+화면에 뜨면 안 된다.
+
+### ⑤ demo-target을 건강한 쪽으로 되돌려 둔다
+
+```bash
+gcloud run services update-traffic demo-target --project=warranty-hack \
+  --region=us-central1 --to-revisions=demo-target-00001-swl=100
+```
+
+*(직전 리허설이 롤백까지 갔으면 이미 이 상태다 — 확인만 한다)*
+
+---
+
+## 2. 비트별 대본
+
+### 0:00–0:20 · 문제 (20초)
+
+**화면**: 터미널만. 아직 아무것도 안 친다.
+
+> "Every remediation agent ends its run the same way: **it reports success.**
+> It restarted the service — and the error rate is unchanged.
+> It scaled up — and latency got worse.
+> **In all three cases the logs are the same shade of green.**
+> Executing is not improving, and most tools cannot tell the difference."
+
+---
+
+### 0:20–0:40 · 논지 (20초)
+
+> "They cannot tell, because **nobody wrote down what 'better' would look like.**
+> That knowledge exists exactly once — when the resource is created — and it never
+> makes it into the code. So the Day-2 agent guesses.
+> **Verification built on a guessed signal is not verification.**"
+
+---
+
+### 0:40–1:05 · ★ Day-1 — 만들면서 계약을 같이 낸다 (25초)
+
+**화면**: 창 A. 아래를 친다.
+
+```bash
+ask "Provision a Cloud Run service named demo-day1, then tell me the operational contract you recorded."
+```
+
+> "So I ask the agent to create a service. Watch what comes back **with** it."
+
+**실제로 받은 출력** (2026-08-29 · ⚠️ 이름과 계약 ID는 촬영 때 달라진다):
+
+```
+The Cloud Run service `day1-prod-demo` has been provisioned, and its operational
+contract has been recorded:
+* Contract ID: 01m15qfgxv5ed6rzgr7bjzp1fk
+* Health Signal: run.googleapis.com/request_latencies · P95 · 120s · filter day1-prod-demo
+* Reversibility: irreversible (Initial deployment / no prior rollback revision available)
+```
+
+> "The agent did not just create it. It wrote down **which signal means health** for this
+> resource, and **that there is nowhere to roll back to yet** — because this is the first
+> revision. That last line matters in a minute."
+
+⚠️ **`irreversible`을 사과하지 말 것.** 그건 결함이 아니라 정확한 사실이고, 2:45 비트의 씨앗이다.
+
+---
+
+### 1:05–2:45 · ★★ 핵심 — 조치 → 재측정 → 실패 → 자동 롤백 (100초)
+
+> ⛔ **이 비트가 영상의 절반이다.** 나머지를 줄여서라도 여기를 줄이지 말 것.
+
+**화면**: 창 A.
+
+```bash
+ask "Remediate demo-target by shifting traffic to revision demo-target-00002-lss. Report the gate verdict, the before and after signal, and what you did about it."
+```
+
+> "Now a real remediation, on a service that has been running under load.
+> The agent takes an action it believes will help."
+
+**⏳ 여기서 약 90–110초 걸린다.** 그 동안 말할 것 — **기다림 자체가 논지다**:
+
+> "It is reading the baseline **from the contract's signal** — not a signal it picked.
+> It shifts the traffic. And then **it waits 45 seconds.**
+> This pause is deliberate. Metrics arrive late; measuring immediately would let us
+> declare victory on data that has not arrived yet.
+> **This is the moment where most tools return success and stop.**"
+
+**실제로 받은 출력** (2026-08-28 실물 · `docs/evidence/live-adk-remediate-2026-08-28.log`):
+
+```
+decision      : AUTO   (reversible · verifiable · headroom)
+signal before : p95 674.17 ms
+signal after  : p95 988.60 ms
+verdict       : not_recovered
+rollback      : traffic 100% → demo-target-00001-swl
+verified_traffic : {"demo-target-00001-swl": 100}
+```
+
+> "The action ran. The API said 200. And the signal went **from 674 to 989 milliseconds** —
+> it got **worse**.
+> So the agent rolled the traffic back in a single call, and then — this is the part I care
+> about — **it read the traffic split back from Cloud Run.**
+> Not *'I rolled back'*. **'I rolled back, and here is the server telling me it is 100 percent
+> on the healthy revision.'** That is a measurement, not a claim."
+
+---
+
+### 2:45–3:05 · ★ 정책 — 확인 못 하면 자동으로 안 한다 (20초)
+
+**화면**: 창 A. **이 비트는 6초면 끝난다** — 빠르고 강하다.
+
+```bash
+ask "Remediate the service demo-day1 by shifting traffic to its first revision. Tell me the gate verdict and the exact rule."
+```
+
+> "Now watch it **refuse**. This is the service we created ninety seconds ago."
+
+**실제로 받은 출력** (2026-08-29 프로덕션):
+
+```
+Verdict     : MANUAL
+Exact Rule  : irreversible and not verifiable
+Verifiable  : false
+Reversibility : irreversible
+Status      : manual_required
+```
+
+> "It has nowhere to roll back to, and no signal to read yet.
+> So the executor was **never called**. The rule is printed right there:
+> **`irreversible and not verifiable`.**
+> Most gates ask only *can I undo this*. This one also asks **can I measure it** —
+> because an action you can undo but cannot measure is one you will not know whether to undo."
+
+---
+
+### 3:05–3:30 · ★ 리포트 — 세 숫자 (25초)
+
+**화면**: 창 A. **여기가 클라이맥스다. 출력이 뜨면 3초 정도 말없이 둔다.**
+
+```bash
+ask "Give me the daily accountability report for 2026-08-28. Show executed, improved, and rolled back as separate numbers."
+```
+
+**실제로 받은 출력** (2026-08-29 프로덕션):
+
+```
+Daily Accountability Report: 2026-08-28
+* Executed:     1
+* Improved:     0
+* Rolled Back:  1
+* Improvement Rate: 0%
+```
+
+> *(3초 침묵)*
+> "**Executed one. Improved zero. Rolled back one.**
+> A tool that counts only `executed` calls this a success.
+> This one says three separate things about the same event: it ran, it did not help,
+> and it was undone.
+> **The middle column is the one most operations agents do not have.**"
+
+---
+
+### 3:30–3:50 · 증거 — GCP 콘솔 (20초)
+
+**화면**: 창 B(Cloud Run) → 창 C(Firestore) 전환.
+
+- **창 B**: `demo-target` 서비스 → 트래픽 100%가 `demo-target-00001-swl`에 있는 것을 보여 준다.
+- **창 C**: Firestore `ledger` 컬렉션 → 그 조치의 행 하나를 연다.
+
+> "This is Google Cloud, not a mock. The traffic really is back on the healthy revision.
+> And the ledger row is in Firestore — with the decision, the two measurements,
+> the rollback, and what it cost."
+
+⚠️ **콘솔은 미리 열어서 로그인·프로젝트 선택을 끝내 둔다.** 화면에서 로그인하지 말 것.
+
+---
+
+### 3:50–4:00 · 한계 (10초)
+
+**화면**: 터미널로 복귀. 아무것도 안 친다.
+
+> "Two honest limits.
+> This is **correlation, not causation** — re-measuring after a rollback is a weak natural
+> experiment.
+> And **contracts only exist for resources the agent provisioned** — a hand-made resource
+> is not an automation target.
+> **We would rather say that than show you a green number we did not measure.**"
+
+---
+
+## 3. ⚠️ 타이밍 위험과 대처
+
+| 위험 | 왜 | 대처 |
+|---|---|---|
+| **핵심 비트가 100초 걸린다** | `VERIFY_DELAY_S=45` + 모델 호출 + 두 번의 트래픽 전환 | **기다림을 서사로 쓴다**(위 대본대로). 편집에서 대기 구간만 1.5–2배속 + 타이머 자막 |
+| 콜드 스타트 | `min-instances=0` | 준비 ③에서 미리 깨운다. ⛔ **`min-instances`를 바꿔 찍고 안 되돌리는 짓은 하지 말 것**(REQ-805) |
+| 신호가 `null` | 부하가 꺼졌다 | 준비 ②의 부하가 **영상 내내** 돌아야 한다 |
+| 리허설이 롤백 상태를 남긴다 | 정상이다 | 준비 ⑤로 `00001-swl` 100% 확인 |
+
+### ⛔ 타이머를 줄이고 싶은 유혹
+
+`src/warranty/tunables.py`의 `VERIFY_DELAY_S`를 줄이면 촬영이 편해진다. **하지만 그러지 말 것.**
+지표 도착이 늦으면 **아직 안 온 데이터로 `not_recovered`를 판정**하게 되고, 그건 이 프로젝트가
+통째로 반대하는 짓이다. 45초를 기다리는 것이 **논지의 일부**다 — 대본이 그 20초를 이미 쓰고 있다.
+
+---
+
+## 4. 리허설 순서 (촬영 당일, 녹화 없이 한 바퀴)
+
+```
+1. 부하 켠다 (준비 ②)                    · 5분 대기
+2. ask "...provision demo-day1..."        · 신호·계약이 나오는지
+3. ask "...remediate demo-target..."      · 시간을 스톱워치로 잰다 ← 편집 계획의 근거
+4. ask "...remediate demo-day1..."        · MANUAL이 뜨는지
+5. ask "...daily report for 2026-08-28"   · 세 숫자가 나오는지
+6. 트래픽을 00001-swl로 되돌린다 (준비 ⑤)
+7. 콘솔 두 탭을 열어 둔 채로 녹화 시작
+```
+
+⚠️ 리허설에서 만든 `demo-day1`은 **teardown 목록에 추가**한다(T8-6).
+
+---
+
+## 5. 쓰지 말아야 할 말
+
+| 안 됨 | 왜 |
+|---|---|
+| *"We handle 41 remediations with a 56% recovery rate"* | 측정 안 한 수다. 원장의 조치는 **둘**이다(T8-2에서 걷어낸 그 병) |
+| *"It automatically fixes your infrastructure"* | 이 프로젝트의 주장은 **고친다**가 아니라 **고쳤는지 확인하고 아니면 되돌린다**이다 |
+| *"Unfortunately it says irreversible"* | 사과하지 말 것. 그건 **정확한 판정**이고 2:45 비트의 근거다 |
+| *"It works on any cloud"* | 정반대다. 원자적 롤백이 Cloud Run이라서 되는 것이 논지다 |
+
+## 6. 한 줄로 남길 것
+
+영상이 끝나고 심사위원 머리에 이 문장 하나만 남으면 성공이다:
+
+> **executed 1 · improved 0 · rolled_back 1 — 가운데 칸이 있는 도구가 드물다.**
