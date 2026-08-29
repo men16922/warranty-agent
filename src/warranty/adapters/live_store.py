@@ -21,7 +21,7 @@ import types
 import typing
 from collections.abc import Callable, Mapping
 from dataclasses import fields, is_dataclass
-from datetime import datetime
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Any, cast, get_args, get_origin
@@ -194,6 +194,30 @@ def active_contract_conditions(resource: ResourceRef) -> tuple[tuple[str, str, s
     )
 
 
+#: 원장 행의 시각 필드. ⚠️ 이름을 여기 한 번만 적는다 — 질의와 도메인이 다른 필드를
+#: 보면 리포트는 **비어 있으면서 초록**이다.
+STARTED_AT_FIELD = "started_at"
+
+
+def day_window_conditions(day: date) -> tuple[tuple[str, str, str], ...]:
+    """하루치를 긁어 오는 **범위 조건**. **순수하다** — SDK 없이 게이트가 태운다.
+
+    ⛔ **에이전트로 좁히지 않는다.** `agent_id ==`를 함께 걸면 Firestore가 복합 색인을
+       요구하고, 색인이 없는 날 리포트는 **예외로 죽는다**. 좁히는 일은 도메인이
+       이미 한다(`domain/report._scoped`가 날짜와 에이전트를 함께 판정한다) —
+       ⇒ 질의는 **넉넉히 긁고**, 판정은 한 곳에서 한다.
+
+    ⚠️ 경계는 **닫힘–열림**이다. 끝을 `<=`로 잡으면 자정 정각 행이 이틀에 실린다.
+    ⚠️ ISO-8601 UTC 문자열의 사전순은 시간순과 같다 — `encode`가 `isoformat()`으로
+       싣기 때문에 성립한다. 그 저장 모양이 바뀌면 이 질의가 조용히 틀린다.
+    """
+    start = datetime.combine(day, time.min, tzinfo=UTC)
+    return (
+        (STARTED_AT_FIELD, ">=", start.isoformat()),
+        (STARTED_AT_FIELD, "<", (start + timedelta(days=1)).isoformat()),
+    )
+
+
 def one_active(documents: list[Any], resource: ResourceRef) -> OperationalContract | None:
     """질의 결과에서 **살아 있는 계약 하나**를 고른다. **순수하다.**
 
@@ -297,6 +321,21 @@ class LiveLedger:
         if not snapshot.exists:
             return None
         return decode_dataclass(LedgerEntry, snapshot.to_dict())
+
+    def for_day(self, day: date) -> tuple[LedgerEntry, ...]:
+        """그 날의 원장 행 전부 (REQ-508의 실물 절반).
+
+        ⛔ 첫 줄이 tripwire다(G5) — `_db`가 캐시되어 있으면 그쪽 관측 지점을 안 지난다.
+        ⚠️ 모델 호출 행도 함께 온다. 거르는 자리는 `domain/report.daily_report` 하나다 —
+           여기서 미리 거르면 거르는 규칙이 **두 벌**이 되고, 두 벌이면 한쪽만 고쳐진다.
+        """
+        live_guard.note("live_store.LiveLedger.for_day")
+        query: Any = self._db().collection(LEDGER)
+        for path, op, value in day_window_conditions(day):
+            query = query.where(path, op, value)
+        return tuple(
+            decode_dataclass(LedgerEntry, document.to_dict()) for document in query.stream()
+        )
 
     def _mutate(self, entry_id: str, change: Callable[[LedgerEntry], LedgerEntry]) -> LedgerEntry:
         """한 행을 트랜잭션 안에서 읽고 → 도메인 전이를 태우고 → 되쓴다."""

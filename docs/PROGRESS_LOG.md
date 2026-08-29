@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-08-29 — 마지막 스텁이 헤드라인 숫자를 내는 자리였다 · T5-4 리포트 + DEVPOST (gate 399 → 403)
+
+- **Status**: 실물 `report` 배선 완료. `submission/DEVPOST.md`를 **실제 원고로** 다시 썼다.
+- **Changed**: `LedgerReader.for_day` + `LiveLedger`의 하루치 범위 질의 + `runtime.report`.
+  세는 규칙은 `domain/report.daily_report`가 이미 갖고 있었다 — 더한 것은 *"그 함수에 무엇을
+  넘기는가"*뿐이다. `InMemoryLedger.for_day`는 `all_entries()`를 거쳐 간다(읽기 경로 한 벌).
+- **⚠️ 질의를 에이전트로 안 좁힌다**: 좁히면 Firestore가 복합 색인을 요구하고, 색인이 없는 날
+  리포트는 **예외로 죽는다.** 좁히는 일은 도메인이 이미 한다 — 넉넉히 긁고 한 곳에서 판정한다.
+- **Verified(실물)**: 08-28 원장에서 **`executed 1 · improved 0 · rolled_back 1`**이 나왔다.
+  이 프로젝트가 말하는 문장 그 자체이고, 각본이 아니라 **실제 조치 하나의 결과**다.
+- **⛔ DEVPOST가 답이 아니라 폼 스크랩이었다**: 필드 목록만 있고 답이 없었다. 칸별 원고 ·
+  Testing instructions · 심사 항목별 정직한 강약 판정을 썼다.
+- **⛔ 제출 블로커 둘을 찾았다**: ① `git remote`가 **비어 있다** — 코드 저장소 URL은 필수
+  칸이다(T8-7). ② teardown 09-02인데 심사는 그 뒤이고 크레딧은 09-06 만료다 — Hosted URL
+  수명을 정해야 한다(T8-8).
+- **⛔ `HACKATHON.md` §4가 없는 요구사항을 가리키고 있었다**: 비중 40%짜리 항목의 획득 경로가
+  `REQ-307`이었는데 **REQ-3xx는 305까지다.** 가장 큰 항목의 계획이 허공을 가리켰다 —
+  실재하는 REQ-502·402·303·304·503~505로 바꿨다.
+- **Verified**: `make check` **403 passed** · 전체 스윕 **255종 전부 red**, `❌` 0,
+  복구 255 · 잔여 0 (1275줄).
+- **Next**: T8-7 저장소 → T8-3 영상 → T8-5 제출(09-01) → T8-8 결정 → teardown(09-02).
+- **Evidence**: `docs/evidence/mutation-sweep-2026-08-29-403.log`.
+
 ## 2026-08-29 — 로컬에서만 참이던 Day-1이 공개 URL에서 같은 값을 냈다 (gate 399)
 
 - **Status**: T3-1의 실물 절반까지 끝. 배포 `warranty-api-00004-4db`(이미지 `32ffcad`).
@@ -88,23 +111,3 @@
   — 그게 이 저장소가 스스로에게 건 규칙이고(§9), 여기서 예외를 두면 규칙이 규칙이 아니게 된다.
   ⇒ T5-3을 셋을 함께 닫는 태스크로 넓혔다.
 - **Next**: T5-3(겨냥 + 변이) 또는 T8-3 영상. 제출 09-01 · teardown 09-02.
-
-## 2026-08-29 — 헤드라인이 측정하지 않은 수를 측정치처럼 말하고 있었다 · T8-2 (gate 392 유지)
-
-- **Status**: T8-2 `[x]`. README를 심사자 기준으로 걸으며 결함 셋을 회수했다.
-- **⛔ 가장 큰 것**: 첫 화면이 `executed 41 · improved 23 (56%) · rolled back 12`를
-  **측정치처럼** 적고 있었다. 그 수는 어디서도 측정되지 않았다 — 영상 대본(design 11§3)의
-  리포트 슬라이드 값이 README와 OVERVIEW§7로 번진 것이다. 원장의 조치는 **둘**이고
-  `make demo`는 `executed 1 · improved 0`을 낸다. **심사자가 재현하면 첫 화면과 어긋난다.**
-- **왜 세 번째인가**: OVERVIEW §10이 이미 같은 병으로 `120 passed`·`VERIFIED 18` 넷을 틀렸고
-  (T0-6), 그때 내린 규칙이 *"세는 자리는 하나다"*였다. 그 규칙이 §7과 README에는 안 닿아
-  있었다 — 규칙을 적은 곳과 어긴 곳이 **같은 파일**이었다.
-- **Changed**: 세 자리에서 수를 지우고 모양만 남겼다. 11§3은 리포트 칸을 *"그 실행이 실제로
-  낸 값"*으로 바꿨다 — 숫자를 크게 만들고 싶으면 원장을 채우는 실행이 먼저다.
-- **또 둘**: README 상태가 *"Design complete, implementation in progress"*였다(실물이 도는데).
-  실물 URL 표와 `/livez` 200 · 무토큰 401 · demo-target `/work` 200을 넣고 셋 다 재확인했다.
-  `make demo`의 caveat은 *"REQ-601·602는 TODO"*라고 말했는데 REQ-601은 `VERIFIED`다 —
-  상태 주장을 지우고 `requirements.md`를 가리키게 했다.
-- **Verified**: `make check` **392 passed**. `test_demo.py`가 caveat에서 `REQ-601`을 요구하는데
-  문자열은 남아 있어 초록이다 — 지운 것은 **상태 주장**이지 참조가 아니다.
-- **Next**: T8-3 영상(부하 켠 채) → T5-3(REQ-602 겨냥) → 제출(09-01) → teardown(09-02).

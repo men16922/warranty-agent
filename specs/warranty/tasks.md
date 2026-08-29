@@ -83,7 +83,14 @@
     공개 Google 패키지다. `git+`·`file://`·사설 인덱스 **0건**, `vendor/`·`third_party/` 없음.
   - 추적 파일 176 · 소스/테스트 `.py` 38.
   - ⛔ 그래도 상태는 `TODO`다 — 겨냥한 테스트가 없다. T5-3이 이 칸을 함께 닫는다.
+- [ ] **T8-7** ⛔ **저장소 remote를 만든다 — 제출 블로커다.** `git remote -v`가 **비어 있다.**
+  폼의 코드 저장소 URL은 필수 칸이고, private이면 `testing@devpost.com`과
+  `cloudhackathons@google.com` **둘 다** collaborator로 넣어야 한다. `Implements: REQ-901`
+- [ ] **T8-8** Hosted URL의 수명을 정한다. teardown은 09-02인데 **심사는 그 뒤**이고 크레딧은
+  09-06 만료다. ⇒ ① 09-02에 전부 내린다 ② Cloud Run만 09-06까지 남긴다(유휴 0 · design 10§6이
+  예비해 둔 길) ③ 크레딧을 연장한다. **②가 기본값으로 보인다.** `Design: 10§6`
 - [ ] **T8-5** Devpost에 제출한다 — **09-01 09:00 KST**.
+  원고는 [`submission/DEVPOST.md`](../../submission/DEVPOST.md)에 있다(폼 칸별 답 + 심사 판정).
 - [ ] **T8-6** 프로젝트 teardown 캘린더를 등록한다 — **09-02** · `Design: 10§6`
   ⚠️ 범위: `warranty-api` · `demo-target` · **`day1-warranty-demo`** · **`day1-prod-demo`**
   (뒤 둘은 에이전트가 실물로 만든 것). minScale 0이라 유휴 과금은 0이지만, 만든 것을
@@ -149,6 +156,7 @@
 | T14-1 | Firestore 문서 매핑·원장 전이 단일화·census 이름 한정 | REQ-102, REQ-501, REQ-503, REQ-505, REQ-801 |
 | T5-3 | 제출·실물 요건의 오프라인 절반을 겨냥 + `create()` 변이 경로 | REQ-602, REQ-901, REQ-902 |
 | T3-1 | Day-1 실물 — 생성 응답에서 계약 유도·기록을 한 번에 | REQ-101, REQ-103, REQ-801 |
+| T5-4(리포트) | 회복률 리포트의 실물 절반 — 하루치 범위 질의 | REQ-508, REQ-801 |
 | T5-1(렌더러) | 원장 행 → design 08§3.1 응답 덩어리 | REQ-205, REQ-302, REQ-502, REQ-503, REQ-505, REQ-604 |
 | T2-1·4 | ADK·Gemini 실물 도구 호출 → Monitoring·Cloud Run·Firestore 왕복 | REQ-201, REQ-202, REQ-301, REQ-302, REQ-303, REQ-304, REQ-501, REQ-502, REQ-601, REQ-604 |
 
@@ -166,7 +174,7 @@
 | G8 `improved` 유도 | T1-5 | M-13 |
 | G9 검증불가는 AUTO 아님 | T1-6 | M-14 |
 
-**게이트**: `make check` → **399 passed** (2026-08-29 로컬 macOS·py3.13)
+**게이트**: `make check` → **403 passed** (2026-08-29 로컬 macOS·py3.13)
 
 숫자는 여기 한 곳에만 둔다. 변이 문서의 기준선 숫자는 해당 증거가 어느 스위트를 봤는지
 나타내는 별도 사실이며, T0-8이 둘의 불일치를 집행한다.

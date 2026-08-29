@@ -50,11 +50,16 @@
 
 | 항목 | 비중 | 우리의 획득 경로 |
 |---|---|---|
-| **Innovation & Operational Utility** | **40%** | 액션 단위 지출 귀속 + **게이트 자신의 예측 오차 측정**(REQ-307) |
-| Architectural Discipline & Tech Stack | 30% | ADK + Gemini 3.5 + Cloud Run + Firestore + BigQuery, 포트/어댑터, 불변식 7종 |
-| Demo & Production Readiness | 30% | 결정론적 `make demo` · **거부와 오차가 화면에 보인다** · 한계를 말한다 |
+| **Innovation & Operational Utility** | **40%** | `executed`≠`improved`를 **따로** 기록(REQ-502) · **검증 가능성이 판정 축**(REQ-402) · 되읽어 **증명하는** 롤백(REQ-303·304) · 액션 단위 귀속과 추정≠실측(REQ-503·504·505) |
+| Architectural Discipline & Tech Stack | 30% | ADK + Gemini 3.7 Flash + Cloud Run + Firestore + Monitoring, 포트/어댑터, 상태 주장을 게이트가 집행 |
+| Demo & Production Readiness | 30% | 결정론적 `make demo` · **거부와 한계가 화면에 보인다** · 실물 증거 로그 |
 
 ⚠️ **어디에도 "규모"가 없다.** 크게 만드는 것은 점수가 아니다.
+
+⛔ **이 표의 첫 칸이 틀려 있었다**(2026-08-29 발견). 40% 항목의 획득 경로로 *"게이트 자신의
+예측 오차 측정(REQ-307)"*을 적고 있었는데 **REQ-307은 존재하지 않는다** — REQ-3xx는 305까지다.
+가장 비중이 큰 항목의 계획이 **없는 요구사항을 가리키고 있었다.** 실재하는 요구사항으로
+바꿨다. ⇒ 항목별 정직한 강약 판정은 [`submission/DEVPOST.md`](../submission/DEVPOST.md) §4.
 
 ## 5. 규칙 제약 (원문)
 

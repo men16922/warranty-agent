@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 
 from warranty.domain.attribution import Attribution, Verifiability
@@ -252,6 +252,18 @@ class InMemoryLedger:
 
     def get(self, entry_id: str) -> LedgerEntry | None:
         return self._rows.get(entry_id)
+
+    def for_day(self, day: date) -> tuple[LedgerEntry, ...]:
+        """그 날의 행 전부. ⚠️ **거르지 않는다** — 무엇을 세는지는 리포트가 정한다.
+
+        ⚠️ `all_entries()`를 거쳐 간다. 저장소를 직접 훑는 두 번째 읽기 경로를 만들면
+           한쪽만 고쳐지는 날이 오고, 그날 리포트는 **저장소에 따라 다른 것을 센다.**
+        """
+        return tuple(
+            row
+            for row in self.all_entries()
+            if row.started_at.tzinfo is not None and row.started_at.astimezone(UTC).date() == day
+        )
 
     def reconcile(self, entry_id: str, measured: CostFact) -> LedgerEntry:
         return self._store(apply_reconcile(self._require(entry_id), measured))

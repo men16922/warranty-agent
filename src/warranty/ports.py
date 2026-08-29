@@ -9,7 +9,7 @@ Spec: specs/warranty/design/08-interfaces.md (REQ-801, REQ-802)
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Protocol
 
@@ -148,6 +148,14 @@ class LedgerReader(Protocol):
     def get(self, entry_id: str) -> LedgerEntry | None:
         """⚠️ 승인 경로는 **기록된 항목**에서 시작한다 — 호출자가 들고 온 사본이 아니라.
         사본을 믿으면 대기 중에 바뀐 상태(이미 거부됨·이미 실행됨)를 못 본다.
+        """
+
+    def for_day(self, day: date) -> tuple[LedgerEntry, ...]:
+        """그 날의 행 전부 — 회복률 리포트가 여기서 출발한다 (REQ-508).
+
+        ⚠️ **거르지 않고 준다.** 모델 호출 행을 여기서 빼면 거르는 규칙이 두 벌이 되고,
+           둘 중 하나만 고쳐지는 날 회복률의 분모가 조용히 달라진다. 거르는 자리는
+           `domain/report.daily_report` 하나다.
         """
 
 

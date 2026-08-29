@@ -20,8 +20,9 @@ from warranty.adapters.model_judge import PromptedJudge
 from warranty.adapters.system import SystemClock, UlidGen
 from warranty.config import SERVICE_NAME, Adapters, Settings
 from warranty.domain.contract import Criterion, CriterionMode, Direction, ResourceRef
+from warranty.domain.report import daily_report
 from warranty.domain.tokens import TokenPrices
-from warranty.ports import ContractStore, SignalSource
+from warranty.ports import ContractStore, LedgerReader, SignalSource
 from warranty.tunables import DEMO_BUDGET_USD
 from warranty.usecases.meter import MeteredModel, ModelCallMeter
 from warranty.usecases.provision import Provisioner, derive_contract
@@ -63,6 +64,7 @@ class AgentTools:
     default_region: str
     model_calls: ModelCallMeter | None = None
     provisioner: Provisioner | None = None
+    ledger: LedgerReader | None = None
     clock: Any = None
     ids: Any = None
 
@@ -142,12 +144,20 @@ class AgentTools:
         return remediate_response(entry)
 
     def report(self, date: str) -> dict[str, object]:
-        """Return the daily recovery report. The live report reader is not wired yet."""
-        return {
-            "status": "not_implemented",
-            "date": date,
-            "detail": "daily live report reader is outside the current demo path",
-        }
+        """Return the daily recovery report: executed vs improved, not executed alone.
+
+        ⛔ **이 도구가 내는 칸이 이 프로젝트의 헤드라인이다**(REQ-508). `executed`만 세고
+           그것을 성공이라 부르지 않는다 — `improved`가 **따로** 있고 더 작을 수 있다.
+        ⚠️ 무엇을 셀지는 여기서 안 정한다. 원장을 하루치 긁어서 `daily_report`에 넘길
+           뿐이다 — 세는 규칙이 두 벌이 되면 회복률의 분모가 조용히 갈라진다.
+        """
+        if self.ledger is None:
+            raise RuntimeError("실물 원장이 합성되지 않았다")
+        try:
+            day = datetime.fromisoformat(date).date()
+        except ValueError as exc:
+            raise RuntimeError(f"date가 날짜가 아니다: {date!r}") from exc
+        return dict(daily_report(self.ledger.for_day(day), day=day, agent_id=AGENT_ID).as_dict())
 
     def callables(self) -> tuple[Any, ...]:
         tools = (self.provision, self.inspect, self.remediate, self.report)
@@ -201,6 +211,7 @@ def build_live_tools(settings: Settings, pause: Callable[[float], None]) -> Agen
         settings.region,
         model_calls,
         provisioner=LiveProvisioner(settings.project_id, settings.region, SERVICE_NAME),
+        ledger=ledger,
         clock=clock,
         ids=ids,
     )
