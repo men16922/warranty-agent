@@ -1,0 +1,66 @@
+# 프로덕션 Day-1 — 배포된 에이전트가 만들고, 계약을 함께 냈다 · 2026-08-29
+#
+# 08-29 오전까지 공개 URL의 `provision`은 스텁이었다. 로컬에서만 참이던 Day-1이
+# 이제 **심사자가 부를 수 있는 자리**에서 같은 값을 낸다.
+
+## 0. 배포
+빌드      ad07e352-58ee-4e85-b88d-e08377bf0db6  SUCCESS  44S
+커밋/태그  32ffcad
+다이제스트 sha256:ba29149992dc0585969467f0a4dc39f0e15d143cdc0e1db627e500520c6dd462
+리비전    warranty-api-00004-4db — 트래픽 100%
+전체 로그  docs/evidence/deploy-2026-08-29.log
+
+## 1. 경계는 그대로다
+GET  /livez                    → 200  (공개)
+POST /agent:chat  헤더 없음     → 401
+POST /agent:chat  Bearer nope  → 401
+
+## 2. 프로덕션 Day-1 — 자연어 한 줄로 시켰다
+요청  {"message":"Provision a new Cloud Run service named day1-prod-demo, then tell me
+       the operational contract you recorded for it: contract id, health signal,
+       and reversibility."}
+응답  HTTP 200 · 23.68s
+
+  The Cloud Run service `day1-prod-demo` has been provisioned, and its operational
+  contract has been recorded:
+  * Contract ID: 01m15qfgxv5ed6rzgr7bjzp1fk
+  * Health Signal: run.googleapis.com/request_latencies · P95 · 120s · filter day1-prod-demo
+  * Reversibility: irreversible (Initial deployment / no prior rollback revision available)
+
+⇒ **가역성의 이유까지 응답에 있다.** 판단 근거는 로그가 아니라 응답에 있다(REQ-604).
+
+## 3. 되읽기 ① — Cloud Run
+서비스    day1-prod-demo · https://day1-prod-demo-povpqj6m5a-uc.a.run.app
+리비전    day1-prod-demo-00001-qhp
+조건      Ready · Active · ContainerHealthy · ContainerReady · ResourcesAvailable = 전부 True
+이미지    us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:32ffcad
+
+⇒ **만든 것의 이미지 태그가 만든 자의 태그와 같다.** 프로비저너가 이미지를 설정으로 받지
+  않고 *"지금 내가 무엇으로 도는지"*를 Cloud Run에 물어서 쓰기 때문이다 — 값의 출처가 하나다.
+  로컬(dbb6f74)에서 참이던 이 성질이 프로덕션(32ffcad)에서도 같은 방식으로 참이었다.
+
+## 4. 되읽기 ② — Firestore
+contracts/01m15qfgxv5ed6rzgr7bjzp1fk
+  resource           = {name: day1-prod-demo, kind: cloud_run_service, region: us-central1}
+  health_signal      = {metric_type: run.googleapis.com/request_latencies,
+                        resource_filter: day1-prod-demo, aggregation: P95, window_s: 120}
+  recovery_criterion = {direction: decrease, threshold: 0.5, mode: relative, tolerance: 0.1}
+  rollback_plan      = None
+  reversibility      = irreversible
+  provisioned_by     = warranty
+  provisioned_at     = 2026-08-29T03:02:15.227834+00:00
+  state              = active
+
+원장: 총 11행 · model_call 8행 (이 요청이 모델 호출을 원장에 더했다 — REQ-603).
+
+## 5. 무엇이 새로 참이 됐나
+08-28: 공개 URL에서 **Day-2**(조치·검증·롤백)가 실물이었다.
+08-29: 공개 URL에서 **Day-1**도 실물이다 — 만드는 순간 계약이 함께 난다.
+⇒ 첫 화면의 문장 *"만든 에이전트가 어떻게 확인하고 어떻게 되돌리는지도 함께 적어 둔다"*가
+  이제 데모가 아니라 **배포된 서비스**에서 참이다.
+
+## 6. ⛔ 한계는 그대로다
+만들어진 서비스의 IAM 바인딩은 비어 있다(T3-5). 프로비저너는 초대 권한을 주지 않는다.
+
+## 7. teardown 범위 (09-02 · T8-6)
+warranty-api · demo-target · day1-warranty-demo · **day1-prod-demo** — 전부 minScale 0.

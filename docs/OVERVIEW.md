@@ -1,14 +1,13 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = `make deploy`로 Day-1을 실물에 올린 뒤, 부하를 켠 채로
-> 4분 영상을 녹화한다(T8-3).**
-> ⛔ **배포된 `00003-z9m`에는 Day-1(T3-1)이 없다.** 로컬 실물은 계약까지 냈지만 공개 URL의
-> `provision`은 아직 스텁이다 — 영상의 Day-1 비트를 보이려면 **재배포가 먼저다.**
-> ✅ 인증된 `/agent:chat`은 프로덕션 `200`이고, 그 한 요청이 원장에 model_call 두 행을 남겼다.
+> ▶ **NEXT SESSION: 첫 행동 = 부하를 켠 채로 4분 영상을 녹화한다(T8-3).** 코드·배포는 끝났다.
+> ✅ **Day-1도 공개 URL에서 실물이다.** 배포된 에이전트(`00004-4db` · `32ffcad`)가 자연어 한
+> 줄로 `day1-prod-demo`를 **실제로 만들고** 계약 `01m15qfgxv5ed6rzgr7bjzp1fk`를 함께 냈다 —
+> 가역성이 `irreversible`인 **이유까지 응답에 있다**(REQ-604).
 > ⚠️ **신호는 트래픽이 흐르는 동안에만 존재한다**(부하 없이는 점 0·`null`, 아래에서는 p95
 > `674.17 ms`) — scale-to-zero의 대가다. ⇒ **촬영은 부하를 켠 채로 한다.**
 > ⭐ **실물 URL** (전부 `-povpqj6m5a-uc.a.run.app`): `warranty-api`(공개) ·
-> `demo-target`(리비전 2개) · `day1-warranty-demo`(T3-1이 만든 것 · IAM 비어 있음).
+> `demo-target`(리비전 2개) · `day1-warranty-demo`·`day1-prod-demo`(에이전트가 만든 것 · IAM 비어 있음).
 > ⚠️ 남은 `[auto]`·`.env` 부트스트랩은 [`tasks.md`](../specs/warranty/tasks.md)가 권위다.
 
 > **인프라를 만든 에이전트가, 그것을 어떻게 고쳐야 하는지도 함께 적어 둔다.** 그리고 조치한 뒤
@@ -184,15 +183,14 @@ flowchart LR
 추적성    ⭐ 남은 TODO는 선택 범위(WIF·테넌트 SA) 둘뿐이다. 못 묻는 절반은 안 주장한다
 가드      G1~G9 변이 확인 → tasks.md「가드 현황」
 변이      선언한 것 전부 red 확인 · 복구 후 초록 · 잔여 0 → docs/evidence/mutations.md
-Day-1     ⭐ 프로비저닝이 계약을 함께 냈다 — 실물 서비스 + Firestore 계약 + Day-2 인계
+Day-1     ⭐ 공개 URL의 에이전트가 서비스를 만들고 계약을 함께 냈다(`day1-prod-demo`)
 루프      ⭐ ADK가 기준선→조치→미회복→롤백→원장을 실물 GCP 어댑터로 완주(2026-08-28)
 ADK       ⭐ Gemini 3.7 Flash가 `remediate` 호출 · decision/verification/rollback 응답 확인
 GCP       ⭐ Firestore Native 계약·원장·예산 + Monitoring p95 + Cloud Run 원자적 트래픽 전환
 어댑터    `RunControl`·`SignalSource`·Firestore·실행자·예산을 `runtime.py` 한 곳에서 합성
 README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
 응답      실물 ADK 최종 응답에 판정·검증·롤백 근거 노출. 직접 `/actions/*` 경로는 아직 501
-서버      ⭐ 배포 `00003-z9m`(이미지 `dbb6f74`)이 트래픽 100%. 인증된 `/agent:chat` 프로덕션 200
-미배포    ⛔ Day-1(T3-1)은 로컬 실물까지만이다 — 공개 URL의 `provision`은 아직 스텁이다
+서버      ⭐ 배포 `00004-4db`(이미지 `32ffcad`)가 트래픽 100%. Day-1·Day-2 둘 다 프로덕션 실물
 ```
 
 ⚠️ **여기에 숫자를 세어 적지 않는다**(T0-6의 교훈) — 실제로 썩어 있었다: 이 상자가 말하던

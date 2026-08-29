@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-08-29 — 로컬에서만 참이던 Day-1이 공개 URL에서 같은 값을 냈다 (gate 399)
+
+- **Status**: T3-1의 실물 절반까지 끝. 배포 `warranty-api-00004-4db`(이미지 `32ffcad`).
+- **Changed**: 코드는 안 건드렸다 — 커밋 `32ffcad`를 올리고 프로덕션에서 확인만 했다.
+  빌드 `ad07e352` SUCCESS 44s.
+- **Verified**: 자연어 한 줄(*"provision a service named day1-prod-demo, then tell me the
+  contract"*)에 배포된 에이전트가 **실제로 서비스를 만들고** 계약
+  `01m15qfgxv5ed6rzgr7bjzp1fk`를 함께 냈다. 리비전 `00001-qhp` Ready·ContainerHealthy,
+  Firestore 계약의 `resource_filter`가 만든 이름을 가리킨다. HTTP 200 · 23.7s.
+- **응답에 이유가 있다**: 에이전트가 `irreversible`을 말하면서 *"Initial deployment / no
+  prior rollback revision available"*을 함께 냈다 — 판단 근거는 로그가 아니라 응답에
+  있다(REQ-604)가 자연어 경로에서도 참이다.
+- **태그가 스스로를 증명했다**: 만들어진 서비스의 이미지가 `32ffcad`다 — 만든 자와 같은
+  태그. 프로비저너가 이미지를 설정으로 안 받고 *"지금 내가 무엇으로 도는지"*를 Cloud Run에
+  물어서 쓰기 때문이고, 로컬(`dbb6f74`)에서 참이던 성질이 프로덕션에서도 같은 방식으로 참이었다.
+- **경계는 그대로**: `/livez` 200 공개 · 무헤더 401 · 틀린 토큰 401.
+- **⛔ 한계도 그대로**: 만든 서비스의 IAM은 비어 있다(T3-5).
+- **teardown 범위가 넷이 됐다**: `warranty-api`·`demo-target`·`day1-warranty-demo`·
+  `day1-prod-demo`. 만든 것을 목록에 안 적으면 teardown이 그것을 안 본다(T8-6).
+- **Next**: T8-3 영상(부하 켠 채) → 제출(09-01) → teardown(09-02).
+- **Evidence**: `docs/evidence/live-day1-prod-2026-08-29.log` · `deploy-2026-08-29.log`.
+
 ## 2026-08-29 — 첫 화면이 내세우던 Day-1 절반이 비어 있었다 · T3-1 (gate 394 → 399)
 
 - **Status**: T3-1 `[x]` · REQ-101 `VERIFIED`. 실물 `provision`은 08-29까지
@@ -86,20 +108,3 @@
 - **Verified**: `make check` **392 passed**. `test_demo.py`가 caveat에서 `REQ-601`을 요구하는데
   문자열은 남아 있어 초록이다 — 지운 것은 **상태 주장**이지 참조가 아니다.
 - **Next**: T8-3 영상(부하 켠 채) → T5-3(REQ-602 겨냥) → 제출(09-01) → teardown(09-02).
-
-## 2026-08-29 — 신호는 트래픽이 흐르는 동안에만 존재한다 · T8-1 (gate 392 유지)
-
-- **Status**: T8-1 `[x]`. 08-28에 `null`이던 신호가 부하 아래에서 값을 냈다.
-- **Changed**: 코드는 안 건드렸다 — 실물 관측만 했다. demo-target `/work`에 1140건
-  (워커 5 · 200초 · 약 5.7 req/s)을 넣어 120초 창을 채우고, 수집 지연 동안 창이 비지 않게
-  워커 3으로 부하를 유지한 채 프로덕션 `inspect`를 불렀다.
-- **Verified**: p95 **674.17 ms** · 관측점 1 · 계약 `demo-target-warranty-v1` ·
-  롤백 대상 `demo-target-00001-swl`. 조치는 실행하지 않았다.
-- **대비가 요점이다**: 같은 질문에 08-28은 "점 0 · null", 08-29는 "674.17". 08-28의 답은
-  고장이 아니라 계약대로였고(REQ-205), **영상에 담을 그림이 아니었을 뿐이다.**
-  ⇒ 촬영은 부하를 켜 둔 채로 한다. 이건 scale-to-zero의 대가이고 REQ-805를 지키는 값이다.
-- **⚠️ 확인하지 않은 것**: 674.171849767732가 08-28 기준선과 찍힌 자리까지 같다. 고정
-  620ms + 히스토그램 버킷 보간이면 결정론적이 되는 것으로 설명되지만 **확인하지 않았다.**
-  관찰만 적는다 — 재현성에는 유리하고, 원측정이 아닐 가능성은 열려 있다.
-- **Next**: T8-3 영상(부하 켠 채) → T8-2 README 검수 → 제출(09-01) → teardown(09-02).
-- **Evidence**: `docs/evidence/live-signal-load-2026-08-29.log`.
