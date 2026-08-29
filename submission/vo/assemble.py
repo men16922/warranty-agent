@@ -4,14 +4,14 @@ from __future__ import annotations
 import json, pathlib, subprocess, sys
 
 ROOT = pathlib.Path(__file__).parent
-FRAMES, AUDIO, SEG = ROOT / "frames", ROOT / "audio11", ROOT / "seg"
+FRAMES, AUDIO, SEG = ROOT / "frames", ROOT / "audio3", ROOT / "seg"
 SEG.mkdir(exist_ok=True)
 
 PAD_HEAD = 0.30   # 말 시작 전 숨
 PAD_TAIL = 0.70   # 말 끝나고 남기는 여운
 #: ⚠️ **4분 상한이 편집상의 제약이 아니라 실격 조건이다.** 목소리를 바꾸면 길이가
 #:    바뀌고, 그때 대본을 다시 쓰는 대신 여기서 아주 살짝 당긴다. 1.05는 안 들린다.
-TEMPO = 1.05
+TEMPO = 1.08
 
 def dur(p: pathlib.Path) -> float:
     return float(subprocess.run(
@@ -63,6 +63,8 @@ def build(plan: list[dict], final: pathlib.Path) -> float:
 
 if __name__ == "__main__":
     plan = json.loads(pathlib.Path(sys.argv[1]).read_text())
-    final = ROOT / "warranty-demo.mp4"
+    # ⛔ 산출물은 **제출 폴더**에 낸다. 스크래치패드나 바탕화면에 두면
+    #    제출물이 저장소 밖에서 살고, 어느 것이 최신인지 사람이 기억해야 한다.
+    final = pathlib.Path("/Users/men1692/Desktop/GCP/AllThings/submission/warranty-demo.mp4")
     total = build(plan, final)
     print(f"\nTOTAL {total:.1f}s = {int(total // 60)}:{int(total % 60):02d}  →  {final}")

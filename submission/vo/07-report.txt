@@ -1,1 +1,0 @@
-[pause] Executed, four. Improved, zero. Rolled back, four. [pause] A tool that counts only executed reports four successes. [serious] This one says three things about the same four events. They ran. They did not help. They were undone. [thoughtful] The middle column is the one most operations agents do not have.

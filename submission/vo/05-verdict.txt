@@ -1,1 +1,0 @@
-[serious] The action ran. The API said two hundred. And the signal did not recover. [pause] So the agent rolled the traffic back, then read the split back from Cloud Run. [thoughtful] Not: I rolled back. But: the server says I did. That is a measurement, not a claim.

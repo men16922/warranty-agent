@@ -17,6 +17,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+# ⚠️ `tunables`는 아무것도 임포트하지 않는다 — 순환이 없다. 값을 여기 다시 적지 않고
+#    **가리키는** 이유는 test_tunables.py가 집행하는 규칙 그대로다: 값의 자리는 하나다.
+from warranty.tunables import REQUEST_TIMEOUT_S
+
 ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
@@ -141,7 +145,6 @@ SERVICE_NAME = "warranty-api"
 #: ⛔ REQ-805 — 유휴 시 0으로 수렴한다. **0이 아니면 그 순간부터 상시 과금이다.**
 MIN_INSTANCES = 0
 MAX_INSTANCES = 2
-
 #: 이미지가 사는 Artifact Registry 저장소 — design 10§2.
 IMAGE_REPO = "warranty"
 
@@ -252,6 +255,14 @@ def deploy_argv(settings: Settings, tag: str) -> tuple[str, ...]:
         f"--labels={labels}",
         f"--set-env-vars={env_vars}",
         f"--set-secrets={auth_secret}",
+        # ⛔ **요청 타임아웃은 검증 대기보다 길어야 한다.** 짧으면 에이전트가 조치하고
+        #    재측정하는 **도중에 요청이 끊긴다.** 조치는 이미 실물에 나갔고 원장에도
+        #    남는데, 그 판정을 **부른 사람이 못 본다.**
+        #    2026-08-30 실물: 기본값 300초에서 롤백까지 가는 조치가 `upstream request
+        #    timeout`으로 응답을 잃었다 (서버는 완주했다 — 사라진 것은 답뿐이다).
+        # ⚠️ Cloud Run 기본값은 300이고 그것은 **우리가 안 적어서 생긴 값**이다.
+        #    안 적으면 `VERIFY_DELAY_S`를 늘릴 때마다 이 벽에 조용히 다시 부딪힌다.
+        f"--timeout={REQUEST_TIMEOUT_S}",
         # D15 — Hosted URL은 공개하고, 과금 경로는 앱 bearer 인증으로 막는다.
         "--allow-unauthenticated",
     )

@@ -74,10 +74,20 @@ Cloud Monitoring의 p95는 요청이 있어야 구간을 구별한다. 2026-08-2
 ## 5. 상수 (REQ-804)
 
 ```python
-VERIFY_DELAY_S      = 45
-VERIFY_WINDOW_S     = 120
-DEMO_BUDGET_USD     = Decimal("0.50")
-WARMUP_REQUESTS     = 1
+VERIFY_WINDOW_S       = 120
+VERIFY_DELAY_S        = VERIFY_WINDOW_S + 15   # ⛔ 창보다 길어야 한다
+WAITS_PER_REMEDIATION = 2                      # 조치 후 + 롤백 후
+REQUEST_TIMEOUT_S     = 2 * WAITS_PER_REMEDIATION * VERIFY_DELAY_S
+DEMO_BUDGET_USD       = Decimal("0.50")
+WARMUP_REQUESTS       = 1
 ```
+
+⛔ **`VERIFY_DELAY_S`가 45였을 때 재측정 창이 조치 이전을 물었다** (창 120초 중 75초가
+조치 전 데이터). 혼합은 개선을 지우고, 그래서 검증이 구조적으로 실패 쪽으로 기울었다.
+2026-08-30 실물이 잡았다 — `990 → 674ms`(32% 개선)가 `not_recovered`를 받았다.
+
+⛔ **`REQUEST_TIMEOUT_S`는 배포 인자로 나가야 한다.** 안 적으면 Cloud Run 기본값 300초로
+뜨고, 롤백 경로(2×135=270초 + 모델 왕복)가 그 벽을 넘는다. 그때 **조치는 실물에 나갔는데
+답이 없다** — 서버는 완주하므로 원장은 옳고, 사라지는 것은 답뿐이라 더 조용하다.
 
 ⚠️ 값이 흩어지면 재촬영 때 **반드시 하나를 놓친다.**

@@ -1,1 +1,0 @@
-[serious] Now a real remediation, on a service running under load. It reads the baseline from the contract's signal — not one it picked. It shifts the traffic. [pause] And then it waits. Metrics arrive late. Measuring immediately would let us declare victory on data that has not arrived. This is where most tools return success and stop.

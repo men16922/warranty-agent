@@ -1,0 +1,1 @@
+[serious] Second action, same night. It ran. The API said two hundred. [pause] And latency went from six seventy four to nine ninety. It got worse. [thoughtful] So the agent rolled it back, measured again to confirm the signal came home, and then read the traffic split back from Cloud Run. Not: I rolled back. But: the server says I did. That is a measurement, not a claim.

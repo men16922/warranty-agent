@@ -50,3 +50,50 @@ def test_doing_nothing_is_still_not_recovered() -> None:
     assert LIVE_RECOVERY_CRITERION.threshold > LIVE_RECOVERY_CRITERION.tolerance, (
         "threshold가 tolerance 이하다 — 변화가 없어도 ambiguous 이상으로 올라간다"
     )
+
+
+def test_the_request_outlives_the_verification_it_waits_for() -> None:
+    """⛔ **요청이 검증보다 먼저 죽으면 판정은 부른 사람에게 도착하지 않는다.**
+
+    조치 한 건은 **두 번** 기다린다 — 조치 후 재측정(REQ-202)과 롤백 후 재측정(REQ-304).
+    요청 타임아웃이 그 총합보다 짧으면 **조치는 실물에 나갔는데 답이 없다.**
+
+    ⚠️ 2026-08-30 실물에서 그랬다. Cloud Run 기본값 300초는 **우리가 안 적어서 생긴 값**이고,
+       `VERIFY_DELAY_S`를 45 → 135로 올리자 롤백 경로(2×135=270초 + 모델 왕복)가 넘어갔다.
+       ⛔ 서버는 완주해서 원장은 옳았다 — 사라진 것은 **답**뿐이었고, 그래서 더 조용했다.
+
+    Verifies: REQ-802
+    """
+    from warranty.tunables import REQUEST_TIMEOUT_S, VERIFY_DELAY_S, WAITS_PER_REMEDIATION
+
+    waiting = WAITS_PER_REMEDIATION * VERIFY_DELAY_S
+    assert waiting < REQUEST_TIMEOUT_S, (
+        f"요청 타임아웃({REQUEST_TIMEOUT_S}s)이 검증 대기 총합({waiting}s)보다 짧다 — "
+        "조치는 나가고 판정은 못 돌아온다"
+    )
+
+
+def test_the_deploy_actually_carries_that_timeout() -> None:
+    """⚠️ 상수만 있고 **배포 인자에 안 실리면** 그 상수는 아무도 안 읽는 문장이다.
+
+    `deploy_argv`가 배포의 유일한 렌더러다(config 독스트링). 여기 없으면 Cloud Run은
+    기본값 300으로 뜨고, 위 단언은 **참인 채로 무의미**해진다.
+
+    Verifies: REQ-802
+    """
+    from warranty.config import Adapters, Settings, deploy_argv
+    from warranty.tunables import REQUEST_TIMEOUT_S
+
+    argv = deploy_argv(
+        Settings(
+            project_id="p",
+            region="us-central1",
+            vertex_location="global",
+            model="gemini-3.7-flash",
+            adapters=Adapters.LIVE,
+            billing_table="",
+            reconcile_deadline_days=3,
+        ),
+        "tag",
+    )
+    assert f"--timeout={REQUEST_TIMEOUT_S}" in argv, f"배포 인자에 --timeout이 없다: {argv}"

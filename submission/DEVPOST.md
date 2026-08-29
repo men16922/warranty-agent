@@ -36,8 +36,8 @@ warranty
 ## Elevator pitch (200자)
 
 ```
-Remediation agents report success. Executing is not improving. warranty makes the agent that
-provisions a resource also write down how to verify and undo it - then prove it after acting.
+When a fleet of agents runs overnight, every log line says "completed". warranty adds the column
+that says "improved" - re-measured after the act, rolled back when it wasn't, refused when it can't.
 ```
 
 *(197자)*
@@ -49,6 +49,10 @@ provisions a resource also write down how to verify and undo it - then prove it 
 ## About the project
 
 ### Inspiration
+
+You let a fleet of agents touch production. In the morning the log shows fourteen actions,
+all **completed successfully**. Fourteen green lines. Now answer one question: **which of them
+actually helped?**
 
 Every remediation agent we looked at ends its run the same way: **it reports success.**
 
@@ -86,11 +90,15 @@ target — the gate returns `MANUAL` and the executor is never called.
 That last part is what makes the numbers honest. A real run from the deployed service:
 
 ```
-executed 1 · improved 0 · rolled_back 1
+executed 14 · improved 1 · rolled_back 12 · manual_required 3
 ```
 
-Most tools count `executed` and call it success. **This one can say the action ran, did not
-help, and was undone** — and can prove each third of that sentence separately.
+Most tools count `executed` and call it fourteen successes. **This one says it helped once.**
+`improved` is the only column that had to be earned twice — once by acting, once by measuring.
+
+⚠️ Most of those twelve rollbacks are ours: we generated them while testing this system.
+We are not clearing the ledger to make the ratio look better. That would be the exact thing
+this project argues against.
 
 ### How we built it
 
@@ -129,6 +137,34 @@ The repo is spec-driven and the spec is enforced, not decorative:
   residue check looked at the same leaf, so it reported "no residue" while residue existed.
   **Recovery failure and residue reporting were looking at different things.**
 
+**And then, on the last day, the system failed its own test — four times.**
+
+We were trying to record a scene where the agent actually *fixes* something. It never came.
+Shifting traffic back to the healthy revision kept returning `not_recovered`. Four separate
+causes, and **every one of them looked green in the logs**:
+
+1. **The re-measurement window still held the past.** We waited 45s, then read a **120s**
+   window — so 75 seconds of the "after" was *before*. The mixture erased the improvement.
+   Verification was structurally tilted toward failure.
+2. **The recovery threshold was unreachable.** The contract demanded a 60% drop; the injected
+   fault can only ever produce 31% (900ms → 620ms). **No action could ever be called
+   recovered.** The live proof: `990.04 → 674.17 ms` — a 32% improvement — reported
+   `not_recovered`.
+3. **The contract kept the old policy after we fixed the code.** Policy lives in the contract,
+   by design. Changing a constant does not change an issued contract, so we versioned it.
+4. **Waiting longer killed the request before the verdict came home.** Cloud Run's default
+   300s timeout — a value we got by *not* writing one — was shorter than the rollback path
+   (2 × 135s + model round trips). The action shipped and the ledger was right; only the
+   **answer** was lost. That is the quietest failure of the four.
+
+Three are now guards with mutations that were confirmed to turn the suite red. The fourth is
+in the record, because the offline gate does not open Firestore.
+
+⚠️ We found none of these from logs. We found them by staring at two numbers that should not
+have disagreed. **A system built to say "executing is not improving" could not read its own
+improvement** — which is either the most embarrassing thing in this submission or the most
+convincing, and we decided it was the second one.
+
 And the worst one was in our own front page: it advertised
 `executed 41 · improved 23 (56%)` as if measured. **Nothing measured those numbers** — they
 were slide values from the video script that had leaked into the README. The real ledger had
@@ -163,12 +199,14 @@ target until it has a revision to return to.
 
 ### Known limits — we do not hide them
 
-- **The verification window can miss the effect.** We ran the same action twice under the
-  same load: once the p95 moved `674 → 989 ms`, once it did not move at all. Cloud Monitoring
-  ingestion lags the action, so a 120-second window can still be dominated by pre-action
-  samples. The verdict was `not_recovered` both times — fail-closed, which is what we want —
-  but inside that window we **cannot separate "the action did not help" from "we cannot see
-  it yet."** We would rather say that than pick the run that looked better.
+- **A signal read while two revisions serve is ambiguous.** During a traffic split, Cloud
+  Monitoring returns one series per revision. Our reader takes the point with the latest
+  timestamp, and on a tie that is **whichever series came back first**. It resolves once
+  traffic settles on one revision for a full window, but a canary in progress can read either
+  side. We know the shape of the fix (aggregate across revisions); we have not built it.
+- **The measurement window used to hide improvement, and we shipped that for days.** Fixed on
+  2026-08-30 (`VERIFY_DELAY_S` must exceed `VERIFY_WINDOW_S`; there is now a guard and a
+  mutation). We list it here because a limit you already fixed is still a limit you had.
 - **This is correlation, not causation.** Re-measuring after a rollback is a weak natural
   experiment. It does not establish cause.
 - **Contracts only exist for provisioned resources.** Hand-made resources are not automation targets.

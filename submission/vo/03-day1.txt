@@ -1,1 +1,0 @@
-So I ask the agent to create a Cloud Run service. [curious] Watch what comes back with it. [pause] It did not just create it. It wrote down which signal means health for this resource — and that there is nowhere to roll back to yet, because this is the first revision. [thoughtful] That last line matters in a minute.
