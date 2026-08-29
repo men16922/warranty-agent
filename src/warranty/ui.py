@@ -64,7 +64,7 @@ STYLE = """
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;
 font-family:ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
-.wrap{max-width:72rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+.wrap{max-width:94rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
 h1{font-size:1.5rem;margin:0 0 .35rem;letter-spacing:-.02em}
 .sub{color:var(--mute);font-size:.9rem;margin:0 0 2rem}
 .thesis{border-left:3px solid var(--warn);background:var(--card);padding:.9rem 1.1rem;
@@ -76,11 +76,11 @@ background:var(--rule);border:1px solid var(--rule);margin-bottom:2rem}
 .v{font-size:1.6rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;margin:0}
 .v.zero{color:var(--zero)}
 .tablewrap{overflow-x:auto;border:1px solid var(--rule);background:var(--card)}
-table{border-collapse:collapse;width:100%;font-size:.85rem}
-th{text-align:left;font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;
-color:var(--mute);font-weight:600;padding:.7rem .8rem;border-bottom:1px solid var(--rule);
+table{border-collapse:collapse;width:100%;font-size:.8rem}
+th{text-align:left;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;
+color:var(--mute);font-weight:600;padding:.7rem .65rem;border-bottom:1px solid var(--rule);
 white-space:nowrap}
-td{padding:.7rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--soft)}
+td{padding:.7rem .65rem;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--soft)}
 tr:last-child td{border-bottom:0}
 td.id{font-family:ui-monospace,monospace;font-size:.76rem;color:var(--mute)}
 td.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
