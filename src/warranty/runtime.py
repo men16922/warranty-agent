@@ -21,8 +21,8 @@ from warranty.adapters.system import SystemClock, UlidGen
 from warranty.config import SERVICE_NAME, Adapters, Settings
 from warranty.domain.contract import Criterion, CriterionMode, Direction, ResourceRef
 from warranty.domain.report import daily_report
-from warranty.domain.tokens import TokenPrices
 from warranty.ports import ContractStore, LedgerReader, SignalSource
+from warranty.prices import published_prices
 from warranty.tunables import DEMO_BUDGET_USD
 from warranty.usecases.meter import MeteredModel, ModelCallMeter
 from warranty.usecases.provision import Provisioner, derive_contract
@@ -193,7 +193,10 @@ def build_live_tools(settings: Settings, pause: Callable[[float], None]) -> Agen
         ledger=ledger,
         clock=clock,
         ids=ids,
-        prices=TokenPrices({}, source_note="no published rate configured"),
+        # ⛔ 이 자리가 `TokenPrices({})`이던 동안 원장의 모든 모델 호출은
+        #    `Method.NONE` + 0이었고, 그래서 `wasted_usd`는 **언제나 0**이었다.
+        #    계량이 없어서가 아니라 **단가를 몰라서**였다 (`prices.py` 도크스트링).
+        prices=published_prices(),
         agent_id=AGENT_ID,
     )
     judge = MeteredModel(
