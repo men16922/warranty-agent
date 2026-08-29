@@ -30,6 +30,11 @@ SERVICE_PATH = "projects/{project}/locations/{region}/services/{name}"
 #: 그 위에서 "되돌렸다"는 문장은 참이 아니다(REQ-302).
 FULL_TRAFFIC = 100
 
+#: Cloud Run이 받는 인스턴스당 동시 요청 수의 경계. ⛔ 0은 "무제한"이 아니라 **거부**다 —
+#: 여기서 안 막으면 API가 막고, 그때 실패는 조치가 아니라 우리 요청의 결함이다.
+MIN_CONCURRENCY = 1
+MAX_CONCURRENCY = 1000
+
 
 class RunControlError(RuntimeError):
     """실물 Cloud Run 호출이 성립하지 않는다."""
@@ -65,6 +70,41 @@ def traffic_spec(revision: str) -> list[dict[str, Any]]:
             "percent": FULL_TRAFFIC,
         }
     ]
+
+
+def latest_traffic_spec() -> list[dict[str, Any]]:
+    """*"방금 만든 리비전에 100%"*를 뜻하는 요청 조각. **순수하다.**
+
+    ⛔ **이 함수가 없으면 동시성 조치는 조용한 무해동작이다.** 롤백이 한 번이라도 돌면
+       `service.traffic`은 **특정 리비전에 고정**된다(`traffic_spec`이 그렇게 만든다).
+       그 상태에서 동시성만 바꾸면 Cloud Run은 새 리비전을 만들지만 트래픽은 **옛 리비전에
+       그대로 남는다** — API는 200이고, 새 설정은 아무 요청도 못 받는다.
+
+    ⚠️ 그 실패가 위험한 이유는 실패로 안 보이기 때문이다: 실행은 성공하고, 신호는 안 변하고,
+       검증은 `not_recovered`를 내고, 롤백이 돈다. 원장은 *"고쳤는데 안 나아졌다"*고
+       적지만 **사실은 고친 적이 없다.** 이 저장소가 세는 `improved`가 그 순간 거짓말이 된다.
+    """
+    return [
+        {
+            "type_": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+            "percent": FULL_TRAFFIC,
+        }
+    ]
+
+
+def concurrency_value(raw: int) -> int:
+    """조치가 요구한 동시성이 Cloud Run이 받는 값인가. **순수하다.**
+
+    ⚠️ 경계를 어댑터에서 막는 이유: 여기서 안 막으면 잘못된 값이 **실행 단계까지 가서**
+       API 오류로 돌아온다. 그러면 원장에는 `FAILED`가 남고, 그것은 *"조치가 효과 없었다"*와
+       구분이 안 된다 — 우리 요청이 애초에 틀렸다는 사실이 사라진다.
+    """
+    ok = isinstance(raw, int) and not isinstance(raw, bool)
+    if ok and MIN_CONCURRENCY <= raw <= MAX_CONCURRENCY:
+        return raw
+    raise RunControlError(
+        f"동시성이 범위 밖이다: {raw!r} — {MIN_CONCURRENCY}~{MAX_CONCURRENCY}만 받는다"
+    )
 
 
 def parse_traffic(statuses: Iterable[Any] | None) -> dict[str, int]:
@@ -131,3 +171,32 @@ class LiveRunControl:
         live_guard.note("live_run.LiveRunControl.read_traffic")
         service = self._services().get_service(name=service_path(resource, self._project))
         return parse_traffic(getattr(service, "traffic_statuses", []))
+
+    def set_concurrency(self, resource: ResourceRef, value: int) -> None:
+        """인스턴스당 동시 요청 수를 바꾼다 — **두 번째 조치** (P1).
+
+        ⭐ Cloud Run은 템플릿이 바뀌면 **새 리비전을 만든다.** 그래서 이 조치의 롤백은
+           새로 만들 것이 없다 — 이전 리비전으로의 트래픽 전환, 즉 이미 원자적이라고
+           증명한 그 경로다(REQ-301·302·303).
+
+        ⛔ **트래픽을 LATEST로 함께 돌린다.** 롤백이 한 번이라도 돌았으면 배분은 특정
+           리비전에 고정되어 있고, 그 상태에서 템플릿만 바꾸면 새 리비전은 **아무 요청도
+           안 받는다.** 그러면 조치는 200을 받고 아무것도 안 바꾼다 —
+           `latest_traffic_spec` 도크스트링이 그 함정을 적어 둔 자리다.
+
+        ⛔ 첫 줄이 tripwire다(G5). 게이트가 여기 온 것 자체가 REQ-801 위반이다.
+        """
+        live_guard.note("live_run.LiveRunControl.set_concurrency")
+        client = self._services()
+        from google.cloud import run_v2
+
+        name = service_path(resource, self._project)
+        service = client.get_service(name=name)
+        service.template.max_instance_request_concurrency = concurrency_value(value)
+        service.traffic = [
+            run_v2.TrafficTarget(
+                type_=run_v2.TrafficTargetAllocationType.TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST,
+                percent=FULL_TRAFFIC,
+            )
+        ]
+        client.update_service(service=service).result()

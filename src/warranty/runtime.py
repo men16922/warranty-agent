@@ -126,18 +126,31 @@ class AgentTools:
     def remediate(
         self,
         resource_name: str,
-        target_revision: str,
+        action: str,
         projected_usd: str = "0.01",
         region: str = "",
     ) -> dict[str, Any]:
-        """Run gate, action, same-signal verification, rollback, and ledger recording."""
+        """Run gate, action, same-signal verification, rollback, and ledger recording.
+
+        `action` is one of:
+          - `traffic:<revision>`   — send all traffic to that revision of this service
+          - `concurrency:<n>`      — change requests-per-instance (1..1000)
+        A bare revision name is read as `traffic:<revision>`.
+
+        ⭐ **이 인자가 `target_revision`이던 동안 이 에이전트가 아는 조치는 하나였다** —
+           이름이 곧 조치였다. 조치를 어댑터에만 더하면 그것은 **코드에는 있고 에이전트는
+           못 부르는 능력**이고, 그런 능력은 데모에서 존재하지 않는 것과 같다.
+
+        ⚠️ 옛 형태(리비전 이름 한 줄)를 계속 받는 이유는 호환이 아니라 **기록**이다.
+           08-28 원장과 배포된 리비전이 그 형태로 남아 있다.
+        """
         try:
             projected = Decimal(projected_usd)
         except InvalidOperation as exc:
             raise RuntimeError(f"projected_usd가 수가 아니다: {projected_usd!r}") from exc
         entry = self.remediator.remediate(
             agent_id=AGENT_ID,
-            action_id=target_revision,
+            action_id=action,
             resource=_resource(resource_name, region or self.default_region),
             projected_usd=projected,
         )

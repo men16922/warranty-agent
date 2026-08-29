@@ -1,9 +1,13 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: [`plans/2026-08-29-llm-serving-pivot.md`](plans/2026-08-29-llm-serving-pivot.md)의
-> P0 — `warranty-hack`에 L4 GPU 쿼터가 있는지 확인(30분). 그 답이 갈래를 정한다.**
-> ⛔ **결정 대기**: 지금 논지는 Flagger·Argo가 이미 한다. 계획은 대상을 **LLM 서빙 goodput**으로
-> 옮기자는 것 — 동시성 변경은 새 리비전을 만들어 롤백이 그대로라 어댑터 하나면 된다.
+> ▶ **NEXT SESSION: 결정할 것 하나 — T2-5(두 번째 조치)를 배포해서 실물로 만들 것인가.**
+> 오프라인은 끝났다(게이트 422 · 변이 264종). ⛔ **프로덕션은 아직 `00005-8x9`**이고,
+> 그래서 대본(`submission/SCRIPT.md`)은 **안 건드렸다** — 대본이 안 도는 것을 말하게 둘 수 없다.
+> ✅ **P0는 답이 났다 · 갈래 ⓒ 확정**: `warranty-hack`에 **L4 GPU 쿼터가 없다**
+> (`evidence/gpu-quota-probe-2026-08-29.log` · 리소스 0개 생성, `validateOnly`로만 확인).
+> ⇒ LLM 서빙 이동(ⓑ)은 죽었다. 아티클의 goodput 수치는 **재현이 아니라 문제 제기로만** 인용한다.
+> ⭐ **조치가 둘이 됐다**(T2-5): 트래픽 전환 + **동시성 변경**. *"이거 Flagger 아니야?"*에
+> 답이 생겼다 — 카나리 도구는 **배포할 때만** 움직이고 동시성은 아무 때나 바뀐다.
 > ⚠️ 영상(T8-3)은 어느 갈래든 **남은 유일한 필수 산출물**이다. 대본 `submission/SCRIPT.md`.
 > ✅ **Day-1·Day-2·리포트가 전부 공개 URL에서 실물이다**(`00005-8x9` · `27b61a6`) — 만들고
 > 계약을 내고, 조치하고 되돌리고, `executed 1 · improved 0 · rolled_back 1`을 원장에서 낸다.
@@ -187,6 +191,8 @@ flowchart LR
 변이      선언한 것 전부 red 확인 · 복구 후 초록 · 잔여 0 → docs/evidence/mutations.md
 Day-1     ⭐ 공개 URL의 에이전트가 서비스를 만들고 계약을 함께 냈다(`day1-prod-demo`)
 루프      ⭐ ADK가 기준선→조치→미회복→롤백→원장을 실물 GCP 어댑터로 완주(2026-08-28)
+조치      ⭐ **둘이다** — 트래픽 전환 + 동시성 변경(`concurrency:N`). 롤백 코드는 안 늘었다
+          ⛔ 동시성 조치는 **오프라인까지만 참이다**. 배포·실물 왕복은 아직 안 했다(T2-5)
 ADK       ⭐ Gemini 3.7 Flash가 `remediate` 호출 · decision/verification/rollback 응답 확인
 GCP       ⭐ Firestore Native 계약·원장·예산 + Monitoring p95 + Cloud Run 원자적 트래픽 전환
 어댑터    `RunControl`·`SignalSource`·Firestore·실행자·예산을 `runtime.py` 한 곳에서 합성
@@ -198,7 +204,7 @@ README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난�
 ⚠️ **여기에 숫자를 세어 적지 않는다**(T0-6의 교훈) — 실제로 썩어 있었다: 이 상자가 말하던
 `120 passed`·`VERIFIED 18`·`M-01~M-32`·`커밋 6개`는 **넷 다 틀렸다.** ⇒ 세는 자리는 하나다.
 
-**다음**: **부하를 켠 채 4분 영상 → README 검수 → 제출(09-01) → teardown(09-02).**
+**다음**: **T2-5 배포 여부 결정 → 부하를 켠 채 4분 영상 → 제출(09-01) → teardown(09-02).**
 [`tasks.md`](../specs/warranty/tasks.md)가 권위다.
 
 ### 막혀 있는 것

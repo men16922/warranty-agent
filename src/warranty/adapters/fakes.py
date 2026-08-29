@@ -133,6 +133,7 @@ class FakeRun:
         self._traffic: dict[str, int] = {current: 100}
         self._honors = honors_shift
         self.shifts: list[str] = []
+        self.concurrencies: list[int] = []
 
     def shift_all_traffic(self, resource: ResourceRef, revision: str) -> None:
         self.shifts.append(revision)
@@ -140,6 +141,18 @@ class FakeRun:
 
     def read_traffic(self, resource: ResourceRef) -> Mapping[str, int]:
         return dict(self._traffic)
+
+    def set_concurrency(self, resource: ResourceRef, value: int) -> None:
+        """동시성 변경의 대역. ⚠️ **새 리비전이 생기는 것까지 흉내낸다.**
+
+        실물 Cloud Run은 템플릿이 바뀌면 리비전을 새로 만들고 트래픽을 그리로 보낸다.
+        대역이 그걸 안 하면 *"조치 뒤 배분이 옮겨져 있다"*가 픽스처에서만 거짓이 되고,
+        롤백 테스트는 **자기가 무엇을 되돌리는지 모른 채** 초록이 된다
+        (docs/PRINCIPLES.md #8).
+        """
+        self.concurrencies.append(value)
+        self._current = f"{resource.name}-c{value}"
+        self._traffic = {self._current: 100}
 
 
 class FakeBudget:

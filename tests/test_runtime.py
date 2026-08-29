@@ -81,3 +81,22 @@ def test_the_remediate_tool_returns_the_argument_in_one_visible_response() -> No
     body = _tools().remediate(RESOURCE.name, "demo-target-00002-lss")
     assert (body["executed"], body["improved"], body["rolled_back"]) == (True, False, True)
     assert body["rollback"]["verified_traffic"] == {"demo-target-00001-swl": 100}
+
+
+def test_the_agent_can_ask_for_the_second_action_not_just_a_revision() -> None:
+    """★ **조치를 어댑터에만 더하면 에이전트는 그것을 못 부른다** (P1).
+
+    ⛔ 이 인자가 `target_revision`이던 동안 도구 표면은 *"조치 = 트래픽 전환"*을 이름으로
+       못 박고 있었다. 그 상태의 `concurrency:16`은 **코드에는 있고 데모에는 없는 능력**이다.
+
+    ⚠️ 여기서 실행기는 `RecordingExecutor`다 — 이 테스트가 묻는 것은 *"동시성이 실제로
+       바뀌는가"*가 아니라 **에이전트가 넘긴 문자열이 조치로 그대로 도달하는가**다.
+       실제 분기는 `test_live_action.py`가 소유한다.
+    """
+    tools = _tools()
+    body = tools.remediate(RESOURCE.name, "concurrency:16")
+    assert (body["executed"], body["improved"], body["rolled_back"]) == (True, False, True)
+
+    executor = tools.remediator.executor
+    assert isinstance(executor, RecordingExecutor)
+    assert executor.calls[-1] == ("concurrency:16", RESOURCE.name)

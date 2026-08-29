@@ -61,6 +61,18 @@ class RunControl(Protocol):
     def read_traffic(self, resource: ResourceRef) -> Mapping[str, int]:
         """⚠️ 전환 후 **다시 읽는다.** '롤백했다'는 주장이고 이건 측정이다."""
 
+    def set_concurrency(self, resource: ResourceRef, value: int) -> None:
+        """인스턴스당 동시 요청 수를 바꾼다 — **트래픽 전환이 아닌 두 번째 조치다.**
+
+        ⭐ 이 포트가 여기 있는 이유는 능력이 아니라 **논지**다. 조치가 트래픽 전환 하나뿐인
+           동안 이 시스템은 *"카나리 롤백 도구"*와 구분되지 않는다. 동시성은 배포와
+           무관하게(Day-2) 언제든 바꿀 수 있고, **200을 받으면서 goodput만 무너뜨린다** —
+           `executed ≠ improved`의 가장 순수한 형태다.
+
+        ⭐ **롤백은 새로 만들 것이 없다.** 동시성을 바꾸면 Cloud Run이 새 리비전을 만들고,
+           되돌리기는 이전 리비전으로의 트래픽 전환 — 이미 원자적이라고 증명한 그 경로다.
+        """
+
 
 class BudgetStore(Protocol):
     """★ 예약 프로토콜 — `reserve` → 실행 → `settle` (REQ-405).

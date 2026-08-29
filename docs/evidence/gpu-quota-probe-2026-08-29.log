@@ -1,0 +1,67 @@
+# L4 GPU 쿼터 확인 — 계획 P0 · 2026-08-29
+#
+# docs/plans/2026-08-29-llm-serving-pivot.md 의 P0("GPU 쿼터·가격 확인, 없으면 즉시 ⓒ").
+# ⛔ 리소스는 하나도 만들지 않았다 — Cloud Run Admin v2 의 validateOnly=true 로만 물었다.
+#    비용 0, 잔여물 0. 실패 이유가 검증 단계에서 그대로 돌아온다.
+
+## 0. 대상
+프로젝트  warranty-hack (450305106907)
+계정      yeongsigchoe7@gmail.com
+이미지    us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:27b61a6
+          (컨테이너는 뜨지도 않는다 — 검증은 그 앞 단계에서 끝난다)
+
+## 1. 쿼터 ID 는 존재한다 (있다는 뜻이 아니다)
+$ gcloud beta quotas info list --service=run.googleapis.com --project=warranty-hack
+NvidiaL4GpuAllocNoZonalRedundancyPerProjectRegion
+NvidiaL4GpuAllocPerProjectRegion
+NvidiaRtxPro6000GpuAllocNoZonalRedundancyPerProjectRegion
+NvidiaRtxPro6000GpuAllocPerProjectRegion
+
+$ gcloud beta quotas info describe NvidiaL4GpuAllocNoZonalRedundancyPerProjectRegion ...
+metric                    run.googleapis.com/nvidia_l4_gpu_allocation_no_zonal_redundancy
+dimensionsInfos.details   {}          ← 값이 비어 있다. "0"인지 "미설정"인지 여기서는 안 갈린다
+quotaIncreaseEligibility  isEligible: true
+
+⚠️ ID 목록은 모든 프로젝트에 똑같이 있다. 목록을 보고 "있다"고 읽으면 틀린다.
+
+## 2. Cloud Monitoring 에도 근거가 없다
+metric.type="serviceruntime.googleapis.com/quota/limit"
+  AND resource.labels.service="run.googleapis.com"
+  AND metric.labels.quota_metric=~".*gpu.*"     (최근 48시간)
+→ series: 0
+쿼터 한도 시계열은 그 쿼터가 한 번이라도 쓰였을 때만 난다. 안 썼으니 없다 — 여기까지는 무증거다.
+
+## 3. ⭐ 결정적 프로브 — validateOnly=true
+POST https://run.googleapis.com/v2/projects/warranty-hack/locations/{REGION}/services
+     ?serviceId=gpu-quota-probe&validateOnly=true
+body: template.containers[0].resources.limits["nvidia.com/gpu"]="1"
+      template.nodeSelector.accelerator="nvidia-l4"
+      template.scaling={minInstanceCount:0, maxInstanceCount:1}
+
+REGION           accelerator  gpuZonalRedundancyDisabled  결과
+us-central1      nvidia-l4    false                       400 INVALID_ARGUMENT
+us-central1      nvidia-l4    true                        400 INVALID_ARGUMENT
+europe-west4     nvidia-l4    false                       400 INVALID_ARGUMENT
+asia-southeast1  nvidia-l4    false                       400 INVALID_ARGUMENT
+
+메시지(zonal redundancy 켠 쪽):
+  template.scaling.max_instance_count: You do not have quota for using GPUs with
+  zonal redundancy. Learn more about GPU zonal redundancy: g.co/cloudrun/gpu-redundancy-help
+  To request quota: g.co/cloudrun/gpu-quota
+
+메시지(끈 쪽):
+  template.scaling.max_instance_count: You do not have quota for using GPUs without
+  zonal redundancy. ...
+
+## 4. 판정
+⛔ warranty-hack 에 L4 GPU 쿼터가 **없다.** 두 이중화 모드 · 세 리전에서 전부 같은 거절이다.
+   증설 신청은 자격이 있으나(isEligible: true) 승인은 제출 기한(09-01 09:00 KST) 안에
+   보장되지 않고, 크레딧도 09-06 만료다.
+
+⇒ 계획 §5 중단 기준의 「P0 직후」 행이 발동한다: **갈래 ⓒ 로 확정.**
+   ⭐ P1(동시성 조치)은 계획이 "어느 갈래에서도 한다"고 미리 박아 둔 항목이라 그대로 간다.
+
+## 5. 잔여물
+없음. validateOnly 는 서비스를 만들지 않는다.
+확인: gcloud run services list --project=warranty-hack --region=us-central1 에
+      gpu-quota-probe 없음.

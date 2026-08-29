@@ -24,7 +24,11 @@ import pytest
 
 from warranty.adapters.live_run import (
     FULL_TRAFFIC,
+    MAX_CONCURRENCY,
+    MIN_CONCURRENCY,
     RunControlError,
+    concurrency_value,
+    latest_traffic_spec,
     parse_traffic,
     service_path,
     traffic_spec,
@@ -91,3 +95,48 @@ def test_an_empty_revision_is_refused() -> None:
     """④ 어디로 옮길지 모르는 전환은 **보내지 않는다.**"""
     with pytest.raises(RunControlError):
         traffic_spec("")
+
+
+# ── 두 번째 조치: 동시성 변경 (P1) ────────────────────────────────────
+
+
+def test_the_concurrency_change_points_traffic_at_the_new_revision() -> None:
+    """⑤ ★ **이것이 없으면 동시성 조치는 조용한 무해동작이다.**
+
+    Spec: specs/warranty/design/03-atomic-rollback.md (REQ-302)
+
+    롤백이 한 번이라도 돌면 `service.traffic`은 특정 리비전에 **고정**된다
+    (`traffic_spec`이 그렇게 만든다 — 그게 원자성의 근거다). 그 상태에서 템플릿만
+    바꾸면 Cloud Run은 새 리비전을 만들지만 **트래픽은 옛 리비전에 남는다.**
+
+    ⛔ 그때 조치는 200을 받고 아무것도 안 바꾼다. 검증은 `not_recovered`를 내고 롤백이
+       돌고 원장은 *"고쳤는데 안 나아졌다"*고 적지만 **고친 적이 없다** — 이 저장소가
+       세는 `improved`가 그 순간 거짓말이 된다.
+    """
+    spec = latest_traffic_spec()
+    assert len(spec) == 1
+    assert spec[0]["percent"] == FULL_TRAFFIC
+    assert spec[0]["type_"].endswith("_LATEST")
+    # ⛔ 리비전을 못 박으면 **방금 만든 리비전이 아닌 곳**으로 갈 수 있다.
+    assert "revision" not in spec[0]
+    # 두 조각은 서로 다른 것을 뜻한다 — 같아지면 한쪽이 다른 쪽을 덮은 것이다.
+    assert spec != traffic_spec("demo-target-00007-abc")
+
+
+@pytest.mark.parametrize("good", [MIN_CONCURRENCY, 8, 16, MAX_CONCURRENCY])
+def test_the_concurrency_range_accepts_what_cloud_run_accepts(good: int) -> None:
+    """⑥ 공허 통과 방지 — 전부 거절이면 아래 테스트는 아무것도 안 묻는다."""
+    assert concurrency_value(good) == good
+
+
+@pytest.mark.parametrize("bad", [0, -1, MAX_CONCURRENCY + 1, True, "16"])
+def test_the_concurrency_range_refuses_what_it_cannot_send(bad: object) -> None:
+    """⑥ ⛔ 여기서 안 막으면 잘못된 값이 **실행 단계까지 가서** API 오류로 돌아온다.
+
+    ⚠️ 그러면 원장에 `FAILED`가 남고, 그것은 *"조치가 효과 없었다"*와 구분이 안 된다 —
+       우리 요청이 애초에 틀렸다는 사실이 사라진다.
+    ⚠️ `True`를 함께 태우는 이유: 파이썬에서 `bool`은 `int`이고, 안 막으면
+       `concurrency_value(True)`가 **1을 돌려주며 통과한다.**
+    """
+    with pytest.raises(RunControlError):
+        concurrency_value(bad)  # type: ignore[arg-type]
