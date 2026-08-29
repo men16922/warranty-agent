@@ -8,15 +8,15 @@
 
 ---
 
-## ⛔ 먼저 — 제출 블로커 하나
+## ✅ 저장소 — 해결됨 (2026-08-29)
 
-**코드 저장소 URL이 없다.** 이 저장소에는 **git remote가 하나도 없다**(`git remote -v` → 비어 있음).
-제출 폼의 `URL to your public or private code repo`는 필수 칸이고, private이면
-`testing@devpost.com`과 `cloudhackathons@google.com` **둘 다에게 공유**해야 한다.
+**https://github.com/men16922/warranty-agent** — **public**이라 심사위원이 링크만으로 연다.
+private 공유(`testing@devpost.com`·`cloudhackathons@google.com` 초대)는 **필요 없다.**
+88 커밋 · 기본 브랜치 `main` · `.env`는 올라가지 않았다(확인함).
 
-▶ 사람이 할 일: GitHub 저장소를 만들고 push한 뒤, private이면 위 두 주소를 collaborator로 추가.
+## ⛔ 남은 결정 하나 — Hosted URL의 수명
 
-⚠️ 그리고 **Hosted URL의 수명**을 정해야 한다. `design 10§6`은 teardown을 **09-02**로 잡았는데,
+**Hosted URL의 수명**을 정해야 한다. `design 10§6`은 teardown을 **09-02**로 잡았는데,
 심사는 그 뒤에 이뤄진다. 크레딧도 **09-06 만료**다. 셋 중 하나를 골라야 한다:
 ① 09-02에 다 내린다(Hosted URL이 죽는다 — 영상과 코드로만 심사받는다)
 ② Cloud Run만 09-06까지 남긴다(`design 10§6`이 예비해 둔 길 · scale-to-zero라 유휴 과금 0)
@@ -188,8 +188,8 @@ Live API (public health probe):
 Demo target (the service the agent remediates):
   https://demo-target-povpqj6m5a-uc.a.run.app/work
 
-Code repository:
-  ▶ 사람이 할 일 — 아직 remote가 없다 (위 「제출 블로커」 참조)
+Code repository (public):
+  https://github.com/men16922/warranty-agent
 ```
 
 > ⚠️ `/agent:chat`은 bearer 토큰이 있어야 한다(무토큰·틀린 토큰은 전부 `401`). 공개 URL이
@@ -214,7 +214,7 @@ Code repository:
 | Category | **Fortified Enterprise Fleet** |
 | Organization | 해당 없음 |
 | **What date did you start this project?** | **08-19-26** — 첫 커밋 `741cec5` 2026-08-19 |
-| URL to code repo | ▶ 사람이 할 일 (블로커) |
+| URL to code repo | **https://github.com/men16922/warranty-agent** (public — 별도 초대 불필요) |
 | **Reproducible Testing instructions in README?** | **Yes** |
 | Hosted project URL | `https://warranty-api-povpqj6m5a-uc.a.run.app` |
 | **Which Google SDK?** | **Agent Development Kit (ADK)** · Google GenAI SDK (`google-genai`) |
@@ -300,7 +300,7 @@ REQ-303/304(증명된 롤백) · REQ-503/504/505(귀속과 추정≠실측)다. 
   **무엇이 안 되는지 아는가**이고, 이 저장소는 그것을 문서·응답·데모 출력 세 곳에서 말한다.
 - ✅ 실물 배포가 있고 증거 로그가 커밋돼 있다.
 - ⛔ **영상이 아직 없다**(T8-3). 이 항목의 대부분이 영상에 달려 있다.
-- ⛔ **저장소 URL이 없다**(remote 없음). 이건 점수가 아니라 **자격** 문제다.
+- ✅ **저장소 URL이 생겼다** — https://github.com/men16922/warranty-agent (public · 08-29).
 - ⚠️ **신호가 트래픽 중에만 존재한다.** 부하 없이 찍으면 에이전트가 `null`을 답하고,
   화면상 *"고장난 것"*처럼 보인다. **부하를 켠 채로 찍어야 한다.**
 
@@ -309,7 +309,7 @@ REQ-303/304(증명된 롤백) · REQ-503/504/505(귀속과 추정≠실측)다. 
 | | |
 |---|---|
 | **가장 강한 것** | 논지가 하나이고, 그것이 코드·게이트·응답·원장에서 **같은 문장**으로 나온다 |
-| **가장 약한 것** | 영상과 저장소 URL — 둘 다 아직 없다. **점수 이전에 자격 조건이다** |
+| **가장 약한 것** | **영상**(T8-3) — 아직 없다. 저장소는 08-29에 해결됐다 |
 | **가장 큰 유혹** | 숫자를 크게 보이게 하는 것. 한 번 걸렸고(T8-2), 다시 하면 안 된다 |
 
 **한 줄 판정**: 기술적으로는 이미 제출 가능하고 Architectural Discipline에서 강하다.

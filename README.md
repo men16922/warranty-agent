@@ -56,6 +56,7 @@ Run traffic, and writes contracts and the ledger to Firestore — all behind the
 
 | | |
 |---|---|
+| Repository | https://github.com/men16922/warranty-agent |
 | Live API | `https://warranty-api-povpqj6m5a-uc.a.run.app` |
 | Public health probe | `curl https://warranty-api-povpqj6m5a-uc.a.run.app/livez` → `200` |
 | `POST /agent:chat` | bearer token required — no token or a wrong one returns `401` |

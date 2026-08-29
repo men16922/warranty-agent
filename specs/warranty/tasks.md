@@ -83,9 +83,11 @@
     공개 Google 패키지다. `git+`·`file://`·사설 인덱스 **0건**, `vendor/`·`third_party/` 없음.
   - 추적 파일 176 · 소스/테스트 `.py` 38.
   - ⛔ 그래도 상태는 `TODO`다 — 겨냥한 테스트가 없다. T5-3이 이 칸을 함께 닫는다.
-- [ ] **T8-7** ⛔ **저장소 remote를 만든다 — 제출 블로커다.** `git remote -v`가 **비어 있다.**
-  폼의 코드 저장소 URL은 필수 칸이고, private이면 `testing@devpost.com`과
-  `cloudhackathons@google.com` **둘 다** collaborator로 넣어야 한다. `Implements: REQ-901`
+- [x] **T8-7** 저장소를 만들고 밀었다 — **https://github.com/men16922/warranty-agent** (public · 88 커밋).
+  ⇒ public이라 `testing@devpost.com`·`cloudhackathons@google.com` **초대가 필요 없다** —
+  private 경로는 GitHub 초대가 이메일이 아니라 계정명 기준이라 실패할 수 있었다.
+  ⚠️ 푸시 전에 이력 전체를 훑어 API 키·개인키·토큰 **0건**을 확인했고 `.env`는 이력에도 없다.
+  `Implements: REQ-901`
 - [ ] **T8-8** Hosted URL의 수명을 정한다. teardown은 09-02인데 **심사는 그 뒤**이고 크레딧은
   09-06 만료다. ⇒ ① 09-02에 전부 내린다 ② Cloud Run만 09-06까지 남긴다(유휴 0 · design 10§6이
   예비해 둔 길) ③ 크레딧을 연장한다. **②가 기본값으로 보인다.** `Design: 10§6`
