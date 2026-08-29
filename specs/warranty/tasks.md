@@ -26,7 +26,7 @@
   원장 항목 id와 같다(되읽음). 모델 호출이 `token_meter · $0.00174675`.
 - ⭐ **화면이 생겼다**(T8-9): `GET /`가 원장을 사람이 읽는 표로 낸다.
 - 현재 실물: `warranty-api` 리비전 `00007-mrq`(이미지 `d51566c` · Day-1·Day-2·리포트·**화면** 실물) +
-  `demo-target`(리비전 2개) + 에이전트가 만든 `day1-warranty-demo`·`day1-prod-demo`·`day1-cost-demo`.
+  `demo-target`(리비전 4개) + 에이전트가 만든 `day1-warranty-demo`·`day1-prod-demo`·`day1-cost-demo`.
 - 오프라인 기준선: 이 파일 하단의 `make check` 한 곳만 권위로 둔다.
 
 ## 열린 작업 — 우선순위순

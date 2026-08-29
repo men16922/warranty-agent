@@ -21,7 +21,7 @@
 > 계약을 내고, 조치하고 되돌리고, `executed 1 · improved 0 · rolled_back 1`을 원장에서 낸다.
 > ⚠️ **신호는 트래픽이 흐르는 동안에만 존재한다** — ⇒ **촬영은 부하를 켠 채로 한다.**
 > ⭐ **실물 URL** (전부 `-povpqj6m5a-uc.a.run.app`): `warranty-api`(공개 · **`/`에 원장 화면**) ·
-> `demo-target`(리비전 2개) · `day1-warranty-demo`·`day1-prod-demo`·**`day1-cost-demo`**
+> `demo-target`(리비전 **4개**) · `day1-warranty-demo`·`day1-prod-demo`·**`day1-cost-demo`**
 > (에이전트가 만든 것 · IAM 비어 있음). ⇒ **teardown 범위는 다섯이다**(T8-6).
 > ⚠️ 남은 `[auto]`·`.env` 부트스트랩은 [`tasks.md`](../specs/warranty/tasks.md)가 권위다.
 
@@ -256,6 +256,11 @@ README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난�
 - **회복률은 "우리 기준으로" 회복률이다.** 계약의 판정 기준이 틀리면 검증도 틀린다.
 - **공유 리소스의 비용 귀속은 못 푼다.** 한 조치 = 한 리소스일 때만 라벨 귀속을 쓴다.
 - **신호는 트래픽이 흐르는 동안에만 있다.** scale-to-zero의 대가다(T8-1).
+- ⛔ **재측정이 조치의 효과를 아직 못 봤을 수 있다.** 같은 조치를 두 번 돌렸더니 한 번은
+  `674 → 989`, 한 번은 `674 → 674`였다(부하는 둘 다 켠 채). Monitoring 도착 지연 때문에
+  120초 창이 조치 이전 표본에 지배당한다. ⇒ *"효과가 없었다"*와 *"효과를 아직 못 읽었다"*를
+  이 창 안에서는 **못 가른다.** 판정은 둘 다 `not_recovered`로 fail-closed였다
+  (`evidence/live-cost-axis-2026-08-29.log` §14).
 
 ## 13. 용어
 

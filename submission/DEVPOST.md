@@ -163,6 +163,12 @@ target until it has a revision to return to.
 
 ### Known limits — we do not hide them
 
+- **The verification window can miss the effect.** We ran the same action twice under the
+  same load: once the p95 moved `674 → 989 ms`, once it did not move at all. Cloud Monitoring
+  ingestion lags the action, so a 120-second window can still be dominated by pre-action
+  samples. The verdict was `not_recovered` both times — fail-closed, which is what we want —
+  but inside that window we **cannot separate "the action did not help" from "we cannot see
+  it yet."** We would rather say that than pick the run that looked better.
 - **This is correlation, not causation.** Re-measuring after a rollback is a weak natural
   experiment. It does not establish cause.
 - **Contracts only exist for provisioned resources.** Hand-made resources are not automation targets.
