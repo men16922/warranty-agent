@@ -3,7 +3,8 @@
 > ▶ **NEXT SESSION: Devpost 제출(T8-5) — 09-01 09:00 KST.**
 > 남은 것은 **영상 공개 링크 확보 → DEVPOST에 박기 → 제출**, 그리고 teardown(09-02)이다.
 >
-> ✅ **영상 완료** — `submission/warranty-demo.mp4` · **3:47** · 영어 · 1920x1080.
+> ✅ **영상 완료·업로드됨** — https://youtu.be/KAcHpX3nSSM (3:47 · 영어 · Unlisted)
+> 원본 `submission/warranty-demo.mp4` · 재현 절차 `submission/vo/README.md`.
 > 논지를 **함대 회계**로 재구성했다(08-30): *"에이전트 함대가 밤새 뭘 했는지 아침에 안다."*
 > 이전 논지(*"클라우드 중립성을 포기하면 셋이 열린다"*)는 **공감대가 좁고 Flagger와 같은 링**에
 > 올라갔다. 코드는 그대로 두고 **질문만 바꿨다.**

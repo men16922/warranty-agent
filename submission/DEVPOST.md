@@ -229,6 +229,9 @@ mutation-testing  spec-driven-development  ports-and-adapters  sre
 ★ Accountability ledger (open this first — no login, nothing to install):
   https://warranty-api-povpqj6m5a-uc.a.run.app/
 
+Demo video (3:47):
+  https://youtu.be/KAcHpX3nSSM
+
 Live API (public health probe):
   https://warranty-api-povpqj6m5a-uc.a.run.app/livez
 
@@ -251,9 +254,15 @@ Code repository (public):
 ## Video demo link
 
 ```
-✅ 완료 (2026-08-30) — submission/warranty-demo.mp4 · 3:49 · 영어 · 1920x1080.
-▶ 사람이 할 일 — 공개 링크(YouTube 등)를 만들어 여기에 박는다.
+https://youtu.be/KAcHpX3nSSM
 ```
+
+3:47 · 영어 · 1920x1080 · Unlisted. 원본은 `submission/warranty-demo.mp4`,
+재현 절차와 대본은 `submission/vo/`에 있다.
+
+⚠️ **화면과 출력은 전부 실물이다.** 터미널 본문은 프로덕션 `agent:chat` 응답과
+Firestore 원장 항목을 그대로 옮긴 것이고, 원장 화면은 배포된 공개 URL을 찍은 것이다.
+⚠️ 내레이션은 **합성 음성**(ElevenLabs v3)이다 — 영상 설명에도 적어 뒀다.
 
 ---
 
