@@ -39,11 +39,17 @@ RESOURCE_KIND = "cloud_run_service"
 #: (usecases/provision 모듈 독스트링). 나머지 계약 필드는 전부 생성 응답에서 유도된다.
 #: ⚠️ 데모의 기준(`demo.py`)과 값이 같지만 **같은 상수가 아니다** — 저쪽은 각본의 일부이고
 #: 이쪽은 배포된 정책이다. 하나로 묶으면 각본을 고칠 때 배포 정책이 따라 움직인다.
+#: ⛔ **2026-08-30: 이 정책은 도달 불가능했다.** threshold 0.5 + tolerance 0.1은
+#:    *"지연이 60% 넘게 줄어야 회복"*을 뜻했는데, 이 시스템이 낼 수 있는 최대 개선은
+#:    900ms → 620ms, 즉 **31%다.** 그러면 **어떤 조치도 영원히 `not_recovered`다** —
+#:    고장이 아니라 정책이 물리보다 높게 잡혀 있었다.
+#:    실물이 그것을 보여 줬다: `990 → 674ms`(32% 개선)가 `not_recovered`를 받았다.
+#:    ⇒ `tests/test_recovery_policy.py`가 이제 그 도달 가능성을 집행한다.
 LIVE_RECOVERY_CRITERION = Criterion(
     direction=Direction.DECREASE,
-    threshold=Decimal("0.5"),
+    threshold=Decimal("0.20"),
     mode=CriterionMode.RELATIVE,
-    tolerance=Decimal("0.1"),
+    tolerance=Decimal("0.05"),
 )
 
 

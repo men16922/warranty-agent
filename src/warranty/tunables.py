@@ -20,12 +20,22 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-#: 조치가 신호에 반영되기까지 기다리는 시간. ⚠️ 너무 짧으면 Cloud Monitoring의 지표
-#: 도착 지연 때문에 **회복을 실패로 오판한다** (design 02§4).
-VERIFY_DELAY_S = 45
-
 #: 재측정 창. 기준선과 재측정이 **같은 창**을 써야 두 값이 비교 가능하다 (REQ-202).
 VERIFY_WINDOW_S = 120
+
+#: 조치가 신호에 반영되기까지 기다리는 시간.
+#:
+#: ⛔ **이 값은 반드시 `VERIFY_WINDOW_S`보다 커야 한다.** 그렇지 않으면 재측정 창이
+#:    조치 **이전** 구간을 물고, "after"가 before와 after의 혼합이 된다.
+#:    45였던 동안 창 120초 중 **75초가 조치 전 데이터**였고, 그래서 트래픽을 건강한
+#:    리비전으로 되돌려도 판정이 `not_recovered`로 나왔다 —
+#:    **검증이 구조적으로 실패 쪽으로 기울어 있었다.**
+#:    2026-08-30 실물에서 잡았다: `traffic:demo-target-00001-swl`(건강한 쪽)이
+#:    `not_recovered`를 받았다. 증거 `docs/evidence/verify-window-2026-08-30.log`.
+#: ⚠️ 이것을 줄이고 싶은 유혹은 촬영 시간 때문에 온다. 줄이면 **아직 안 온 데이터로
+#:    판정**하게 되고, 그건 이 저장소가 통째로 반대하는 짓이다.
+#: ⚠️ 여유 15초는 Cloud Monitoring의 도착 지연 몫이다 (design 02§4).
+VERIFY_DELAY_S = VERIFY_WINDOW_S + 15
 
 #: 데모 한 판이 쓸 수 있는 예산. 게이트의 세 번째 축(headroom)이 이것을 읽는다.
 DEMO_BUDGET_USD = Decimal("0.50")

@@ -256,3 +256,24 @@ def test_req_804_the_module_defines_exactly_what_the_design_declares() -> None:
         f"design 11§5의 선언과 {TUNABLES.name}이 어긋났다: "
         f"설계에만 {sorted(declared - defined)} · 코드에만 {sorted(defined - declared)}"
     )
+
+
+def test_the_verify_delay_outlasts_the_measurement_window() -> None:
+    """⛔ **재측정 창이 조치 이전을 물면 안 된다.**
+
+    대기가 창보다 짧으면 "after" 창의 앞부분이 **조치 전 구간**이고, 그래서 재측정값은
+    before와 after의 혼합이 된다. 혼합은 **개선을 지운다** — 조치가 실제로 효과가 있어도
+    창의 절반이 옛 값이면 판정이 `not_recovered`로 기운다.
+
+    ⚠️ 이것은 성능 조율이 아니라 **정확성**이다. 2026-08-30 실물에서 잡혔다:
+       트래픽을 건강한 리비전으로 되돌렸는데 `not_recovered`가 나왔고, 원인은
+       대기 45초 < 창 120초였다 (창 120초 중 75초가 조치 전 데이터).
+
+    Verifies: REQ-202
+    """
+    from warranty.tunables import VERIFY_DELAY_S, VERIFY_WINDOW_S
+
+    assert VERIFY_DELAY_S > VERIFY_WINDOW_S, (
+        f"검증 지연({VERIFY_DELAY_S}s)이 재측정 창({VERIFY_WINDOW_S}s)보다 짧다 — "
+        "재측정이 조치 이전 데이터를 물어 개선이 지워진다"
+    )

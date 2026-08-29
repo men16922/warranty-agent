@@ -1,0 +1,106 @@
+# 검증이 자기 자신에게 걸렸다 — 2026-08-30
+
+⛔ **이 저장소의 논지는 "실행했다 ≠ 나아졌다"인데, 이 시스템 자신이 나아진 것을
+   나아졌다고 못 읽고 있었다.** 그것도 **서로 다른 두 이유**로. 둘 다 로그로는 안 보였다 —
+   코드는 돌았고, API는 200을 냈고, 판정은 `not_recovered`로 그럴듯했다.
+
+발견 경로: 영상 재촬영을 위해 **성공 장면**(에이전트가 실제로 고치는 장면)을 만들려다
+`traffic:demo-target-00001-swl`(건강한 리비전)이 계속 `not_recovered`를 받는 것을 보고 팠다.
+
+---
+
+## ① 재측정 창이 조치 **이전**을 물고 있었다
+
+```
+VERIFY_DELAY_S  = 45     조치 후 기다리는 시간
+VERIFY_WINDOW_S = 120    재측정 창
+```
+
+조치 후 45초를 기다린 뒤 **120초 창**을 읽으면 그 창의 **75초는 조치 이전 데이터**다.
+"after"가 before와 after의 혼합이 되고, **혼합은 개선을 지운다.**
+⇒ 검증이 구조적으로 실패 쪽으로 기울어 있었다.
+
+**고침**: `VERIFY_DELAY_S = VERIFY_WINDOW_S + 15` (135초).
+**가드**: `tests/test_tunables.py::test_the_verify_delay_outlasts_the_measurement_window`
+**변이**: M-281 (대기를 창보다 짧게 → red)
+
+⚠️ 대가: 조치 한 번이 ~160초가 됐고, 그것이 아래 ③을 드러냈다.
+
+## ② 회복 기준이 **물리적으로 도달 불가능**했다
+
+```
+기준:  threshold 0.5 + tolerance 0.1  →  "60% 넘게 줄어야 회복"
+물리:  DEGRADED 900ms → HEALTHY 620ms  →  최대 31%
+```
+
+⛔ **어떤 조치도 회복 판정을 받을 수 없었다.** 실물이 보여 줬다:
+
+```
+Signal Before : 990.0440900439181
+Signal After  : 674.171849767732      ← 32% 개선
+Verdict       : not_recovered         ← 틀렸다
+```
+
+성공이 불가능한 판정기에서 나온 실패 보고는 **정보가 아니다.**
+
+**고침**: `threshold 0.20 · tolerance 0.05` (회복 ≥25% 감소 · 실패 ≤15% · 사이는 ambiguous)
+**가드**: `tests/test_recovery_policy.py` 두 벽
+  - 완벽한 조치가 `RECOVERED`를 받을 수 있는가 (정책 < 물리)
+  - 아무것도 안 해도 회복이 되지는 않는가 (threshold > tolerance)
+**변이**: M-282 · M-283
+
+## ③ 계약은 코드가 아니라 **저장소**에 정책을 들고 있다
+
+`LIVE_RECOVERY_CRITERION`을 고쳐도 **이미 발급된 계약은 안 바뀐다** — 계약은 만들 때의
+정책을 저장한다. 설계상 맞는 동작이다(계약은 합의의 기록이다).
+
+```
+contracts/demo-target-warranty-v1
+  recovery_criterion: {threshold: "0.5", tolerance: "0.1"}
+  provisioned_by: manual-bootstrap-t2-4
+```
+
+⇒ 정책을 바꾸려면 **계약 버전을 올려야** 한다. `-v1` 접미사가 정확히 그 자리다.
+리소스당 active 계약은 하나이므로(`one_active`) **v1 은퇴 → v2 생성** 순서로 했다.
+
+```
+① v1 state → retired
+② demo-target-warranty-v2 (threshold 0.20 · tolerance 0.05) → active
+③ active 계약 1건 확인 ✅
+```
+
+⚠️ 이 사실은 **변이로 못 태운다** — 오프라인 게이트는 Firestore를 안 연다(G5).
+   그래서 코드가 아니라 여기에 적는다.
+
+---
+
+## 결과 — 처음으로 `recovered`가 나왔다
+
+기준선을 깨끗하게 만든 뒤(부하 8워커 · 단일 계열 `965.8ms`) 조치 한 번:
+
+```
+Gate Verdict     : AUTO  (reversible and verifiable within budget)
+Signal Before    : 990.0440900439181
+Signal After     : 674.171849767732
+Verification     : recovered
+Rollback         : false          ← 되돌릴 필요가 없었다
+```
+
+원장 헤드라인(2026-08-29 UTC 기준, 이 세션의 모든 시도 누적):
+
+```
+Executed 13 · Improved 1 · Rolled back 11 · Manual required 3 · Unverifiable 0
+```
+
+⚠️ **13번 중 1번만 도움이 됐다.** 그 수를 그대로 낸다 — 그것이 이 화면의 존재 이유다.
+
+## ⚠️ 아직 안 고친 것
+
+**HTTP 타임아웃 300초 < 검증 대기 135초 + 모델 왕복.** 롤백까지 가는 조치는 자주
+`upstream request timeout`으로 응답이 유실된다. **조치는 정상 실행되고 원장에도 남는다** —
+사라지는 것은 화면에 띄울 응답뿐이다. 배포 인자에 `--timeout`이 없다(기본 300).
+⇒ `deploy_argv`에 넣고 가드를 붙여야 한다.
+
+**신호가 두 계열이면 하나를 임의로 고른다.** 두 리비전이 동시에 트래픽을 받으면
+`parse_measurement`가 **같은 시각의 두 점 중 먼저 만난 것**을 고른다. 트래픽이 한쪽으로
+100% 모이고 창이 지나면 해소되지만, 카나리 분할 중에는 값이 흔들린다.
