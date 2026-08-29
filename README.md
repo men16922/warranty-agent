@@ -50,8 +50,9 @@ can be smaller. The ledger owns the counts — this page does not restate them.
 
 ## Status
 
-**Running on Cloud Run.** An ADK agent on Gemini 3.7 Flash reads Cloud Monitoring, shifts
-Cloud Run traffic, and writes contracts and the ledger to Firestore.
+**Running on Cloud Run.** An ADK agent on Gemini 3.7 Flash **provisions** Cloud Run services
+and records their operational contract in the same step, reads Cloud Monitoring, shifts Cloud
+Run traffic, and writes contracts and the ledger to Firestore — all behind the live URL below.
 
 | | |
 |---|---|
