@@ -1,0 +1,348 @@
+이미지: us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:27b61a6
+  gcloud builds submit --project=warranty-hack --tag=us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:27b61a6 .
+  gcloud run deploy warranty-api --project=warranty-hack --region=us-central1 --image=us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:27b61a6 --min-instances=0 --max-instances=2 --labels=wr_project=warranty,wr_env=hack --set-env-vars=WR_PROJECT_ID=warranty-hack,WR_REGION=us-central1,WR_VERTEX_LOCATION=global,WR_MODEL=gemini-3.7-flash,WR_ADAPTERS=live --set-secrets=WR_AGENT_AUTH_TOKEN=warranty-agent-auth:latest --allow-unauthenticated
+배포 전 검사 통과 — 진입점이 포트를 열고, 계획이 빌드할 이미지를 가리킨다
+Creating temporary archive of 188 file(s) totalling 2.4 MiB before compression.
+Some files were not included in the source upload.
+
+Check the gcloud log [/Users/men1692/.config/gcloud/logs/2026.08.29/13.07.55.170660.log] to see which files and the contents of the
+default gcloudignore file used (see `$ gcloud topic gcloudignore` to learn
+more).
+
+Uploading tarball of [.] to [gs://warranty-hack_cloudbuild/source/1787976475.44698-a91763ce5e994987bb49edeb9c9604f7.tgz]
+Created [https://cloudbuild.googleapis.com/v1/projects/warranty-hack/locations/global/builds/9349b85a-6fb0-49ad-acc0-92772b4a2814].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds/9349b85a-6fb0-49ad-acc0-92772b4a2814?project=450305106907 ].
+Waiting for build to complete. Polling interval: 1 second(s).
+----------------------------- REMOTE BUILD OUTPUT ------------------------------
+starting build "9349b85a-6fb0-49ad-acc0-92772b4a2814"
+
+FETCHSOURCE
+Fetching storage object: gs://warranty-hack_cloudbuild/source/1787976475.44698-a91763ce5e994987bb49edeb9c9604f7.tgz#1787976476831337
+Copying gs://warranty-hack_cloudbuild/source/1787976475.44698-a91763ce5e994987bb49edeb9c9604f7.tgz#1787976476831337...
+/ [0 files][    0.0 B/550.9 KiB]                                                / [1 files][550.9 KiB/550.9 KiB]                                                
+Operation completed over 1 objects/550.9 KiB.
+BUILD
+Already have image (with digest): gcr.io/cloud-builders/gcb-internal
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  2.701MB
+Step 1/7 : FROM python:3.13-slim
+3.13-slim: Pulling from library/python
+6310eb16bf42: Pulling fs layer
+64c7e6efa7cd: Pulling fs layer
+357a46282089: Pulling fs layer
+d64904dff413: Pulling fs layer
+d64904dff413: Verifying Checksum
+d64904dff413: Download complete
+64c7e6efa7cd: Verifying Checksum
+64c7e6efa7cd: Download complete
+357a46282089: Verifying Checksum
+357a46282089: Download complete
+6310eb16bf42: Verifying Checksum
+6310eb16bf42: Download complete
+6310eb16bf42: Pull complete
+64c7e6efa7cd: Pull complete
+357a46282089: Pull complete
+d64904dff413: Pull complete
+Digest: sha256:7ce4b6dfe35e55397b7cda544f8a13f191b7ae28dc5aad71fe664dbc9bc2623f
+Status: Downloaded newer image for python:3.13-slim
+ ---> fd0662060d1f
+Step 2/7 : ENV PYTHONDONTWRITEBYTECODE=1     PYTHONUNBUFFERED=1
+ ---> Running in d343eb616fe7
+Removing intermediate container d343eb616fe7
+ ---> 3bf10e180f87
+Step 3/7 : WORKDIR /app
+ ---> Running in 0e7f11976da6
+Removing intermediate container 0e7f11976da6
+ ---> 8b26cfb3f361
+Step 4/7 : COPY pyproject.toml ./
+ ---> 860877cb4d86
+Step 5/7 : COPY src ./src
+ ---> 86bfb402d4a7
+Step 6/7 : RUN pip install --no-cache-dir ".[cloud]"
+ ---> Running in f3ae36fc9eb5
+Processing ./.
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting google-adk>=2.7 (from warranty==0.1.0)
+  Downloading google_adk-2.8.0-py3-none-any.whl.metadata (25 kB)
+Collecting google-api-core>=2.19 (from warranty==0.1.0)
+  Downloading google_api_core-2.34.0-py3-none-any.whl.metadata (2.9 kB)
+Collecting google-cloud-bigquery>=3.20 (from warranty==0.1.0)
+  Downloading google_cloud_bigquery-3.44.0-py3-none-any.whl.metadata (8.4 kB)
+Collecting google-cloud-firestore>=2.16 (from warranty==0.1.0)
+  Downloading google_cloud_firestore-2.29.0-py3-none-any.whl.metadata (9.5 kB)
+Collecting google-cloud-monitoring>=2.0 (from warranty==0.1.0)
+  Downloading google_cloud_monitoring-2.31.0-py3-none-any.whl.metadata (9.6 kB)
+Collecting google-cloud-run>=0.10 (from warranty==0.1.0)
+  Downloading google_cloud_run-0.16.1-py3-none-any.whl.metadata (9.6 kB)
+Collecting google-genai>=1.0 (from warranty==0.1.0)
+  Downloading google_genai-2.20.0-py3-none-any.whl.metadata (56 kB)
+Collecting aiohttp!=3.14.2 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading aiohttp-3.14.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.3 kB)
+Collecting aiosqlite>=0.21 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading aiosqlite-0.22.1-py3-none-any.whl.metadata (4.3 kB)
+Collecting authlib<2,>=1.6.6 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading authlib-1.7.2-py2.py3-none-any.whl.metadata (10 kB)
+Collecting click<9,>=8.1.8 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+Collecting fastapi<1,>=0.133 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading fastapi-0.141.1-py3-none-any.whl.metadata (27 kB)
+Collecting google-auth>=2.47 (from google-auth[pyopenssl]>=2.47->google-adk>=2.7->warranty==0.1.0)
+  Downloading google_auth-2.57.0-py3-none-any.whl.metadata (6.0 kB)
+Collecting graphviz<1,>=0.20.2 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading graphviz-0.21-py3-none-any.whl.metadata (12 kB)
+Collecting httpx<1,>=0.27 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+Collecting jsonschema<5,>=4.23 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading jsonschema-4.26.0-py3-none-any.whl.metadata (7.6 kB)
+Collecting opentelemetry-api<=1.42.1,>=1.39 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading opentelemetry_api-1.42.1-py3-none-any.whl.metadata (1.4 kB)
+Collecting opentelemetry-sdk<=1.42.1,>=1.39 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading opentelemetry_sdk-1.42.1-py3-none-any.whl.metadata (1.7 kB)
+Collecting packaging>=21 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Collecting pydantic<3,>=2.12 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading pydantic-2.13.5-py3-none-any.whl.metadata (110 kB)
+Collecting python-dotenv<2,>=1 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading python_dotenv-1.2.3-py3-none-any.whl.metadata (29 kB)
+Collecting python-multipart<1,>=0.0.9 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading python_multipart-0.0.32-py3-none-any.whl.metadata (2.1 kB)
+Collecting pyyaml<7,>=6.0.2 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+Collecting requests<3,>=2.32.4 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting starlette<2,>=1.3.1 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading starlette-1.6.0-py3-none-any.whl.metadata (6.4 kB)
+Collecting tenacity<10,>=9 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading tenacity-9.1.4-py3-none-any.whl.metadata (1.2 kB)
+Collecting typing-extensions<5,>=4.5 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting tzlocal<6,>=5.3 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading tzlocal-5.4.4-py3-none-any.whl.metadata (7.7 kB)
+Collecting uvicorn<1,>=0.34 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading uvicorn-0.52.4-py3-none-any.whl.metadata (6.6 kB)
+Collecting watchdog<7,>=6 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading watchdog-6.0.0-py3-none-manylinux2014_x86_64.whl.metadata (44 kB)
+Collecting websockets<16,>=15.0.1 (from google-adk>=2.7->warranty==0.1.0)
+  Downloading websockets-15.0.1-cp313-cp313-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.8 kB)
+Collecting cryptography (from authlib<2,>=1.6.6->google-adk>=2.7->warranty==0.1.0)
+  Downloading cryptography-50.0.1-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.3 kB)
+Collecting joserfc>=1.6.0 (from authlib<2,>=1.6.6->google-adk>=2.7->warranty==0.1.0)
+  Downloading joserfc-1.7.4-py3-none-any.whl.metadata (3.1 kB)
+Collecting typing-inspection>=0.4.2 (from fastapi<1,>=0.133->google-adk>=2.7->warranty==0.1.0)
+  Downloading typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+Collecting annotated-doc>=0.0.2 (from fastapi<1,>=0.133->google-adk>=2.7->warranty==0.1.0)
+  Downloading annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+Collecting anyio<5.0.0,>=4.8.0 (from google-genai>=1.0->warranty==0.1.0)
+  Downloading anyio-4.14.2-py3-none-any.whl.metadata (4.6 kB)
+Collecting distro<2,>=1.7.0 (from google-genai>=1.0->warranty==0.1.0)
+  Downloading distro-1.9.0-py3-none-any.whl.metadata (6.8 kB)
+Collecting sniffio (from google-genai>=1.0->warranty==0.1.0)
+  Downloading sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+Collecting idna>=2.8 (from anyio<5.0.0,>=4.8.0->google-genai>=1.0->warranty==0.1.0)
+  Downloading idna-3.19-py3-none-any.whl.metadata (9.2 kB)
+Collecting pyasn1-modules>=0.2.1 (from google-auth>=2.47->google-auth[pyopenssl]>=2.47->google-adk>=2.7->warranty==0.1.0)
+  Downloading pyasn1_modules-0.4.2-py3-none-any.whl.metadata (3.5 kB)
+Collecting certifi (from httpx<1,>=0.27->google-adk>=2.7->warranty==0.1.0)
+  Downloading certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+Collecting httpcore==1.* (from httpx<1,>=0.27->google-adk>=2.7->warranty==0.1.0)
+  Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+Collecting h11>=0.16 (from httpcore==1.*->httpx<1,>=0.27->google-adk>=2.7->warranty==0.1.0)
+  Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting attrs>=22.2.0 (from jsonschema<5,>=4.23->google-adk>=2.7->warranty==0.1.0)
+  Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+Collecting jsonschema-specifications>=2023.03.6 (from jsonschema<5,>=4.23->google-adk>=2.7->warranty==0.1.0)
+  Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting referencing>=0.28.4 (from jsonschema<5,>=4.23->google-adk>=2.7->warranty==0.1.0)
+  Downloading referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting rpds-py>=0.25.0 (from jsonschema<5,>=4.23->google-adk>=2.7->warranty==0.1.0)
+  Downloading rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+Collecting opentelemetry-semantic-conventions==0.63b1 (from opentelemetry-sdk<=1.42.1,>=1.39->google-adk>=2.7->warranty==0.1.0)
+  Downloading opentelemetry_semantic_conventions-0.63b1-py3-none-any.whl.metadata (2.4 kB)
+Collecting annotated-types>=0.6.0 (from pydantic<3,>=2.12->google-adk>=2.7->warranty==0.1.0)
+  Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.46.5 (from pydantic<3,>=2.12->google-adk>=2.7->warranty==0.1.0)
+  Downloading pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+Collecting charset_normalizer<4,>=2 (from requests<3,>=2.32.4->google-adk>=2.7->warranty==0.1.0)
+  Downloading charset_normalizer-3.5.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (45 kB)
+Collecting urllib3<3,>=1.26 (from requests<3,>=2.32.4->google-adk>=2.7->warranty==0.1.0)
+  Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+Collecting aiohappyeyeballs>=2.5.0 (from aiohttp!=3.14.2->google-adk>=2.7->warranty==0.1.0)
+  Downloading aiohappyeyeballs-2.7.1-py3-none-any.whl.metadata (5.9 kB)
+Collecting aiosignal>=1.4.0 (from aiohttp!=3.14.2->google-adk>=2.7->warranty==0.1.0)
+  Downloading aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+Collecting frozenlist>=1.1.1 (from aiohttp!=3.14.2->google-adk>=2.7->warranty==0.1.0)
+  Downloading frozenlist-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+Collecting multidict<7.0,>=4.5 (from aiohttp!=3.14.2->google-adk>=2.7->warranty==0.1.0)
+  Downloading multidict-6.7.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.3 kB)
+Collecting propcache>=0.2.0 (from aiohttp!=3.14.2->google-adk>=2.7->warranty==0.1.0)
+  Downloading propcache-0.5.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (16 kB)
+Collecting yarl<2.0,>=1.17.0 (from aiohttp!=3.14.2->google-adk>=2.7->warranty==0.1.0)
+  Downloading yarl-1.24.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (103 kB)
+Collecting cffi>=2.0.0 (from cryptography->authlib<2,>=1.6.6->google-adk>=2.7->warranty==0.1.0)
+  Downloading cffi-2.1.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.5 kB)
+Collecting pycparser (from cffi>=2.0.0->cryptography->authlib<2,>=1.6.6->google-adk>=2.7->warranty==0.1.0)
+  Downloading pycparser-3.0-py3-none-any.whl.metadata (8.2 kB)
+Collecting googleapis-common-protos<2.0.0,>=1.69.2 (from google-api-core>=2.19->warranty==0.1.0)
+  Downloading googleapis_common_protos-1.75.2-py3-none-any.whl.metadata (8.5 kB)
+Collecting protobuf<8.0.0,>=6.33.5 (from google-api-core>=2.19->warranty==0.1.0)
+  Downloading protobuf-7.36.0-cp310-abi3-manylinux2014_x86_64.whl.metadata (595 bytes)
+Collecting proto-plus<2.0.0,>=1.26.1 (from google-api-core>=2.19->warranty==0.1.0)
+  Downloading proto_plus-1.28.4-py3-none-any.whl.metadata (2.2 kB)
+Collecting google-cloud-core<3.0.0,>=2.4.1 (from google-cloud-bigquery>=3.20->warranty==0.1.0)
+  Downloading google_cloud_core-2.7.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting google-resumable-media<3.0.0,>=2.0.0 (from google-cloud-bigquery>=3.20->warranty==0.1.0)
+  Downloading google_resumable_media-2.10.2-py3-none-any.whl.metadata (2.2 kB)
+Collecting python-dateutil<3.0.0,>=2.8.2 (from google-cloud-bigquery>=3.20->warranty==0.1.0)
+  Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+Collecting grpcio<2.0.0,>=1.59.0 (from google-api-core[grpc]<3.0.0,>=2.28.0->google-cloud-bigquery>=3.20->warranty==0.1.0)
+  Downloading grpcio-1.83.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.7 kB)
+Collecting grpcio-status<2.0.0,>=1.59.0 (from google-api-core[grpc]<3.0.0,>=2.28.0->google-cloud-bigquery>=3.20->warranty==0.1.0)
+  Downloading grpcio_status-1.83.1-py3-none-any.whl.metadata (1.2 kB)
+Collecting google-crc32c<2.0.0,>=1.0.0 (from google-resumable-media<3.0.0,>=2.0.0->google-cloud-bigquery>=3.20->warranty==0.1.0)
+  Downloading google_crc32c-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl.metadata (1.7 kB)
+Collecting six>=1.5 (from python-dateutil<3.0.0,>=2.8.2->google-cloud-bigquery>=3.20->warranty==0.1.0)
+  Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting grpc-google-iam-v1<1.0.0,>=0.14.0 (from google-cloud-run>=0.10->warranty==0.1.0)
+  Downloading grpc_google_iam_v1-0.14.5-py3-none-any.whl.metadata (8.8 kB)
+Collecting pyasn1<0.7.0,>=0.6.1 (from pyasn1-modules>=0.2.1->google-auth>=2.47->google-auth[pyopenssl]>=2.47->google-adk>=2.7->warranty==0.1.0)
+  Downloading pyasn1-0.6.4-py3-none-any.whl.metadata (8.4 kB)
+Downloading google_adk-2.8.0-py3-none-any.whl (4.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.5/4.5 MB 149.3 MB/s  0:00:00
+Downloading authlib-1.7.2-py2.py3-none-any.whl (259 kB)
+Downloading click-8.5.0-py3-none-any.whl (125 kB)
+Downloading fastapi-0.141.1-py3-none-any.whl (131 kB)
+Downloading google_genai-2.20.0-py3-none-any.whl (1.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.1/1.1 MB 482.0 MB/s  0:00:00
+Downloading anyio-4.14.2-py3-none-any.whl (125 kB)
+Downloading distro-1.9.0-py3-none-any.whl (20 kB)
+Downloading google_auth-2.57.0-py3-none-any.whl (259 kB)
+Downloading graphviz-0.21-py3-none-any.whl (47 kB)
+Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+Downloading jsonschema-4.26.0-py3-none-any.whl (90 kB)
+Downloading opentelemetry_api-1.42.1-py3-none-any.whl (61 kB)
+Downloading opentelemetry_sdk-1.42.1-py3-none-any.whl (170 kB)
+Downloading opentelemetry_semantic_conventions-0.63b1-py3-none-any.whl (203 kB)
+Downloading pydantic-2.13.5-py3-none-any.whl (472 kB)
+Downloading pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 464.9 MB/s  0:00:00
+Downloading python_dotenv-1.2.3-py3-none-any.whl (22 kB)
+Downloading python_multipart-0.0.32-py3-none-any.whl (30 kB)
+Downloading pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (801 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 801.6/801.6 kB 461.6 MB/s  0:00:00
+Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+Downloading charset_normalizer-3.5.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (250 kB)
+Downloading idna-3.19-py3-none-any.whl (68 kB)
+Downloading starlette-1.6.0-py3-none-any.whl (75 kB)
+Downloading tenacity-9.1.4-py3-none-any.whl (28 kB)
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Downloading tzlocal-5.4.4-py3-none-any.whl (18 kB)
+Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+Downloading uvicorn-0.52.4-py3-none-any.whl (79 kB)
+Downloading watchdog-6.0.0-py3-none-manylinux2014_x86_64.whl (79 kB)
+Downloading websockets-15.0.1-cp313-cp313-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (182 kB)
+Downloading aiohttp-3.14.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 400.7 MB/s  0:00:00
+Downloading multidict-6.7.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (254 kB)
+Downloading yarl-1.24.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (110 kB)
+Downloading aiohappyeyeballs-2.7.1-py3-none-any.whl (15 kB)
+Downloading aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+Downloading aiosqlite-0.22.1-py3-none-any.whl (17 kB)
+Downloading annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+Downloading certifi-2026.7.22-py3-none-any.whl (136 kB)
+Downloading cryptography-50.0.1-cp311-abi3-manylinux_2_34_x86_64.whl (4.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 223.5 MB/s  0:00:00
+Downloading cffi-2.1.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (221 kB)
+Downloading frozenlist-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (234 kB)
+Downloading google_api_core-2.34.0-py3-none-any.whl (180 kB)
+Downloading googleapis_common_protos-1.75.2-py3-none-any.whl (307 kB)
+Downloading proto_plus-1.28.4-py3-none-any.whl (50 kB)
+Downloading protobuf-7.36.0-cp310-abi3-manylinux2014_x86_64.whl (340 kB)
+Downloading google_cloud_bigquery-3.44.0-py3-none-any.whl (267 kB)
+Downloading google_cloud_core-2.7.0-py3-none-any.whl (31 kB)
+Downloading google_resumable_media-2.10.2-py3-none-any.whl (81 kB)
+Downloading google_crc32c-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl (33 kB)
+Downloading grpcio-1.83.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.0/7.0 MB 245.9 MB/s  0:00:00
+Downloading grpcio_status-1.83.1-py3-none-any.whl (14 kB)
+Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+Downloading google_cloud_firestore-2.29.0-py3-none-any.whl (432 kB)
+Downloading google_cloud_monitoring-2.31.0-py3-none-any.whl (391 kB)
+Downloading google_cloud_run-0.16.1-py3-none-any.whl (459 kB)
+Downloading grpc_google_iam_v1-0.14.5-py3-none-any.whl (32 kB)
+Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+Downloading joserfc-1.7.4-py3-none-any.whl (71 kB)
+Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Downloading packaging-26.3-py3-none-any.whl (129 kB)
+Downloading propcache-0.5.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (61 kB)
+Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)
+Downloading pyasn1-0.6.4-py3-none-any.whl (84 kB)
+Downloading referencing-0.37.0-py3-none-any.whl (26 kB)
+Downloading rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (365 kB)
+Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Downloading pycparser-3.0-py3-none-any.whl (48 kB)
+Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+Building wheels for collected packages: warranty
+  Building wheel for warranty (pyproject.toml): started
+  Building wheel for warranty (pyproject.toml): finished with status 'done'
+  Created wheel for warranty: filename=warranty-0.1.0-py3-none-any.whl size=103615 sha256=480407754926b758bc34acbd071b3b001cc7584282dc0d54dfea7760581e7b3e
+  Stored in directory: /tmp/pip-ephem-wheel-cache-8k266ns0/wheels/19/62/e5/caf0138816cbbc0c92b8fb19626cf9ac282f22194a65231821
+Successfully built warranty
+Installing collected packages: websockets, watchdog, warranty, urllib3, tzlocal, typing-extensions, tenacity, sniffio, six, rpds-py, pyyaml, python-multipart, python-dotenv, pycparser, pyasn1, protobuf, propcache, packaging, multidict, idna, h11, graphviz, google-crc32c, frozenlist, distro, click, charset_normalizer, certifi, attrs, annotated-types, annotated-doc, aiosqlite, aiohappyeyeballs, yarl, uvicorn, typing-inspection, requests, referencing, python-dateutil, pydantic-core, pyasn1-modules, proto-plus, opentelemetry-api, httpcore, grpcio, googleapis-common-protos, google-resumable-media, cffi, anyio, aiosignal, starlette, pydantic, opentelemetry-semantic-conventions, jsonschema-specifications, httpx, grpcio-status, cryptography, aiohttp, opentelemetry-sdk, jsonschema, joserfc, grpc-google-iam-v1, google-auth, fastapi, google-api-core, authlib, google-genai, google-cloud-core, google-cloud-run, google-cloud-monitoring, google-cloud-firestore, google-cloud-bigquery, google-adk
+
+Successfully installed aiohappyeyeballs-2.7.1 aiohttp-3.14.3 aiosignal-1.4.0 aiosqlite-0.22.1 annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.14.2 attrs-26.1.0 authlib-1.7.2 certifi-2026.7.22 cffi-2.1.1 charset_normalizer-3.5.1 click-8.5.0 cryptography-50.0.1 distro-1.9.0 fastapi-0.141.1 frozenlist-1.8.0 google-adk-2.8.0 google-api-core-2.34.0 google-auth-2.57.0 google-cloud-bigquery-3.44.0 google-cloud-core-2.7.0 google-cloud-firestore-2.29.0 google-cloud-monitoring-2.31.0 google-cloud-run-0.16.1 google-crc32c-1.8.0 google-genai-2.20.0 google-resumable-media-2.10.2 googleapis-common-protos-1.75.2 graphviz-0.21 grpc-google-iam-v1-0.14.5 grpcio-1.83.1 grpcio-status-1.83.1 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.19 joserfc-1.7.4 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 multidict-6.7.1 opentelemetry-api-1.42.1 opentelemetry-sdk-1.42.1 opentelemetry-semantic-conventions-0.63b1 packaging-26.3 propcache-0.5.2 proto-plus-1.28.4 protobuf-7.36.0 pyasn1-0.6.4 pyasn1-modules-0.4.2 pycparser-3.0 pydantic-2.13.5 pydantic-core-2.46.5 python-dateutil-2.9.0.post0 python-dotenv-1.2.3 python-multipart-0.0.32 pyyaml-6.0.3 referencing-0.37.0 requests-2.34.2 rpds-py-2026.6.3 six-1.17.0 sniffio-1.3.1 starlette-1.6.0 tenacity-9.1.4 typing-extensions-4.16.0 typing-inspection-0.4.4 tzlocal-5.4.4 urllib3-2.7.0 uvicorn-0.52.4 warranty-0.1.0 watchdog-6.0.0 websockets-15.0.1 yarl-1.24.5
+[91mWARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+[0mRemoving intermediate container f3ae36fc9eb5
+ ---> 1705cb64e494
+Step 7/7 : CMD ["python", "-m", "warranty.server"]
+ ---> Running in e9a327780e6c
+Removing intermediate container e9a327780e6c
+ ---> 3d1db82aeb98
+Successfully built 3d1db82aeb98
+Successfully tagged us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:27b61a6
+PUSH
+Pushing us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:27b61a6
+The push refers to repository [us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api]
+b649a8453304: Preparing
+e8dc11d7d1d0: Preparing
+6ee76217575c: Preparing
+0213a6d600bb: Preparing
+e3525ceb8ab5: Preparing
+d007230de583: Preparing
+96164191fc09: Preparing
+411a86676185: Preparing
+e3525ceb8ab5: Layer already exists
+96164191fc09: Layer already exists
+d007230de583: Layer already exists
+e8dc11d7d1d0: Pushed
+6ee76217575c: Pushed
+0213a6d600bb: Pushed
+411a86676185: Pushed
+b649a8453304: Pushed
+27b61a6: digest: sha256:70a89f7a98239a7098c17007f3dbe0ab955bcfcb5e84fe1ae33b4da34b4c72bd size: 1995
+DONE
+--------------------------------------------------------------------------------
+ID                                    CREATE_TIME                DURATION  SOURCE                                                                                      IMAGES                                                                  STATUS
+9349b85a-6fb0-49ad-acc0-92772b4a2814  2026-08-29T04:07:57+00:00  46S       gs://warranty-hack_cloudbuild/source/1787976475.44698-a91763ce5e994987bb49edeb9c9604f7.tgz  us-central1-docker.pkg.dev/warranty-hack/warranty/warranty-api:27b61a6  SUCCESS
+Deploying container to Cloud Run service [[1mwarranty-api[m] in project [[1mwarranty-hack[m] region [[1mus-central1[m]
+Deploying...
+Setting IAM Policy......................done
+Creating Revision..............................................................................................................................................................done
+Routing traffic.....done
+Done.
+Service [[1mwarranty-api[m] revision [[1mwarranty-api-00005-8x9[m] has been deployed and is serving [1m100[m percent of traffic.
+Service URL: [1mhttps://warranty-api-450305106907.us-central1.run.app[m
+
+⚠️ 배포가 끝났다는 것과 서비스가 산다는 것은 다르다 — design 10§5의 뒤쪽 절반(T2-4).
+⚠️ 증거를 docs/evidence/deploy-$(date +%F).log에 남길 것 (REQ-901 · design 10§7).

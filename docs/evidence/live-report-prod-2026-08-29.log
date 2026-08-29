@@ -1,0 +1,44 @@
+# 프로덕션 일간 리포트 — 배포된 에이전트가 원장에서 헤드라인을 냈다 · 2026-08-29
+#
+# 대본(design 11§3)의 3:30 「리포트」 비트가 실물에서 도는지 확인한 기록이다.
+
+## 0. 배포
+빌드    9349b85a-6fb0-49ad-acc0-92772b4a2814  SUCCESS  46S
+태그    27b61a6
+리비전  warranty-api-00005-8x9 — 트래픽 100%
+전체 로그 docs/evidence/deploy-2026-08-29b.log
+
+## 1. 경계
+GET  /livez                → 200 (공개)
+POST /agent:chat 무헤더     → 401
+
+## 2. 요청 — 자연어 한 줄
+{"message":"Give me the daily accountability report for 2026-08-28. Show executed,
+ improved, and rolled back as separate numbers, and say plainly what that combination means."}
+
+## 3. 응답 — HTTP 200 · 14.13s
+
+  Daily Accountability Report: 2026-08-28
+  * Executed:     1
+  * Improved:     0
+  * Rolled Back:  1
+  * Improvement Rate: 0%
+
+  One remediation action was executed, but post-execution verification showed that the
+  resource's health signal did not recover (improved: 0). Because execution alone does not
+  count as success under the operational warranty, the system automatically reverted the
+  change (rolled_back: 1) to return the resource to its prior state rather than leaving an
+  unverified modification in place.
+
+## 4. 이 숫자가 어디서 왔나
+각본이 아니다. 08-28에 실제로 일어난 조치 하나의 결과를 Firestore 원장에서 긁어 온 것이다:
+  - p95 674.17 → 988.60 ms (Cloud Monitoring, 같은 필터·aligner·reducer)
+  - 판정 not_recovered → 건강한 리비전으로 트래픽 100% 원자적 전환
+  - 배분을 되읽어 확인
+  ⇒ docs/evidence/live-adk-remediate-2026-08-28.log
+
+## 5. 왜 이 한 줄이 이 프로젝트의 전부인가
+`executed 1`만 세는 도구는 이것을 **성공**이라 부른다.
+이 시스템은 같은 사건에 대해 **세 문장을 따로** 말한다:
+  실행했다(executed=1) · 나아지지 않았다(improved=0) · 되돌렸다(rolled_back=1).
+가운데 문장이 대부분의 운영 에이전트에게 없는 칸이다.
