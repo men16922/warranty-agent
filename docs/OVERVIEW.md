@@ -1,11 +1,13 @@
 # warranty — 개요
 
-> ▶ **NEXT SESSION: 첫 행동 = 부하를 켠 채로 4분 영상을 녹화한다(T8-3).** 코드·배포는 끝났다.
-> ✅ **Day-1도 공개 URL에서 실물이다.** 배포된 에이전트(`00004-4db` · `32ffcad`)가 자연어 한
-> 줄로 `day1-prod-demo`를 **실제로 만들고** 계약 `01m15qfgxv5ed6rzgr7bjzp1fk`를 함께 냈다 —
-> 가역성이 `irreversible`인 **이유까지 응답에 있다**(REQ-604).
-> ⚠️ **신호는 트래픽이 흐르는 동안에만 존재한다**(부하 없이는 점 0·`null`, 아래에서는 p95
-> `674.17 ms`) — scale-to-zero의 대가다. ⇒ **촬영은 부하를 켠 채로 한다.**
+> ▶ **NEXT SESSION: [`plans/2026-08-29-llm-serving-pivot.md`](plans/2026-08-29-llm-serving-pivot.md)의
+> P0 — `warranty-hack`에 L4 GPU 쿼터가 있는지 확인(30분). 그 답이 갈래를 정한다.**
+> ⛔ **결정 대기**: 지금 논지는 Flagger·Argo가 이미 한다. 계획은 대상을 **LLM 서빙 goodput**으로
+> 옮기자는 것 — 동시성 변경은 새 리비전을 만들어 롤백이 그대로라 어댑터 하나면 된다.
+> ⚠️ 영상(T8-3)은 어느 갈래든 **남은 유일한 필수 산출물**이다. 대본 `submission/SCRIPT.md`.
+> ✅ **Day-1·Day-2·리포트가 전부 공개 URL에서 실물이다**(`00005-8x9` · `27b61a6`) — 만들고
+> 계약을 내고, 조치하고 되돌리고, `executed 1 · improved 0 · rolled_back 1`을 원장에서 낸다.
+> ⚠️ **신호는 트래픽이 흐르는 동안에만 존재한다** — ⇒ **촬영은 부하를 켠 채로 한다.**
 > ⭐ **실물 URL** (전부 `-povpqj6m5a-uc.a.run.app`): `warranty-api`(공개) ·
 > `demo-target`(리비전 2개) · `day1-warranty-demo`·`day1-prod-demo`(에이전트가 만든 것 · IAM 비어 있음).
 > ⚠️ 남은 `[auto]`·`.env` 부트스트랩은 [`tasks.md`](../specs/warranty/tasks.md)가 권위다.
@@ -190,7 +192,7 @@ GCP       ⭐ Firestore Native 계약·원장·예산 + Monitoring p95 + Cloud R
 어댑터    `RunControl`·`SignalSource`·Firestore·실행자·예산을 `runtime.py` 한 곳에서 합성
 README    재현 절차 + §4 아키텍처 직접 링크가 게이트를 지난다(T11-5 · T13-4)
 응답      실물 ADK 최종 응답에 판정·검증·롤백 근거 노출. 직접 `/actions/*` 경로는 아직 501
-서버      ⭐ 배포 `00004-4db`(이미지 `32ffcad`)가 트래픽 100%. Day-1·Day-2 둘 다 프로덕션 실물
+서버      ⭐ 배포 `00005-8x9`(이미지 `27b61a6`)가 트래픽 100%. Day-1·Day-2·리포트 전부 실물
 ```
 
 ⚠️ **여기에 숫자를 세어 적지 않는다**(T0-6의 교훈) — 실제로 썩어 있었다: 이 상자가 말하던

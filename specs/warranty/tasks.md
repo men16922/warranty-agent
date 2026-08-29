@@ -17,7 +17,7 @@
 
 - 제출: **2026-09-01 09:00 KST** · teardown: **09-02** · Free Trial 만료: **09-06**.
 - **다음**: 부하를 켠 채 4분 영상을 녹화한다(T8-3) — 신호는 T8-1에서 살아났다.
-- 현재 실물: `warranty-api` 리비전 `00004-4db`(이미지 `32ffcad` · Day-1·Day-2 둘 다 실물) +
+- 현재 실물: `warranty-api` 리비전 `00005-8x9`(이미지 `27b61a6` · Day-1·Day-2·리포트 실물) +
   `demo-target`(리비전 2개) + 에이전트가 만든 `day1-warranty-demo`·`day1-prod-demo`.
 - 오프라인 기준선: 이 파일 하단의 `make check` 한 곳만 권위로 둔다.
 
@@ -43,7 +43,7 @@
 ### P1 — 제출 가능한 데모
 
 - [~] **T5-1** 응답 렌더러와 인증된 `/agent:chat` 콜백 경로는 끝났다(`wire.py` · M-224~M-243).
-  리비전 `00003-z9m`이 트래픽 100%이고 프로덕션 `/agent:chat`이 유효 토큰에 **200**을 낸다
+  프로덕션 `/agent:chat`이 유효 토큰에 **200**을 낸다
   (무헤더·틀린 토큰은 401 유지). 그 요청 하나가 Firestore 원장에 model_call 두 행을 남겼다 —
   `docs/evidence/live-agent-chat-2026-08-28.log`.
   ⛔ `POST /actions/{action_id}:remediate`는 아직 501이고, **미구현이 아니라 결정 대기다.**
