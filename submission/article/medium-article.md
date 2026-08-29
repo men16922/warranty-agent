@@ -2,6 +2,8 @@
 
 ### Building an accountability ledger for agent fleets on Google Cloud — with ADK, Cloud Run, Cloud Monitoring, and Firestore. Including the four times the system failed its own test.
 
+![warranty](https://raw.githubusercontent.com/men16922/warranty-agent/main/submission/gallery/logo.png)
+
 ---
 
 You gave a fleet of agents access to production. This morning you open the log.
@@ -65,9 +67,8 @@ Not a runbook. Not a wiki page. A record, in Firestore, next to the thing it des
 Four things the Day-2 agent no longer has to guess: **which signal means health**, **what counts
 as recovery**, **where to roll back to**, and **whether rolling back is even possible.**
 
-> [Image 1 — `01-architecture.png`]
-> *Architecture. Day 1 writes the contract; Day 2 reads it. The gate is deterministic code —
-> the model picks the tool and judges only ambiguous verdicts.*
+![Architecture. Day 1 writes the contract; Day 2 reads it. The gate is deterministic code — the model picks the tool and judges only the ambiguous verdicts.](https://raw.githubusercontent.com/men16922/warranty-agent/main/submission/gallery/01-architecture.png)
+*Architecture. Day 1 writes the contract; Day 2 reads it. The gate is deterministic code — the model picks the tool and judges only the ambiguous verdicts.*
 
 ---
 
@@ -102,8 +103,8 @@ buys something. A Cloud Run traffic split is **one API call, atomic, and readabl
 generic VM you would have to build all three of those properties yourself, and the third one is
 the one everybody skips.
 
-> [Image 2 — `02-the-loop.png`]
-> *The loop, and the three verdicts it can produce.*
+![The loop, and the three verdicts it can produce.](https://raw.githubusercontent.com/men16922/warranty-agent/main/submission/gallery/02-the-loop.png)
+*The loop, and the three verdicts it can produce.*
 
 ---
 
@@ -163,11 +164,11 @@ verified_traffic: { "demo-target-00001-swl": 100 }
 
 Same shape of action. Two different verdicts. **The ledger says which is which.**
 
-> [Image 3 — `03-it-fixed-something.png`]
-> *A real production response: 990 ms → 674 ms, recovered, no rollback needed.*
+![A real production response: 990 ms → 674 ms, recovered, no rollback needed.](https://raw.githubusercontent.com/men16922/warranty-agent/main/submission/gallery/03-it-fixed-something.png)
+*A real production response: 990 ms → 674 ms, recovered, no rollback needed.*
 
-> [Image 4 — `04-it-rolled-itself-back.png`]
-> *The other direction: 674 ms → 990 ms, rolled back, and confirmed from the server.*
+![The other direction: 674 ms → 990 ms, rolled back — and confirmed from the server, not from memory.](https://raw.githubusercontent.com/men16922/warranty-agent/main/submission/gallery/04-it-rolled-itself-back.png)
+*The other direction: 674 ms → 990 ms, rolled back — and confirmed from the server, not from memory.*
 
 ---
 
@@ -196,14 +197,14 @@ A tool that counts only completions reports **fourteen successes**. This one say
 not clearing the ledger to make the ratio look better. That would be the exact thing this project
 argues against.
 
-> [Image 5 — `05-the-report.png`]
-> *`improved` is the only column that had to be earned twice — once by acting, once by measuring.*
+!["improved" is the only column that had to be earned twice — once by acting, once by measuring.](https://raw.githubusercontent.com/men16922/warranty-agent/main/submission/gallery/05-the-report.png)
+*"improved" is the only column that had to be earned twice — once by acting, once by measuring.*
 
 The ledger has a read view: the deployed service serves it at `GET /`. Read-only, no buttons,
 nothing to install. It is not a control plane — it is a receipt.
 
-> [Image 6 — `06-live-ledger-page.png`]
-> *The live page, served by the agent itself on Cloud Run.*
+![The live page, served by the agent itself on Cloud Run. Read-only — there is no button here.](https://raw.githubusercontent.com/men16922/warranty-agent/main/submission/gallery/06-live-ledger-page.png)
+*The live page, served by the agent itself on Cloud Run. Read-only — there is no button here.*
 
 ### The cost column, and the honest zero
 
@@ -304,8 +305,8 @@ def test_the_deploy_actually_carries_that_timeout():
     assert f"--timeout={REQUEST_TIMEOUT_S}" in deploy_argv(...)
 ```
 
-> [Image 7 — `07-it-failed-its-own-test.png`]
-> *All four looked green in the logs. Three are now guards; one is in the record.*
+![All four looked green in the logs. Three are now guards with mutations; the fourth is in the record.](https://raw.githubusercontent.com/men16922/warranty-agent/main/submission/gallery/07-it-failed-its-own-test.png)
+*All four looked green in the logs. Three are now guards with mutations; the fourth is in the record.*
 
 ### How we found them
 
