@@ -39,22 +39,6 @@ def test_a_valid_bearer_token_is_authorized_and_the_scheme_is_case_insensitive()
     assert authenticate(f"{AUTH_SCHEME} {TOKEN}", TOKEN) is AuthVerdict.AUTHORIZED
     assert authenticate(f"bearer {TOKEN}", TOKEN) is AuthVerdict.AUTHORIZED
 
-    v_stat, u_stat = auth.authenticate_bearer_or_firebase(f"Bearer {TOKEN}", TOKEN)
-    assert v_stat is AuthVerdict.AUTHORIZED and u_stat is not None and u_stat.uid == "api"
-
-    def _fb_verifier(id_token: str) -> auth.AuthenticatedUser | None:
-        if id_token == "valid-fb":
-            return auth.AuthenticatedUser(uid="u42", email="u@test.com", provider="firebase")
-        return None
-
-    v_fb, u_fb = auth.authenticate_bearer_or_firebase(
-        "Bearer valid-fb", TOKEN, firebase_verifier=_fb_verifier
-    )
-    assert v_fb is AuthVerdict.AUTHORIZED and u_fb is not None and u_fb.uid == "u42"
-
-    v_fail, u_fail = auth.authenticate_bearer_or_firebase("Bearer whatever", None)
-    assert v_fail is AuthVerdict.NOT_CONFIGURED and u_fail is None
-
 
 def test_secret_comparison_uses_compare_digest(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[bytes, bytes]] = []

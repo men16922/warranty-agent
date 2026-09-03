@@ -26,12 +26,10 @@ from warranty.adapters.live_store import (
     StoreError,
     active_contract_conditions,
     contract_document,
-    contracts_collection_path,
     decode,
     decode_dataclass,
     encode,
     entry_document,
-    ledger_collection_path,
     one_active,
 )
 from warranty.domain.attribution import Attribution, Method
@@ -327,10 +325,6 @@ def test_one_active_contract_comes_back_as_the_contract() -> None:
 
 def test_collections_are_named_in_exactly_one_place() -> None:
     assert (CONTRACTS, LEDGER) == ("contracts", "ledger")
-    assert contracts_collection_path(None) == "contracts"
-    assert ledger_collection_path(None) == "ledger"
-    assert contracts_collection_path("devops-uid-42") == "users/devops-uid-42/contracts"
-    assert ledger_collection_path("devops-uid-42") == "users/devops-uid-42/ledger"
 
 
 # ── ⛔ 불변식의 두 번째 사본이 여기 생기지 않았는가 ──────────────────────────────

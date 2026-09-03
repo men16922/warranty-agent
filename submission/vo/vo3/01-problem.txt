@@ -1,0 +1,1 @@
+[serious] You let a fleet of agents touch production. This morning, the log says fourteen actions, all completed successfully. [pause] Fourteen green lines. [thoughtful] Now answer one question. Which of them actually helped?

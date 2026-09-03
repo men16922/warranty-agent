@@ -98,35 +98,20 @@ class LiveAgentChat:
         message = body.get("message")
         if not isinstance(message, str) or not message.strip():
             raise AgentChatError("message가 없거나 비었다")
-        user_id = str(body.get("user_id") or "api").strip() or "api"
-        raw_session_id = body.get("session_id")
         with self._lock:
             runner, spec, model_calls = self._runtime()
-            if isinstance(raw_session_id, str) and raw_session_id.strip():
-                session_id = raw_session_id.strip()
-            else:
-                self._session_number += 1
-                session_id = f"request-{self._session_number}"
-
-            try:
-                get_sess = getattr(runner.session_service, "get_session_sync", None)
-                if callable(get_sess):
-                    get_sess(app_name=spec.name, user_id=user_id, session_id=session_id)
-                else:
-                    runner.session_service.create_session_sync(
-                        app_name=spec.name, user_id=user_id, session_id=session_id
-                    )
-            except Exception:
-                runner.session_service.create_session_sync(
-                    app_name=spec.name, user_id=user_id, session_id=session_id
-                )
+            self._session_number += 1
+            session_id = f"request-{self._session_number}"
+            runner.session_service.create_session_sync(
+                app_name=spec.name, user_id="api", session_id=session_id
+            )
             from google.genai import types  # type: ignore[import-not-found]
 
             events: list[Any] = []
             try:
                 events.extend(
                     runner.run(
-                        user_id=user_id,
+                        user_id="api",
                         session_id=session_id,
                         new_message=types.Content(
                             role="user", parts=[types.Part.from_text(text=message.strip())]
@@ -143,11 +128,7 @@ class LiveAgentChat:
                 )
                 raise
             record_adk_events(events, model=spec.model, session_id=session_id, meter=model_calls)
-            return {
-                "message": final_text(events),
-                "session_id": session_id,
-                "user_id": user_id,
-            }
+            return {"message": final_text(events), "session_id": session_id}
 
 
 def lazy_live_agent_chat(

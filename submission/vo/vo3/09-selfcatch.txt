@@ -1,0 +1,1 @@
+[serious] One more thing, and it is the honest part. [pause] While building this demo, the system failed its own test. Four times. [thoughtful] It measured a window that still held the past. It held a recovery threshold no action could ever reach. [pause] All of them looked green in the logs. We found them by staring at two numbers that should not have disagreed.

@@ -1,0 +1,1 @@
+[curious] And the last column answers the question your finance team asks. Resource label means that row can be found in the bill. None means it cannot — and we say so, instead of printing a number we cannot check.
