@@ -63,6 +63,8 @@ IMPORT_TO_DIST: dict[str, str] = {
     "google.cloud.firestore": "google-cloud-firestore",
     "google.api_core": "google-api-core",
     "google.genai": "google-genai",
+    "google.cloud.secretmanager": "google-cloud-secret-manager",
+    "firebase_admin": "firebase-admin",
     "mypy": "mypy",
     "pytest": "pytest",
     "ruff": "ruff",

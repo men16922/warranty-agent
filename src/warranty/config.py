@@ -150,7 +150,12 @@ IMAGE_REPO = "warranty"
 
 #: 인프라 라벨 — design 10§4. ⚠️ 귀속 라벨(`wr_entry`)과 **섞지 않는다**: 화해 질의가
 #: 인프라 라벨로 매칭하면 인프라 비용이 조치에 귀속된다.
-INFRA_LABELS: tuple[tuple[str, str], ...] = (("wr_project", "warranty"), ("wr_env", "hack"))
+#: ⭐ `dev-tutorial=cloud-run-ai-challenge`는 Cloud Run AI Challenge 공식 필수 라벨이다.
+INFRA_LABELS: tuple[tuple[str, str], ...] = (
+    ("wr_project", "warranty"),
+    ("wr_env", "hack"),
+    ("dev-tutorial", "cloud-run-ai-challenge"),
+)
 
 #: 컨테이너가 받아 가야 하는 설정 변수. ⚠️ `load_settings`가 **기본값을 안 주므로**
 #: 이 목록이 빠지면 컨테이너는 부팅하다 `ConfigError`로 죽는다 — 조용한 실패가 아니라
@@ -162,6 +167,10 @@ RUNTIME_ENV_KEYS = ("WR_PROJECT_ID", "WR_REGION", "WR_VERTEX_LOCATION", "WR_MODE
 AGENT_AUTH_ENV_KEY = "WR_AGENT_AUTH_TOKEN"
 AGENT_AUTH_SECRET_NAME = "warranty-agent-auth"
 AGENT_AUTH_SECRET_VERSION = "latest"
+
+#: Google AI Studio / Gemini API 키 (Secret Manager 또는 환경변수 주입).
+GEMINI_API_KEY_ENV_KEY = "GEMINI_API_KEY"
+GEMINI_API_KEY_SECRET_NAME = "gemini-api-key"
 
 #: ⛔ **포트의 유일한 출처다** (T12-1). Cloud Run이 컨테이너에 주입하는 변수 이름이고,
 #:    `Dockerfile`도 `scripts/deploy.sh`도 이 숫자를 다시 적지 않는다. 다시 적는 순간

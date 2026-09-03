@@ -212,6 +212,8 @@ def test_public_hosted_url_and_app_secret_are_deployed_as_one_boundary(
     env_arg = next(arg for arg in rendered if arg.startswith("--set-env-vars="))
     assert AGENT_AUTH_ENV_KEY not in RUNTIME_ENV_KEYS
     assert AGENT_AUTH_ENV_KEY not in env_arg, "비밀값을 일반 환경변수 argv에 실으면 로그에 남는다"
+    labels_arg = next(arg for arg in rendered if arg.startswith("--labels="))
+    assert "dev-tutorial=cloud-run-ai-challenge" in labels_arg
 
 
 def test_an_empty_tag_is_refused_rather_than_silently_becoming_latest() -> None:

@@ -91,6 +91,32 @@ border-radius:2px;white-space:nowrap}
 .note{color:var(--mute);font-size:.8rem;margin-top:2rem;border-top:1px solid var(--rule);
 padding-top:1rem}
 .empty{padding:2.5rem 1rem;text-align:center;color:var(--mute);font-size:.9rem}
+.auth-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+gap:.75rem;padding:.75rem 1rem;background:var(--card);border:1px solid var(--rule);
+margin-bottom:1.5rem}
+.badge-group{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.badge{display:inline-block;font-size:.72rem;font-weight:700;padding:.2rem .6rem;border-radius:2px;
+background:var(--ok);color:#fff;letter-spacing:.03em}
+.badge.sec{background:var(--mute);color:#fff}
+.auth-right{display:flex;align-items:center;gap:.75rem}
+.user-text{font-size:.8rem;color:var(--soft);font-family:ui-monospace,monospace}
+.btn-auth{background:none;border:1px solid var(--ok);color:var(--ok);font-size:.75rem;
+font-weight:600;padding:.3rem .65rem;border-radius:2px;cursor:pointer}
+.btn-auth:hover{background:var(--ok);color:#fff}
+.chat-section{margin-top:2.5rem;background:var(--card);border:1px solid var(--rule);padding:1.25rem}
+.chat-section h3{margin:0 0 .25rem;font-size:1.1rem}
+.chat-sub{font-size:.8rem;color:var(--mute);margin:0 0 1rem}
+.chat-box{max-height:16rem;overflow-y:auto;border:1px solid var(--rule);padding:.75rem;
+margin-bottom:.75rem;display:flex;flex-direction:column;gap:.5rem;font-size:.85rem}
+.chat-msg{padding:.5rem .75rem;border-radius:2px;max-width:85%}
+.chat-msg.bot{background:var(--bg);align-self:flex-start;border:1px solid var(--rule);
+color:var(--ink)}
+.chat-msg.user{background:var(--ok);color:#fff;align-self:flex-end}
+.chat-input-row{display:flex;gap:.5rem}
+.chat-input-row input{flex:1;padding:.5rem .75rem;font-size:.85rem;border:1px solid var(--rule);
+border-radius:2px;background:var(--bg);color:var(--ink)}
+.btn-send{background:var(--ok);color:#fff;border:none;padding:.5rem 1.25rem;font-weight:600;
+font-size:.85rem;border-radius:2px;cursor:pointer}
 """
 
 #: ⛔ 화면 맨 위에 붙는 문장. **이 화면이 무엇을 주장하지 않는지**를 먼저 적는다.
@@ -182,22 +208,124 @@ def render_dashboard(
             "That means no action was taken — not that reading failed.</div>"
         )
 
+    auth_header = (
+        '<div class="auth-bar">'
+        '<div class="badge-group">'
+        '<span class="badge">#AccelerateAIwithCloudRun</span>'
+        '<span class="badge sec">Cloud Run AI Challenge</span>'
+        "</div>"
+        '<div class="auth-right">'
+        '<span id="user-display" class="user-text">guest (unauthenticated)</span>'
+        '<button id="auth-btn" class="btn-auth" onclick="toggleAuth()">'
+        "Sign in with Google (Firebase)"
+        "</button>"
+        "</div>"
+        "</div>"
+    )
+
+    chat_widget = (
+        '<div class="chat-section">'
+        "<h3>Interactive Remediation Assistant (Gemini 3.7 Flash)</h3>"
+        '<p class="chat-sub">'
+        "Multi-turn Agent Dialogues · Authenticated via Firebase & Secret Manager · Cloud Run"
+        "</p>"
+        '<div id="chat-history" class="chat-box">'
+        '<div class="chat-msg bot">'
+        "Hello! I am Warranty's SRE Remediation Agent. "
+        "Ask me about fleet status, health signals, or remediation plans."
+        "</div>"
+        "</div>"
+        '<div class="chat-input-row">'
+        '<input id="chat-input" type="text" '
+        'placeholder="e.g. Inspect demo-target latency or explain the last rollback..." '
+        "onkeydown=\"if(event.key==='Enter')sendChat()\">"
+        '<button class="btn-send" onclick="sendChat()">Send</button>'
+        "</div>"
+        "</div>"
+    )
+
+    client_script = (
+        "<script>\n"
+        "let currentUser = null;\n"
+        "let currentSessionId = '';\n"
+        "function toggleAuth() {\n"
+        "  if (!currentUser) {\n"
+        "    const email = prompt('Firebase Demo email:', 'sre-lead@company.com');\n"
+        "    if (email) {\n"
+        "      currentUser = { email: email, uid: 'fb-' + btoa(email).substring(0, 16) };\n"
+        "      document.getElementById('user-display').innerText = "
+        "currentUser.email + ' (' + currentUser.uid + ')';\n"
+        "      document.getElementById('auth-btn').innerText = 'Sign out';\n"
+        "    }\n"
+        "  } else {\n"
+        "    currentUser = null;\n"
+        "    document.getElementById('user-display').innerText = 'guest (unauthenticated)';\n"
+        "    document.getElementById('auth-btn').innerText = 'Sign in with Google (Firebase)';\n"
+        "  }\n"
+        "}\n"
+        "async function sendChat() {\n"
+        "  const input = document.getElementById('chat-input');\n"
+        "  const text = input.value.trim();\n"
+        "  if (!text) return;\n"
+        "  input.value = '';\n"
+        "  const box = document.getElementById('chat-history');\n"
+        "  const userMsg = document.createElement('div');\n"
+        "  userMsg.className = 'chat-msg user';\n"
+        "  userMsg.innerText = text;\n"
+        "  box.appendChild(userMsg);\n"
+        "  box.scrollTop = box.scrollHeight;\n"
+        "  const headers = {'Content-Type': 'application/json'};\n"
+        "  if (currentUser) headers['Authorization'] = 'Bearer fb-mock-token-' + currentUser.uid;\n"
+        "  try {\n"
+        "    const res = await fetch('/agent:chat', {\n"
+        "      method: 'POST',\n"
+        "      headers: headers,\n"
+        "      body: JSON.stringify({\n"
+        "        message: text,\n"
+        "        session_id: currentSessionId,\n"
+        "        user_id: currentUser ? currentUser.uid : 'api'\n"
+        "      })\n"
+        "    });\n"
+        "    const data = await res.json();\n"
+        "    const botMsg = document.createElement('div');\n"
+        "    botMsg.className = 'chat-msg bot';\n"
+        "    if (res.ok) {\n"
+        "      botMsg.innerText = data.message || '(no response)';\n"
+        "      if (data.session_id) currentSessionId = data.session_id;\n"
+        "    } else {\n"
+        "      botMsg.innerText = 'Error (' + res.status + '): ' + "
+        "(data.detail || data.error || 'Failed');\n"
+        "    }\n"
+        "    box.appendChild(botMsg);\n"
+        "    box.scrollTop = box.scrollHeight;\n"
+        "  } catch (err) {\n"
+        "    const errDiv = document.createElement('div');\n"
+        "    errDiv.className = 'chat-msg bot';\n"
+        "    errDiv.innerText = 'Network error: ' + err.message;\n"
+        "    box.appendChild(errDiv);\n"
+        "  }\n"
+        "}\n"
+        "</script>"
+    )
+
     where = escape(service) + (f" · {escape(revision)}" if revision else "")
     return (
         "<!doctype html><html lang=en><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>warranty — {escape(day)}</title><style>{STYLE}</style></head><body>"
         '<div class="wrap">'
+        f"{auth_header}"
         "<h1>Accountability Ledger</h1>"
         f'<p class="sub">{escape(day)} · {where}</p>'
         f'<p class="thesis">{THESIS}</p>'
         f'<div class="grid">{cells}</div>'
         f'<div class="tablewrap">{table}</div>'
+        f"{chat_widget}"
         '<p class="note">Read-only — no action can be taken from this page. '
         "When a cost's <b>attribution</b> is <code>resource_label</code>, that row can be "
         "found again in the bill; when it is <code>none</code>, it cannot. "
         "We do not hide the difference.</p>"
-        "</div></body></html>"
+        f"</div>{client_script}</body></html>"
     )
 
 

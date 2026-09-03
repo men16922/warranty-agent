@@ -1,1 +1,0 @@
-[curious] Third. A service created ninety seconds earlier. Nowhere to roll back to, and no signal to read yet. [pause] The executor was never called. [thoughtful] Most gates ask only: can I undo this. This one also asks: can I measure it. Because an action you can undo but cannot measure is one you will never know whether to undo.

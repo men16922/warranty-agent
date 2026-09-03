@@ -46,6 +46,23 @@ from warranty.domain.verification import Verification
 CONTRACTS = "contracts"
 LEDGER = "ledger"
 
+
+def contracts_collection_path(user_id: str | None = None) -> str:
+    """계약 컬렉션 경로.
+
+    user_id가 주어지면 사용자별 격리 컬렉션(users/{uid}/contracts)을 반환한다.
+    """
+    return f"users/{user_id}/{CONTRACTS}" if user_id else CONTRACTS
+
+
+def ledger_collection_path(user_id: str | None = None) -> str:
+    """원장 컬렉션 경로.
+
+    user_id가 주어지면 사용자별 격리 컬렉션(users/{uid}/ledger)을 반환한다.
+    """
+    return f"users/{user_id}/{LEDGER}" if user_id else LEDGER
+
+
 #: `active_for`가 거는 조건. **값이다** — 게이트가 SDK 없이 이 모양을 태울 수 있다.
 STATE_FIELD = "state"
 RESOURCE_FIELDS = ("resource.kind", "resource.name", "resource.region")
@@ -237,10 +254,11 @@ def one_active(documents: list[Any], resource: ResourceRef) -> OperationalContra
 class LiveContractStore:
     """실물 Firestore 계약 저장소. ⛔ 클라이언트는 첫 조회에서 만든다 (G5 · REQ-801)."""
 
-    def __init__(self, project: str) -> None:
+    def __init__(self, project: str, user_id: str | None = None) -> None:
         if not project:
             raise StoreError("프로젝트가 비었다 — Firestore를 열 수 없다")
         self._project = project
+        self._user_id = user_id
         self._client: Any | None = None
 
     def _db(self) -> Any:
@@ -252,23 +270,25 @@ class LiveContractStore:
             self._client = firestore.Client(project=self._project)
         return self._client
 
+    def _collection(self) -> Any:
+        live_guard.note("live_store.LiveContractStore._collection")
+        return self._db().collection(contracts_collection_path(self._user_id))
+
     def put(self, contract: OperationalContract) -> None:
         """계약 하나를 Firestore에 **한 번만** 쓴다 (REQ-101).
 
         ⛔ `create`다 — `set`이 아니다. 같은 `contract_id`로 두 번 오면 Firestore가
-           `AlreadyExists`로 거절하고, 그 거절이 *"계약은 산출물이지 갱신 대상이 아니다"*를
-           집행한다. `set`을 쓰면 두 번째 프로비저닝이 첫 계약을 **조용히 덮는다**.
+            `AlreadyExists`로 거절하고, 그 거절이 *"계약은 산출물이지 갱신 대상이 아니다"*를
+            집행한다. `set`을 쓰면 두 번째 프로비저닝이 첫 계약을 **조용히 덮는다**.
 
         ⛔ 첫 줄이 tripwire다(G5) — `_db`가 캐시되어 있으면 그쪽 관측 지점을 안 지난다.
         """
         live_guard.note("live_store.LiveContractStore.put")
-        self._db().collection(CONTRACTS).document(contract.contract_id).create(
-            contract_document(contract)
-        )
+        self._collection().document(contract.contract_id).create(contract_document(contract))
 
     def active_for(self, resource: ResourceRef) -> OperationalContract | None:
         live_guard.note("live_store.LiveContractStore.active_for")
-        query: Any = self._db().collection(CONTRACTS)
+        query: Any = self._collection()
         for path, op, value in active_contract_conditions(resource):
             query = query.where(path, op, value)
         return one_active([snapshot.to_dict() for snapshot in query.stream()], resource)
@@ -282,10 +302,11 @@ class LiveLedger:
        화해 한 번 같은 규칙이 그 창에서 무너진다.
     """
 
-    def __init__(self, project: str) -> None:
+    def __init__(self, project: str, user_id: str | None = None) -> None:
         if not project:
             raise StoreError("프로젝트가 비었다 — Firestore를 열 수 없다")
         self._project = project
+        self._user_id = user_id
         self._client: Any | None = None
 
     def _db(self) -> Any:
@@ -298,11 +319,15 @@ class LiveLedger:
             self._client = firestore.Client(project=self._project)
         return self._client
 
+    def _collection(self) -> Any:
+        live_guard.note("live_store.LiveLedger._collection")
+        return self._db().collection(ledger_collection_path(self._user_id))
+
     def _doc(self, entry_id: str) -> Any:
         live_guard.note("live_store.LiveLedger._doc")
         if not entry_id:
             raise LedgerError("항목 id가 비었다")
-        return self._db().collection(LEDGER).document(entry_id)
+        return self._collection().document(entry_id)
 
     def create(self, entry: LedgerEntry) -> None:
         """⛔ `create()`다, `set()`이 아니다. **Firestore가 I-5를 집행한다** — 읽어 보고
@@ -330,7 +355,7 @@ class LiveLedger:
            여기서 미리 거르면 거르는 규칙이 **두 벌**이 되고, 두 벌이면 한쪽만 고쳐진다.
         """
         live_guard.note("live_store.LiveLedger.for_day")
-        query: Any = self._db().collection(LEDGER)
+        query: Any = self._collection()
         for path, op, value in day_window_conditions(day):
             query = query.where(path, op, value)
         return tuple(

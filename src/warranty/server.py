@@ -34,7 +34,13 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from warranty.auth import AUTH_ENV_KEY, AUTH_SCHEME, AuthVerdict, authenticate
+from warranty.auth import (
+    AUTH_ENV_KEY,
+    AUTH_SCHEME,
+    AuthVerdict,
+    FirebaseTokenVerifier,
+    authenticate_bearer_or_firebase,
+)
 from warranty.config import SERVICE_NAME, load_port
 
 OK = 200
@@ -139,6 +145,7 @@ def resolve(
     *,
     authorization: str | None = None,
     agent_auth_token: str | None = None,
+    firebase_verifier: FirebaseTokenVerifier | None = None,
     body: bytes = b"",
     agent_chat: AgentChat | None = None,
     dashboard: Dashboard | None = None,
@@ -190,7 +197,9 @@ def resolve(
                 },
             )
     if path == AGENT_PATH:
-        verdict = authenticate(authorization, agent_auth_token)
+        verdict, user = authenticate_bearer_or_firebase(
+            authorization, agent_auth_token, firebase_verifier=firebase_verifier
+        )
         if verdict is AuthVerdict.NOT_CONFIGURED:
             return Response(
                 SERVICE_UNAVAILABLE,
@@ -239,17 +248,13 @@ def resolve(
         {
             "error": "not_implemented",
             "route": f"{method} {path}",
-            # ⛔ 이 한 줄이 `501`을 정직하게 만든다. 빼면 심사자는 이 응답을 **버그**로 읽는다.
-            "detail": (
-                "경로는 선언됐고 어댑터가 아직 없다 — 실물 어댑터 없이 fake로 200을 내면 "
-                "배포가 조용히 가짜로 돈다 (REQ-601·602)"
-            ),
+            "detail": "이 경로는 아직 배선되지 않았다 — design 08§3 표의 예약 자리다",
         },
     )
 
 
 class WarrantyHandler(BaseHTTPRequestHandler):
-    """`resolve`를 HTTP에 붙이는 **얇은 껍데기**. 판정은 하나도 여기서 안 한다.
+    """표준 라이브러리 HTTP 핸들러.
 
     ⚠️ 얇게 두는 이유는 취향이 아니다 — 소켓을 쥔 코드는 단위로 태우기 어렵고,
        판정이 그 안에 있으면 *"응답이 옳은가"*를 물으려면 매번 포트를 열어야 한다.
@@ -259,6 +264,7 @@ class WarrantyHandler(BaseHTTPRequestHandler):
     server_version = "warranty/1"
     agent_chat: AgentChat | None = None
     dashboard: Dashboard | None = None
+    firebase_verifier: FirebaseTokenVerifier | None = None
 
     #: ⚠️ 메서드 이름은 취향이 아니라 stdlib의 디스패치 규약이다(`do_<METHOD>`).
     def do_GET(self) -> None:
@@ -274,6 +280,7 @@ class WarrantyHandler(BaseHTTPRequestHandler):
             self.path,
             authorization=self.headers.get("Authorization"),
             agent_auth_token=os.environ.get(AUTH_ENV_KEY),
+            firebase_verifier=self.firebase_verifier,
             body=body,
             agent_chat=self.agent_chat,
             dashboard=self.dashboard,
@@ -303,9 +310,10 @@ def serve(
     port: int,
     agent_chat: AgentChat | None = None,
     dashboard: Dashboard | None = None,
+    firebase_verifier: FirebaseTokenVerifier | None = None,
 ) -> ThreadingHTTPServer:
     """포트를 **실제로 연다**. ⛔ 게이트는 이것을 안 부른다(REQ-801 — 오프라인)."""
-    if agent_chat is None and dashboard is None:
+    if agent_chat is None and dashboard is None and firebase_verifier is None:
         handler = WarrantyHandler
     else:
 
@@ -316,15 +324,35 @@ def serve(
             LiveWarrantyHandler.agent_chat = staticmethod(agent_chat)
         if dashboard is not None:
             LiveWarrantyHandler.dashboard = staticmethod(dashboard)
+        if firebase_verifier is not None:
+            LiveWarrantyHandler.firebase_verifier = staticmethod(firebase_verifier)
         handler = LiveWarrantyHandler
     return ThreadingHTTPServer(("", port), handler)
 
 
 def main() -> int:
     from warranty.agent_chat import lazy_live_agent_chat, lazy_live_dashboard
+    from warranty.config import load_env_file
+
+    env_file = load_env_file()
+    firebase_verifier: FirebaseTokenVerifier | None = None
+    project_id = os.environ.get("WR_PROJECT_ID") or env_file.get("WR_PROJECT_ID")
+    if project_id:
+        try:
+            from warranty.adapters.live_firebase_auth import LiveFirebaseVerifier
+
+            verifier = LiveFirebaseVerifier(project_id)
+            firebase_verifier = verifier.verify
+        except Exception:
+            firebase_verifier = None
 
     port = load_port()
-    httpd = serve(port, lazy_live_agent_chat(time.sleep), lazy_live_dashboard(time.sleep))
+    httpd = serve(
+        port,
+        lazy_live_agent_chat(time.sleep),
+        lazy_live_dashboard(time.sleep),
+        firebase_verifier=firebase_verifier,
+    )
     # ⚠️ 뜬 것을 말하고 시작한다 — 프로브가 실패했을 때 *"안 떴다"*와 *"떴는데 다른 포트"*를
     #    로그만으로 가를 수 있어야 한다.
     print(f"listening on :{port}", flush=True)
